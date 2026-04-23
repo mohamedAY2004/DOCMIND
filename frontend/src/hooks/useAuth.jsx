@@ -1,0 +1,88 @@
+import { createContext, useContext, useState, useCallback, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
+import {
+  login as authLogin,
+  logout as authLogout,
+} from '../services/authService'
+
+const AUTH_TOKEN_KEY = 'auth_token'
+const AUTH_USER_KEY = 'auth_user'
+
+function clearAllAuthStorage() {
+  try {
+    localStorage.removeItem(AUTH_TOKEN_KEY)
+    localStorage.removeItem(AUTH_USER_KEY)
+  } catch {
+    /* swallow */
+  }
+}
+
+function readStoredAuth() {
+  try {
+    const token = localStorage.getItem(AUTH_TOKEN_KEY)
+    const raw = localStorage.getItem(AUTH_USER_KEY)
+    if (token && raw) {
+      const user = JSON.parse(raw)
+      return { token, user, role: user.role }
+    }
+  } catch {
+    /* corrupted — treat as logged-out */
+  }
+  return { token: null, user: null, role: null }
+}
+
+const AuthContext = createContext(null)
+
+export function AuthProvider({ children }) {
+  const [auth, setAuth] = useState(readStoredAuth)
+  const navigate = useNavigate()
+
+  const completeLogin = useCallback(({ token, user, redirect, welcomeMessage }) => {
+    clearAllAuthStorage()
+    localStorage.setItem(AUTH_TOKEN_KEY, token)
+    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user))
+    setAuth({ token, user, role: user.role })
+    toast.success(welcomeMessage ?? `Welcome back, ${user.username}!`, {
+      description: `Signed in as ${user.role}`,
+    })
+    return redirect
+  }, [])
+
+  const login = useCallback(
+    async (username, password) => {
+      const result = await authLogin(username, password)
+      return completeLogin(result)
+    },
+    [completeLogin],
+  )
+
+  const logout = useCallback(() => {
+    authLogout()
+    clearAllAuthStorage()
+    setAuth({ token: null, user: null, role: null })
+    navigate('/login', { replace: true })
+    toast('Signed out successfully')
+  }, [navigate])
+
+  const value = useMemo(
+    () => ({
+      user: auth.user,
+      token: auth.token,
+      role: auth.role,
+      isAuthenticated: !!auth.token,
+      login,
+      logout,
+    }),
+    [auth, login, logout],
+  )
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export default function useAuth() {
+  const ctx = useContext(AuthContext)
+  if (!ctx) throw new Error('useAuth must be used inside <AuthProvider>')
+  return ctx
+}

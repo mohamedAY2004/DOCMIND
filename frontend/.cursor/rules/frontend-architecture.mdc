@@ -1,0 +1,40 @@
+---
+description: Clean architecture and styling rules for DocMind frontend
+globs: src/**/*.jsx
+alwaysApply: true
+---
+
+# DocMind Frontend — Clean Architecture
+
+## Styling
+
+- **No inline styles.** Do not use `style={{ }}` or the `style` prop.
+- **Tailwind only.** Use Tailwind utility classes for all styling. No CSS modules, no styled-components, no global CSS beyond `src/index.css` Tailwind directives.
+- Keep `index.css` limited to `@tailwind base;`, `@tailwind components;`, `@tailwind utilities;` unless explicitly extending with design tokens.
+
+## Components
+
+- **Reusable components.** Extract repeated UI into `components/ui/` (buttons, inputs, cards, etc.) and layout into `components/layout/`.
+- **Small and modular.** One clear responsibility per component. Split large components into smaller ones.
+- **Composition.** Prefer composition over large prop lists. Use `children` and slot-style props where appropriate.
+
+## Structure
+
+- **Pages** in `src/pages/` — one file per route/screen; pages compose layout and feature components.
+- **Features** in `src/features/` — feature-specific components and logic.
+- **Routes** in `src/routes/` — route definitions and guards.
+- **Services** in `src/services/` — API calls (e.g. axios), no UI.
+- **Hooks** in `src/hooks/` — shared state and side-effect logic.
+
+## Examples
+
+```jsx
+// ❌ BAD — inline style
+<div style={{ padding: 16, backgroundColor: '#fff' }}>
+
+// ✅ GOOD — Tailwind
+<div className="p-4 bg-white">
+
+// ❌ BAD — giant single component
+// ✅ GOOD — small components composed in a page
+```
