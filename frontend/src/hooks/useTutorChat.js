@@ -8,6 +8,30 @@ import {
 import useStreamingText from './useStreamingText'
 
 /**
+ * Produce a user-friendly error message from an axios/fetch error.
+ */
+function friendlyError(err) {
+  if (err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')) {
+    return 'The response took too long. The server may be under heavy load — please try again.'
+  }
+  if (!navigator.onLine) {
+    return 'You appear to be offline. Please check your connection and try again.'
+  }
+  const code = err?.response?.data?.code
+  if (code === 'SUBJECT_NOT_READY') {
+    return err?.response?.data?.message || 'This subject has no indexed materials yet. Please check back later.'
+  }
+  if (code === 'FILES_NOT_READY') {
+    return 'Materials are still being processed. Please wait a moment.'
+  }
+  const status = err?.response?.status
+  if (status >= 500) {
+    return 'The server encountered an error. Please try again in a moment.'
+  }
+  return 'The tutor could not reply. Please try again.'
+}
+
+/**
  * Tutor-chat hook — a subject-scoped conversation controller. The parent
  * owns the active `conversationId`:
  *   • `null`  → "new chat" mode. The first send lazily POSTs a fresh
@@ -27,6 +51,8 @@ export default function useTutorChat({
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [loadingHistory, setLoadingHistory] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+  const [lastFailedText, setLastFailedText] = useState('')
   const textareaRef = useRef(null)
   const creatingRef = useRef(false)
   const onCreatedRef = useRef(onConversationCreated)
@@ -43,6 +69,8 @@ export default function useTutorChat({
     stopStreaming()
     setInput('')
     setIsTyping(false)
+    setErrorMessage('')
+    setLastFailedText('')
 
     if (!conversationId) {
       setMessages([])
@@ -65,8 +93,14 @@ export default function useTutorChat({
           })),
         )
       })
-      .catch(() => {
-        if (!cancelled) toast.error('Could not load this conversation.')
+      .catch((err) => {
+        if (!cancelled) {
+          if (err?.code === 'ECONNABORTED') {
+            toast.error('Loading conversation timed out. Please try again.')
+          } else {
+            toast.error('Could not load this conversation.')
+          }
+        }
       })
       .finally(() => {
         if (!cancelled) setLoadingHistory(false)
@@ -78,15 +112,17 @@ export default function useTutorChat({
   }, [conversationId, stopStreaming])
 
   const appendUserMessage = useCallback((text, overrides = {}) => {
+    const id = overrides.id || `user-${Date.now()}`
     setMessages((prev) => [
       ...prev,
       {
-        id: overrides.id || `user-${Date.now()}`,
+        id,
         role: 'user',
         text,
         createdAt: Date.now(),
       },
     ])
+    return id
   }, [])
 
   const ensureConversation = useCallback(async () => {
@@ -105,7 +141,11 @@ export default function useTutorChat({
           'This subject has no indexed materials yet. Please check back later.',
         )
       } else if (code !== 'STUDENT_ACCESS_DISABLED') {
-        toast.error('Could not start the tutor conversation.')
+        if (err?.code === 'ECONNABORTED') {
+          toast.error('Request timed out. Please try again.')
+        } else {
+          toast.error('Could not start the tutor conversation.')
+        }
       }
       return null
     } finally {
@@ -114,11 +154,17 @@ export default function useTutorChat({
   }, [conversationId, subjectId])
 
   const fetchReply = useCallback(
-    async (text) => {
+    async (text, tempId) => {
       const activeId = await ensureConversation()
-      if (!activeId) return
+      if (!activeId) {
+        // Rollback optimistic user message
+        setMessages((prev) => prev.filter((m) => m.id !== tempId))
+        setInput(text)
+        return
+      }
 
       setIsTyping(true)
+      setErrorMessage('')
       try {
         const { userMessage, reply } = await sendTutorMessage(activeId, text)
         if (userMessage?.id) {
@@ -140,14 +186,11 @@ export default function useTutorChat({
         streamReply(replyText, msgId)
       } catch (err) {
         setIsTyping(false)
-        const code = err?.response?.data?.code
-        if (code === 'SUBJECT_NOT_READY') {
-          toast.error(
-            'This subject has no indexed materials yet. Please check back later.',
-          )
-        } else {
-          toast.error('The tutor could not reply. Please try again.')
-        }
+        const msg = friendlyError(err)
+        setErrorMessage(msg)
+        setLastFailedText(text)
+        // Rollback the optimistic user message
+        setMessages((prev) => prev.filter((m) => m.id !== tempId))
       }
     },
     [ensureConversation, streamReply],
@@ -158,28 +201,32 @@ export default function useTutorChat({
       e?.preventDefault()
       const text = input.trim()
       if (!text || isTyping || streamingId) return
-      appendUserMessage(text)
+      setErrorMessage('')
+      setLastFailedText('')
+      const tempId = appendUserMessage(text)
       setInput('')
       if (textareaRef.current) textareaRef.current.style.height = 'auto'
-      fetchReply(text)
+      fetchReply(text, tempId)
     },
     [input, isTyping, streamingId, appendUserMessage, fetchReply],
   )
 
-  const sendSuggestion = useCallback(
-    (text) => {
-      if (isTyping || streamingId) return
-      appendUserMessage(text)
-      fetchReply(text)
-    },
-    [isTyping, streamingId, appendUserMessage, fetchReply],
-  )
+  const retry = useCallback(() => {
+    if (!lastFailedText) return
+    setErrorMessage('')
+    const text = lastFailedText
+    setLastFailedText('')
+    const tempId = appendUserMessage(text)
+    fetchReply(text, tempId)
+  }, [lastFailedText, appendUserMessage, fetchReply])
 
   const resetChat = useCallback(() => {
     stopStreaming()
     setMessages([])
     setInput('')
     setIsTyping(false)
+    setErrorMessage('')
+    setLastFailedText('')
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
   }, [stopStreaming])
 
@@ -200,6 +247,10 @@ export default function useTutorChat({
     [sendMessage],
   )
 
+  const dismissError = useCallback(() => {
+    setErrorMessage('')
+  }, [])
+
   return {
     messages,
     input,
@@ -207,9 +258,12 @@ export default function useTutorChat({
     streamingId,
     textareaRef,
     loadingHistory,
+    errorMessage,
+    lastFailedText,
     sendMessage,
-    sendSuggestion,
+    retry,
     resetChat,
+    dismissError,
     handleInputChange,
     handleKeyDown,
   }

@@ -25,16 +25,13 @@ from helpers.errors import APIError, ErrorCode
 
 MATERIAL_ALLOWED_MIME = {
     "application/pdf",
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 }
-MATERIAL_ALLOWED_EXT = {".pdf", ".pptx"}
+MATERIAL_ALLOWED_EXT = {".pdf"}
 
 DOC_ALLOWED_MIME = {
     "application/pdf",
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    "image/png",
 }
-DOC_ALLOWED_EXT = {".pdf", ".pptx", ".png"}
+DOC_ALLOWED_EXT = {".pdf"}
 
 _FILENAME_SAFE_RE = re.compile(r"[^\w.\- ]")
 

@@ -72,13 +72,13 @@ class JsonPlannerAgent(AgentInterface):
         threshold: float = 0.3,
     ) -> AgentResult:
         # -------- 1. planner step --------
-        decision = self._plan(query=query, history=history, subject_name=subject_name)
+        decision = await self._plan(query=query, history=history, subject_name=subject_name)
         action = decision["action"]
         planner_query = decision.get("query") or query
 
         # -------- 2a. answer-only branch --------
         if action == AgentActionEnum.ANSWER.value:
-            text = self._generate_direct(query=query, history=history, subject_name=subject_name)
+            text = await self._generate_direct(query=query, history=history, subject_name=subject_name)
             return AgentResult(
                 text=text or "",
                 used_retrieval=False,
@@ -95,7 +95,7 @@ class JsonPlannerAgent(AgentInterface):
         )
 
         if not retrieved:
-            text = self._generate_no_context(query=query, history=history, subject_name=subject_name)
+            text = await self._generate_no_context(query=query, history=history, subject_name=subject_name)
             return AgentResult(
                 text=text or "",
                 used_retrieval=True,
@@ -103,7 +103,7 @@ class JsonPlannerAgent(AgentInterface):
                 retrieved=[],
             )
 
-        text = self._synthesize_with_context(
+        text = await self._synthesize_with_context(
             query=query, chunks=retrieved, history=history, subject_name=subject_name
         )
         return AgentResult(
@@ -115,7 +115,7 @@ class JsonPlannerAgent(AgentInterface):
 
     # ---------------------- planner ----------------------
 
-    def _plan(
+    async def _plan(
         self, *, query: str, history: Optional[list[dict]], subject_name: str = ""
     ) -> dict:
         planner_prompt = self._templates.get(
@@ -143,7 +143,7 @@ class JsonPlannerAgent(AgentInterface):
                 role=self._generation.enums.SYSTEM.value,
             )
         ]
-        raw = self._generation.generate_text(
+        raw = await self._generation.generate_text_async(
             prompt="Return the JSON now.",
             chat_history=chat_history,
             temperature=self._planner_temperature,
@@ -152,7 +152,7 @@ class JsonPlannerAgent(AgentInterface):
 
     # ---------------------- synthesis variants ----------------------
 
-    def _synthesize_with_context(
+    async def _synthesize_with_context(
         self,
         *,
         query: str,
@@ -184,12 +184,12 @@ class JsonPlannerAgent(AgentInterface):
         )
 
         full_prompt = "\n\n".join([docs_block, footer, query])
-        reply = self._generation.generate_text(
+        reply = await self._generation.generate_text_async(
             prompt=full_prompt, chat_history=chat_history
         )
         return reply or ""
 
-    def _generate_direct(
+    async def _generate_direct(
         self, *, query: str, history: Optional[list[dict]], subject_name: str = ""
     ) -> str:
         system_prompt = (
@@ -202,12 +202,12 @@ class JsonPlannerAgent(AgentInterface):
         chat_history = self._build_chat_history(
             system_prompt=system_prompt, history=history
         )
-        reply = self._generation.generate_text(
+        reply = await self._generation.generate_text_async(
             prompt=query, chat_history=chat_history
         )
         return reply or ""
 
-    def _generate_no_context(
+    async def _generate_no_context(
         self, *, query: str, history: Optional[list[dict]], subject_name: str = ""
     ) -> str:
         system_prompt = (
@@ -224,7 +224,7 @@ class JsonPlannerAgent(AgentInterface):
         chat_history = self._build_chat_history(
             system_prompt=system_prompt, history=history
         )
-        reply = self._generation.generate_text(
+        reply = await self._generation.generate_text_async(
             prompt=query, chat_history=chat_history
         )
         return reply or ""

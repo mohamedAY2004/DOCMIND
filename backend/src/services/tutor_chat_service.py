@@ -87,11 +87,17 @@ class TutorChatService:
     async def create(self, owner: User, subject_id: str) -> ConversationResponse:
         await self._ensure_subject_ready(subject_id)
         await self._ensure_student_enrolled(owner, subject_id)
+        count = await self._conversations.count_for_owner(
+            owner_id=owner.id,
+            kind=ConversationKind.TUTOR,
+            subject_id=subject_id,
+        )
+
         conv = Conversation(
             owner_id=owner.id,
             kind=ConversationKind.TUTOR,
             subject_id=subject_id,
-            title="New Chat",
+            title=f"Chat {count + 1}",
         )
         await self._conversations.add(conv)
         return _conv_response(conv, 0)
@@ -124,6 +130,16 @@ class TutorChatService:
     async def delete_conversation(self, owner: User, conv_id: str) -> None:
         conv = await self._load_owned(owner, conv_id)
         await self._conversations.delete(conv)
+
+    async def update_conversation(
+        self, owner: User, conv_id: str, title: str | None
+    ) -> ConversationResponse:
+        conv = await self._load_owned(owner, conv_id)
+        if title is not None:
+            conv.title = title
+            conv.updated_at = datetime.now(timezone.utc)
+        count = await self._conversations.message_count(conv.id)
+        return _conv_response(conv, count)
 
     async def send_message(
         self,
@@ -194,8 +210,6 @@ class TutorChatService:
         await self._messages.add(reply)
 
         conv.updated_at = datetime.now(timezone.utc)
-        if conv.title == "New Chat":
-            conv.title = (text[:77] + "...") if len(text) > 80 else text
 
         return ChatReplyResponse(
             userMessage=_message_response(user_msg),

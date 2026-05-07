@@ -25,6 +25,7 @@ from schemas.chat import (
     LegacyReplyResponse,
     MessageResponse,
     SendMessageRequest,
+    UpdateConversationRequest,
 )
 from services.document_chat_service import (
     DocumentChatService,
@@ -117,6 +118,22 @@ async def delete_doc_conversation(
 ) -> None:
     await DocumentChatService(session).delete_conversation(
         student, conv_id, _rag_service(request)
+    )
+
+
+@router.patch(
+    "/conversations/{conv_id}",
+    response_model=ConversationResponse,
+)
+async def update_doc_conversation(
+    conv_id: str,
+    body: UpdateConversationRequest,
+    session: AsyncSession = Depends(get_session),
+    student: User = Depends(require_role(UserRole.STUDENT)),
+    _gate: User = Depends(require_student_access),
+) -> ConversationResponse:
+    return await DocumentChatService(session).update_conversation(
+        student, conv_id, body.title
     )
 
 

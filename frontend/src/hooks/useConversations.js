@@ -18,6 +18,7 @@ import { toast } from 'sonner'
 export default function useConversations({
   fetcher,
   remover,
+  updater,
   signalKey = null,
   autoSelectFirst = false,
 }) {
@@ -90,6 +91,28 @@ export default function useConversations({
     [conversations, activeId, remover],
   )
 
+  const renameConversation = useCallback(
+    async (id, title) => {
+      if (!updater) return
+      
+      // Optimistic update
+      const previous = conversations.find(c => c.id === id)
+      updateConversation(id, { title })
+      
+      try {
+        await updater(id, title)
+        toast.success('Conversation renamed.')
+      } catch {
+        // Revert on error
+        if (previous) {
+          updateConversation(id, { title: previous.title })
+        }
+        toast.error('Could not rename the conversation.')
+      }
+    },
+    [conversations, updater, updateConversation],
+  )
+
   return {
     conversations,
     activeId,
@@ -100,6 +123,7 @@ export default function useConversations({
     prependConversation,
     updateConversation,
     deleteConversation,
+    renameConversation,
     setActiveId,
   }
 }

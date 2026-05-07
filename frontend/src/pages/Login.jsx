@@ -29,6 +29,7 @@ function Login() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState({})
   const [loading, setLoading] = useState(false)
   const [studentAccessNote, setStudentAccessNote] = useState(null)
 
@@ -49,6 +50,15 @@ function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+
+    const fe = {}
+    if (!username.trim()) fe.username = 'Username is required.'
+    if (!password) fe.password = 'Password is required.'
+    if (Object.keys(fe).length > 0) {
+      setFieldErrors(fe)
+      return
+    }
+    setFieldErrors({})
     setLoading(true)
 
     try {
@@ -78,25 +88,33 @@ function Login() {
         initial="hidden"
         animate="visible"
       >
-        <motion.div variants={itemVariants}>
+        <motion.div variants={itemVariants} className="flex flex-col gap-1">
           <InputField
             placeholder="Username"
             icon={<UserIcon />}
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={(e) => { setUsername(e.target.value); setFieldErrors((fe) => ({ ...fe, username: undefined })) }}
             autoComplete="username"
             disabled={loading}
+            className={fieldErrors.username ? 'border-red-500/60 focus-within:border-red-500/80 focus-within:ring-red-500/20' : ''}
           />
+          {fieldErrors.username && (
+            <p className="pl-1 text-xs text-red-400">{fieldErrors.username}</p>
+          )}
         </motion.div>
-        <motion.div variants={itemVariants}>
+        <motion.div variants={itemVariants} className="flex flex-col gap-1">
           <PasswordField
             placeholder="Password"
             icon={<LockIcon />}
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => { setPassword(e.target.value); setFieldErrors((fe) => ({ ...fe, password: undefined })) }}
             autoComplete="current-password"
             disabled={loading}
+            className={fieldErrors.password ? 'border-red-500/60 focus-within:border-red-500/80 focus-within:ring-red-500/20' : ''}
           />
+          {fieldErrors.password && (
+            <p className="pl-1 text-xs text-red-400">{fieldErrors.password}</p>
+          )}
         </motion.div>
         {error && (
           <motion.p

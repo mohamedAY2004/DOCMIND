@@ -1,4 +1,4 @@
-import apiClient from './apiClient'
+import apiClient, { UPLOAD_TIMEOUT, LLM_TIMEOUT } from './apiClient'
 
 /**
  * Chat service — talks to the conversation endpoints described in
@@ -39,10 +39,8 @@ function unwrapList(data) {
 /* Document chat                                                      */
 /* ------------------------------------------------------------------ */
 
-export async function listDocConversations({
-  page = 1,
-  pageSize = DEFAULT_CONV_PAGE_SIZE,
-} = {}) {
+export async function listDocConversations(opts) {
+  const { page = 1, pageSize = DEFAULT_CONV_PAGE_SIZE } = opts || {}
   const { data } = await apiClient.get('/chat/doc/conversations', {
     params: { page, pageSize },
   })
@@ -65,25 +63,44 @@ export async function deleteDocConversation(conversationId) {
   return { id: conversationId }
 }
 
-export async function createDocConversation(files) {
-  const formData = new FormData()
-  const list = Array.isArray(files) ? files : [files]
-  list.forEach((f) => formData.append('files[]', f))
-
-  const { data } = await apiClient.post('/chat/doc/conversations', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
+export async function updateDocConversation(conversationId, title) {
+  const { data } = await apiClient.patch(
+    `/chat/doc/conversations/${conversationId}`,
+    { title },
+  )
   return data
 }
 
-export async function addDocFile(conversationId, file) {
+export async function createDocConversation(files, { onUploadProgress } = {}) {
+  const formData = new FormData()
+  const list = Array.isArray(files) ? files : [files]
+  list.forEach((f) => formData.append('files', f))
+
+  const { data } = await apiClient.post('/chat/doc/conversations', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    ...UPLOAD_TIMEOUT,
+    ...(onUploadProgress ? { onUploadProgress } : {}),
+  })
+  // The API returns { conversation: { id, title, … }, files: [...] }.
+  // Flatten so callers can use conv.id, conv.title, conv.files, etc.
+  if (data?.conversation) {
+    return { ...data.conversation, files: data.files ?? [] }
+  }
+  return data
+}
+
+export async function addDocFile(conversationId, file, { onUploadProgress } = {}) {
   const formData = new FormData()
   formData.append('file', file)
 
   const { data } = await apiClient.post(
     `/chat/doc/conversations/${conversationId}/files`,
     formData,
-    { headers: { 'Content-Type': 'multipart/form-data' } },
+    {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      ...UPLOAD_TIMEOUT,
+      ...(onUploadProgress ? { onUploadProgress } : {}),
+    },
   )
   return data
 }
@@ -106,6 +123,7 @@ export async function sendDocMessage(conversationId, message) {
   const { data } = await apiClient.post(
     `/chat/doc/conversations/${conversationId}/messages`,
     { message },
+    LLM_TIMEOUT,
   )
   return data
 }
@@ -147,10 +165,19 @@ export async function deleteTutorConversation(conversationId) {
   return { id: conversationId }
 }
 
+export async function updateTutorConversation(conversationId, title) {
+  const { data } = await apiClient.patch(
+    `/chat/tutor/conversations/${conversationId}`,
+    { title },
+  )
+  return data
+}
+
 export async function sendTutorMessage(conversationId, message) {
   const { data } = await apiClient.post(
     `/chat/tutor/conversations/${conversationId}/messages`,
     { message },
+    LLM_TIMEOUT,
   )
   return data
 }

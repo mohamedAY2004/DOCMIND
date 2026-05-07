@@ -1,4 +1,4 @@
-import apiClient from './apiClient'
+import apiClient, { UPLOAD_TIMEOUT } from './apiClient'
 
 /**
  * Upload service — real multipart uploads.
@@ -8,7 +8,7 @@ import apiClient from './apiClient'
  * `chatService.js` because it creates/mutates a conversation.
  */
 
-export async function uploadMaterial(subjectId, file, { name } = {}) {
+export async function uploadMaterial(subjectId, file, { name, onUploadProgress } = {}) {
   const formData = new FormData()
   formData.append('file', file)
   if (name) formData.append('name', name)
@@ -16,7 +16,11 @@ export async function uploadMaterial(subjectId, file, { name } = {}) {
   const { data } = await apiClient.post(
     `/subjects/${subjectId}/materials`,
     formData,
-    { headers: { 'Content-Type': 'multipart/form-data' } },
+    {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      ...UPLOAD_TIMEOUT,
+      ...(onUploadProgress ? { onUploadProgress } : {}),
+    },
   )
   return data
 }

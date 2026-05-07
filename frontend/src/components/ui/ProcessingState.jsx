@@ -5,19 +5,55 @@ const STATUSES = [
   'Processing content…',
   'Analyzing document…',
   'Preparing chat…',
+  'Indexing pages…',
+  'Almost ready…',
 ]
 
 const R = 52
 const CIRCUMFERENCE = 2 * Math.PI * R
 const TICK_MS = 30
 
-function ProcessingState({ durationMs = 4000, fileName = '' }) {
+/**
+ * Visual processing indicator. When `indefinite` is true the progress ring
+ * slows down asymptotically toward 95 % and never stops — it waits for the
+ * caller to unmount or set a different state. This is ideal for server-side
+ * processing where we don't know the real duration.
+ */
+function ProcessingState({
+  durationMs = 4000,
+  fileName = '',
+  indefinite = false,
+}) {
   const [progress, setProgress] = useState(0)
   const [statusIdx, setStatusIdx] = useState(0)
   const [textVisible, setTextVisible] = useState(true)
+  const [elapsed, setElapsed] = useState(0)
+  const startRef = useRef(Date.now())
   const stepRef = useRef(100 / (durationMs / TICK_MS))
 
+  // Elapsed seconds counter
   useEffect(() => {
+    const id = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startRef.current) / 1000))
+    }, 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  // Progress animation
+  useEffect(() => {
+    if (indefinite) {
+      // Asymptotic: fast at first, slows as it approaches 95 %
+      const id = setInterval(() => {
+        setProgress((p) => {
+          if (p >= 95) return 95
+          // Remaining distance shrinks so the bar decelerates
+          const remaining = 95 - p
+          return p + remaining * 0.015
+        })
+      }, TICK_MS)
+      return () => clearInterval(id)
+    }
+
     const id = setInterval(() => {
       setProgress((p) => {
         const next = p + stepRef.current
@@ -29,10 +65,13 @@ function ProcessingState({ durationMs = 4000, fileName = '' }) {
       })
     }, TICK_MS)
     return () => clearInterval(id)
-  }, [])
+  }, [indefinite])
 
+  // Cycling status text
   useEffect(() => {
-    const interval = durationMs / STATUSES.length
+    const interval = indefinite
+      ? Math.max(3000, durationMs / STATUSES.length)
+      : durationMs / STATUSES.length
     const id = setInterval(() => {
       setTextVisible(false)
       setTimeout(() => {
@@ -41,7 +80,7 @@ function ProcessingState({ durationMs = 4000, fileName = '' }) {
       }, 180)
     }, interval)
     return () => clearInterval(id)
-  }, [durationMs])
+  }, [durationMs, indefinite])
 
   const dashOffset = CIRCUMFERENCE - (progress / 100) * CIRCUMFERENCE
 
@@ -98,6 +137,13 @@ function ProcessingState({ durationMs = 4000, fileName = '' }) {
       {/* File name */}
       {fileName && (
         <p className="max-w-xs truncate text-sm text-dm-muted/60">{fileName}</p>
+      )}
+
+      {/* Elapsed time — shown after 5 seconds so the user knows the system is alive */}
+      {elapsed >= 5 && (
+        <p className="text-xs text-dm-muted/40 tabular-nums animate-fade-in">
+          {elapsed}s elapsed
+        </p>
       )}
     </div>
   )

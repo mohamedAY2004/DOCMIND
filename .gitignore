@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+
+# Environment files
+.env
+**/.env
+
+# Uploaded/generated files
+backend/src/assets/files/
+
+# Conda installers
+*.sh
+
+# OS/editor junk
+.DS_Store
+Thumbs.db

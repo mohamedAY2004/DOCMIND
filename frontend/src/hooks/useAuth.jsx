@@ -43,7 +43,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem(AUTH_TOKEN_KEY, token)
     localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user))
     setAuth({ token, user, role: user.role })
-    toast.success(welcomeMessage ?? `Welcome back, ${user.username}!`, {
+    toast.success(welcomeMessage ?? `Welcome back, ${user.name || user.username}!`, {
       description: `Signed in as ${user.role}`,
     })
     return redirect

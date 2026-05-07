@@ -6,7 +6,6 @@ import {
   BookOpen,
   BarChart3,
   MessageSquare,
-  TrendingUp,
   Activity,
   ArrowRight,
   ThumbsUp,
@@ -78,7 +77,6 @@ function AdminDashboard() {
       { label: 'Total Subjects', value: totalSubjects, icon: BookOpen, accent: 'text-amber-400 bg-amber-400/10' },
       { label: 'AI Conversations', value: totalConversations.toLocaleString(), icon: MessageSquare, accent: 'text-purple-400 bg-purple-400/10' },
       { label: 'Satisfaction Rate', value: `${satisfactionRate}%`, icon: ThumbsUp, accent: 'text-dm-primary bg-dm-primary/10' },
-      { label: 'Growth', value: '+12%', icon: TrendingUp, accent: 'text-emerald-400 bg-emerald-400/10' },
     ]
   }, [users, subjectStats])
 
@@ -142,30 +140,18 @@ function AdminDashboard() {
           <section className={adminCardClass}>
             <h2 className="mb-5 text-lg font-semibold text-dm-foreground">System Status</h2>
             <div className="flex flex-col gap-4">
-              {[
-                { label: 'AI Service', status: 'Operational', ok: true },
-                { label: 'Database', status: 'Operational', ok: true },
-                { label: 'File Storage', status: 'Operational', ok: true },
-                { label: 'Authentication', status: 'Operational', ok: true },
-                {
-                  label: 'Student access',
-                  status: studentAccessEnabled ? 'Open' : 'Disabled',
-                  ok: studentAccessEnabled,
-                },
-              ].map((s) => (
-                <div key={s.label} className="flex items-center justify-between">
-                  <span className="text-sm text-dm-foreground">{s.label}</span>
-                  <span className="flex items-center gap-2 text-sm">
-                    <span
-                      className={`h-2 w-2 rounded-full ${s.ok ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`}
-                      aria-hidden
-                    />
-                    <span className={s.ok ? 'text-emerald-400' : 'text-red-400'}>
-                      {s.status}
-                    </span>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-dm-foreground">Student Access</span>
+                <span className="flex items-center gap-2 text-sm">
+                  <span
+                    className={`h-2 w-2 rounded-full ${studentAccessEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`}
+                    aria-hidden
+                  />
+                  <span className={studentAccessEnabled ? 'text-emerald-400' : 'text-red-400'}>
+                    {studentAccessEnabled ? 'Open' : 'Disabled'}
                   </span>
-                </div>
-              ))}
+                </span>
+              </div>
             </div>
             <Link
               to="/admin/system-access"

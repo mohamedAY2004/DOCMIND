@@ -42,6 +42,21 @@ class ConversationRepository(BaseRepository[Conversation]):
         ).scalars().all()
         return rows, total
 
+    async def count_for_owner(
+        self,
+        *,
+        owner_id: str,
+        kind: ConversationKind,
+        subject_id: Optional[str] = None,
+    ) -> int:
+        stmt = select(func.count(Conversation.id)).where(
+            Conversation.owner_id == owner_id,
+            Conversation.kind == kind,
+        )
+        if subject_id is not None:
+            stmt = stmt.where(Conversation.subject_id == subject_id)
+        return int((await self.session.execute(stmt)).scalar() or 0)
+
     async def add(self, conv: Conversation) -> Conversation:
         self.session.add(conv)
         await self.session.flush()

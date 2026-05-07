@@ -127,13 +127,36 @@ function UserFormModal({
   const validate = () => {
     const e = {}
     if (!isEdit) {
-      if (!form.username.trim()) e.username = 'Required'
-      if ((form.password || '').length < 8) e.password = 'At least 8 characters'
+      const u = form.username.trim()
+      if (!u) {
+        e.username = 'Username is required.'
+      } else if (u.length < 3) {
+        e.username = 'At least 3 characters.'
+      } else if (u.length > 30) {
+        e.username = 'At most 30 characters.'
+      } else if (!/^[a-z0-9_-]+$/.test(u)) {
+        e.username = 'Only lowercase letters, numbers, underscores, and hyphens.'
+      }
+      const pwd = form.password || ''
+      if (pwd.length < 8) {
+        e.password = 'At least 8 characters.'
+      } else if (!/[a-zA-Z]/.test(pwd)) {
+        e.password = 'Must contain at least one letter.'
+      } else if (!/[0-9]/.test(pwd)) {
+        e.password = 'Must contain at least one number.'
+      }
     }
-    if (!form.name.trim()) e.name = 'Required'
-    if (!form.email.trim()) e.email = 'Required'
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
-      e.email = 'Invalid email'
+    const name = form.name.trim()
+    if (!name) {
+      e.name = 'Full name is required.'
+    } else if (name.length > 100) {
+      e.name = 'At most 100 characters.'
+    }
+    if (!form.email.trim()) {
+      e.email = 'Email is required.'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      e.email = 'Enter a valid email address.'
+    }
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -217,7 +240,7 @@ function UserFormModal({
           <FormField
             label="Username"
             required={!isEdit}
-            hint={isEdit ? 'Usernames cannot be changed' : undefined}
+            hint={isEdit ? 'Usernames cannot be changed' : '3–30 chars · lowercase letters, numbers, _ or -'}
             error={errors.username}
           >
             <input
@@ -253,7 +276,7 @@ function UserFormModal({
             <FormField
               label="Password"
               required
-              hint="Minimum 8 characters"
+              hint="Min 8 characters · must include a letter and a number"
               error={errors.password}
             >
               <input

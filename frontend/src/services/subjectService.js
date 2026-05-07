@@ -1,4 +1,4 @@
-import apiClient from './apiClient'
+import apiClient, { LLM_TIMEOUT } from './apiClient'
 
 /**
  * Subject service — talks to the real backend.
@@ -52,4 +52,17 @@ export async function updateSubjectMaterial(subjectId, materialId, patch) {
 export async function deleteSubjectMaterial(subjectId, materialId) {
   await apiClient.delete(`/subjects/${subjectId}/materials/${materialId}`)
   return { id: materialId }
+}
+
+/**
+ * Instructor test-bot — stateless preview of what students will see.
+ * POST /subjects/:subjectId/test-bot  { message } → { reply }
+ */
+export async function sendTestBotMessage(subjectId, message) {
+  const { data } = await apiClient.post(
+    `/subjects/${subjectId}/test-bot`,
+    { message },
+    LLM_TIMEOUT,
+  )
+  return data
 }

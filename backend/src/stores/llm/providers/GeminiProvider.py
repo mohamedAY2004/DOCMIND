@@ -69,6 +69,44 @@ class GeminiProvider(LLMInterface):
         chat_history.append(self.construct_prompt(response.text, GeminiEnums.SYSTEM.value))
         return response.text
 
+    async def generate_text_async(self, prompt: str, chat_history: list = None,
+                                  generation_max_tokens: int = None,
+                                  temperature: float = None):
+        if not self.client:
+            self.logger.error("Gemini client was not set")
+            return None
+        if not self.generation_model_id:
+            self.logger.error("Generation model for Gemini wasn't set")
+            return None
+
+        generation_max_tokens = generation_max_tokens or self.default_generation_max_tokens
+        temperature = temperature if temperature is not None else self.default_temperature
+
+        if chat_history is None:
+            chat_history = []
+
+        chat_history.append(self.construct_prompt(prompt, GeminiEnums.USER.value))
+
+        try:
+            response = await self.client.aio.models.generate_content(
+                model=self.generation_model_id,
+                contents=chat_history,
+                config=types.GenerateContentConfig(
+                    max_output_tokens=generation_max_tokens,
+                    temperature=temperature,
+                )
+            )
+        except Exception as e:
+            self.logger.error(f"Error generating text with Gemini (async): {e}")
+            return None
+
+        if not response or not response.text:
+            self.logger.error("Error generating text with Gemini (async)")
+            return None
+
+        chat_history.append(self.construct_prompt(response.text, GeminiEnums.SYSTEM.value))
+        return response.text
+
     def embed_text(self, text: Union[str, List[str]], document_type: str = None):
         if not self.client:
             self.logger.error("Gemini client was not set")
@@ -90,6 +128,32 @@ class GeminiProvider(LLMInterface):
 
         if not response or not response.embeddings or len(response.embeddings) == 0:
             self.logger.error("Error embedding text with Gemini")
+            return None
+
+        return [e.values for e in response.embeddings]
+
+    async def embed_text_async(self, text: Union[str, List[str]],
+                               document_type: str = None):
+        if not self.client:
+            self.logger.error("Gemini client was not set")
+            return None
+        if not self.embedding_model_id:
+            self.logger.error("Embedding model for Gemini wasn't set")
+            return None
+        if isinstance(text, str):
+            text = [text]
+        try:
+            response = await self.client.aio.models.embed_content(
+                model=self.embedding_model_id,
+                contents=[self.process_text(t) for t in text if t is not None],
+                config=types.EmbedContentConfig(output_dimensionality=self.embedding_size)
+            )
+        except Exception as e:
+            self.logger.error(f"Error embedding text with Gemini (async): {e}")
+            return None
+
+        if not response or not response.embeddings or len(response.embeddings) == 0:
+            self.logger.error("Error embedding text with Gemini (async)")
             return None
 
         return [e.values for e in response.embeddings]

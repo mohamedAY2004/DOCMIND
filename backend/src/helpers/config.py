@@ -22,9 +22,9 @@ class Settings(BaseSettings):
     FILE_DEFAULT_CHUNK_SIZE: int
 
     # ==================== DocMind upload limits ====================
-    # Materials (instructor uploads): PDF / PPTX, up to 50 MiB (spec §7.2).
+    # Materials (instructor uploads): PDF only, up to 50 MiB (spec §7.2).
     UPLOAD_MATERIAL_MAX_MB: int = 50
-    # Document chat uploads (student): PDF / PPTX / PNG, up to 25 MiB and max 5 files.
+    # Document chat uploads (student): PDF only, up to 25 MiB and max 5 files.
     UPLOAD_DOC_MAX_MB: int = 25
     UPLOAD_DOC_MAX_FILES: int = 5
 

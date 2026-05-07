@@ -35,10 +35,12 @@ class NLPController(BaseController):
         texts = [c.chunk_text for c in chunks]
         metadata = [c.chunk_metadata for c in chunks]
         record_ids = [c.id for c in chunks]
-        vectors = [
-            self.embedding_client.embed_text(text=text,document_type=DocumentTypeEnum.DOCUMENT.value)[0] 
-            for text in texts
-        ]
+        vectors = []
+        for text in texts:
+            result = await self.embedding_client.embed_text_async(
+                text=text, document_type=DocumentTypeEnum.DOCUMENT.value
+            )
+            vectors.append(result[0])
         
         
         #step 3: create collection if not exists
@@ -53,7 +55,7 @@ class NLPController(BaseController):
         #get collection name
         collection_name= self.create_collection_name(project_id=project.project_id)
         # get embedding
-        vector= self.embedding_client.embed_text(text= query, document_type=LLMEnums.DocumentTypeEnum.QUERY.value)
+        vector= await self.embedding_client.embed_text_async(text= query, document_type=LLMEnums.DocumentTypeEnum.QUERY.value)
         if len(vector)==0:
             self.logger.error("Failed to embed query at search_vectordb NLPController")
             return False
@@ -92,7 +94,7 @@ class NLPController(BaseController):
         ]
 
         full_prompt="\n\n".join([document_prompts,footer_prompt,query])
-        answer= self.generation_client.generate_text(prompt=full_prompt, chat_history=chat_history)
+        answer= await self.generation_client.generate_text_async(prompt=full_prompt, chat_history=chat_history)
         
         return answer
 

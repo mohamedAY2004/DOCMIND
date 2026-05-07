@@ -1,6 +1,7 @@
-"""Material endpoints (spec §7)."""
+"""Material endpoints (spec §7) + instructor test-bot."""
 from __future__ import annotations
 
+import logging
 from typing import List, Optional
 
 from fastapi import (
@@ -12,13 +13,21 @@ from fastapi import (
     UploadFile,
     status,
 )
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import User, UserRole
+from helpers.config import get_settings
 from helpers.deps import get_session, require_role
+from helpers.errors import APIError, ErrorCode
+from repositories.material_repository import MaterialRepository
+from repositories.subject_repository import SubjectRepository
 from schemas.material import MaterialResponse, UpdateMaterialRequest
 from services.material_service import MaterialService, index_material_job
-from services.rag_service import RAGService
+from services.rag_service import RAGService, collection_for_subject
+from stores.agent import AgentInterface
+
+logger = logging.getLogger("docmind.materials")
 
 router = APIRouter(prefix="/subjects", tags=["materials"])
 
@@ -31,6 +40,13 @@ def _rag_service(request: Request) -> RAGService:
         generation_client=request.app.state.generation_client,
         template_parser=request.app.state.template_parser,
     )
+
+
+def _agent(request: Request) -> AgentInterface | None:
+    return getattr(request.app.state, "agent_client", None)
+
+
+# -------------------- materials CRUD --------------------
 
 
 @router.get("/{subject_id}/materials", response_model=List[MaterialResponse])
@@ -101,3 +117,75 @@ async def delete_material(
     user: User = Depends(require_role(UserRole.INSTRUCTOR, UserRole.ADMIN)),
 ) -> None:
     await MaterialService(session).delete(user, subject_id, material_id)
+
+
+# -------------------- instructor test-bot --------------------
+
+
+class _TestBotRequest(BaseModel):
+    message: str = Field(..., min_length=1, max_length=4000)
+
+
+class _TestBotResponse(BaseModel):
+    reply: str
+
+
+@router.post(
+    "/{subject_id}/test-bot",
+    response_model=_TestBotResponse,
+    tags=["materials", "test-bot"],
+)
+async def test_bot(
+    subject_id: str,
+    body: _TestBotRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_role(UserRole.INSTRUCTOR, UserRole.ADMIN)),
+) -> _TestBotResponse:
+    """Stateless bot preview for instructors.
+
+    Queries the subject's RAG collection using the same pipeline students
+    use, but does NOT persist any conversation or messages.
+    """
+    # Verify the subject exists.
+    subject = await SubjectRepository(session).get(subject_id)
+    if subject is None:
+        raise APIError(
+            ErrorCode.NOT_FOUND,
+            status.HTTP_404_NOT_FOUND,
+            "Subject not found.",
+        )
+
+    # Check for indexed materials.
+    processed = await MaterialRepository(session).count_processed(subject_id)
+    if processed == 0:
+        raise APIError(
+            ErrorCode.SUBJECT_NOT_READY,
+            status.HTTP_409_CONFLICT,
+            "This subject has no indexed materials yet. Upload and wait for processing to finish.",
+        )
+
+    subject_name = f"{subject.course_code} — {subject.title}" if subject else "Unknown"
+    collection = collection_for_subject(subject_id)
+    rag = _rag_service(request)
+    agent = _agent(request)
+
+    if agent is not None:
+        settings = get_settings()
+        result = await agent.answer(
+            collection_name=collection,
+            query=body.message,
+            rag_service=rag,
+            history=None,
+            subject_name=subject_name,
+            limit=settings.AGENT_RETRIEVAL_LIMIT,
+            threshold=settings.AGENT_RETRIEVAL_THRESHOLD,
+        )
+        answer = result.text or ""
+    else:
+        answer = await rag.answer(
+            collection, body.message, limit=5, threshold=0.3,
+            subject_name=subject_name,
+        )
+
+    return _TestBotResponse(reply=answer)

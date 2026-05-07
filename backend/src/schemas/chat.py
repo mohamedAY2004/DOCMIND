@@ -23,6 +23,10 @@ class ConversationResponse(BaseModel):
     messageCount: int
 
 
+class UpdateConversationRequest(BaseModel):
+    title: Optional[str] = Field(None, min_length=1, max_length=100)
+
+
 class DocumentFileResponse(BaseModel):
     id: str
     name: str

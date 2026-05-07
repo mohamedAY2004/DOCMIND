@@ -16,6 +16,7 @@ from schemas.chat import (
     LegacyReplyResponse,
     MessageResponse,
     SendMessageRequest,
+    UpdateConversationRequest,
 )
 from services.rag_service import RAGService
 from services.tutor_chat_service import TutorChatService
@@ -90,6 +91,22 @@ async def delete_tutor_conversation(
     _gate: User = Depends(require_student_access),
 ) -> None:
     await TutorChatService(session).delete_conversation(student, conv_id)
+
+
+@router.patch(
+    "/conversations/{conv_id}",
+    response_model=ConversationResponse,
+)
+async def update_tutor_conversation(
+    conv_id: str,
+    body: UpdateConversationRequest,
+    session: AsyncSession = Depends(get_session),
+    student: User = Depends(require_role(UserRole.STUDENT)),
+    _gate: User = Depends(require_student_access),
+) -> ConversationResponse:
+    return await TutorChatService(session).update_conversation(
+        student, conv_id, body.title
+    )
 
 
 @router.post(

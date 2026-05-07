@@ -10,7 +10,8 @@ Tables seeded (≥10 rows each where applicable):
     materials (12), conversations (12), document_files (12), messages (24),
     feedbacks (12), activities (12), student_access_flag (1 singleton)
 
-All inserts are idempotent — re-running is safe.
+Each run **truncates** all seeded tables and inserts fresh rows from this file.
+Re-run whenever you change seed data so the database matches (same admin passwords, etc.).
 """
 from __future__ import annotations
 
@@ -55,20 +56,20 @@ def _ago(days: int = 0, hours: int = 0) -> datetime:
 
 _USERS = [
     # admins
-    {"username": "admin",      "name": "System Admin",        "email": "admin@docmind.local",       "role": UserRole.ADMIN,       "password": "admin123"},
-    {"username": "superadmin", "name": "Super Admin",         "email": "superadmin@docmind.local",  "role": UserRole.ADMIN,       "password": "admin123"},
+    {"username": "admin",      "name": "System Admin",          "email": "admin@docmind.local",       "role": UserRole.ADMIN,       "password": "admin123"},
+    {"username": "superadmin", "name": "Super Admin",           "email": "superadmin@docmind.local",  "role": UserRole.ADMIN,       "password": "admin123"},
     # instructors
-    {"username": "instructor",  "name": "Dr. Alice Martin",   "email": "alice@docmind.local",       "role": UserRole.INSTRUCTOR,  "password": "instructor123"},
-    {"username": "bob_prof",    "name": "Prof. Bob Chen",     "email": "bob@docmind.local",         "role": UserRole.INSTRUCTOR,  "password": "instructor123"},
-    {"username": "carol_inst",  "name": "Dr. Carol Davies",   "email": "carol@docmind.local",       "role": UserRole.INSTRUCTOR,  "password": "instructor123"},
-    {"username": "dave_prof",   "name": "Prof. Dave Singh",   "email": "dave@docmind.local",        "role": UserRole.INSTRUCTOR,  "password": "instructor123"},
+    {"username": "hoda_dr",     "name": "Dr. Hoda Mahmoud",      "email": "hoda@docmind.local",       "role": UserRole.INSTRUCTOR,  "password": "instructor123"},
+    {"username": "khaled_dr",   "name": "Dr. Khaled Abdel-Aziz", "email": "khaled@docmind.local",     "role": UserRole.INSTRUCTOR,  "password": "instructor123"},
+    {"username": "noha_dr",     "name": "Dr. Noha Farouk",       "email": "noha@docmind.local",       "role": UserRole.INSTRUCTOR,  "password": "instructor123"},
+    {"username": "tarek_dr",    "name": "Dr. Tarek El-Sayed",    "email": "tarek@docmind.local",      "role": UserRole.INSTRUCTOR,  "password": "instructor123"},
     # students
-    {"username": "student",     "name": "Demo Student",       "email": "student@docmind.local",     "role": UserRole.STUDENT,     "password": "student123"},
-    {"username": "emma_s",      "name": "Emma Wilson",        "email": "emma@docmind.local",        "role": UserRole.STUDENT,     "password": "student123"},
-    {"username": "liam_s",      "name": "Liam Johnson",       "email": "liam@docmind.local",        "role": UserRole.STUDENT,     "password": "student123"},
-    {"username": "sofia_s",     "name": "Sofia Garcia",       "email": "sofia@docmind.local",       "role": UserRole.STUDENT,     "password": "student123"},
-    {"username": "noah_s",      "name": "Noah Kim",           "email": "noah@docmind.local",        "role": UserRole.STUDENT,     "password": "student123"},
-    {"username": "mia_s",       "name": "Mia Patel",          "email": "mia@docmind.local",         "role": UserRole.STUDENT,     "password": "student123"},
+    {"username": "student",     "name": "Demo Student",          "email": "student@docmind.local",    "role": UserRole.STUDENT,     "password": "student123"},
+    {"username": "nour_s",      "name": "Nour Hassan",           "email": "nour@docmind.local",       "role": UserRole.STUDENT,     "password": "student123"},
+    {"username": "omar_s",      "name": "Omar Salah",            "email": "omar@docmind.local",       "role": UserRole.STUDENT,     "password": "student123"},
+    {"username": "aya_s",       "name": "Aya Ibrahim",           "email": "aya@docmind.local",        "role": UserRole.STUDENT,     "password": "student123"},
+    {"username": "ahmed_s",     "name": "Ahmed Mostafa",         "email": "ahmed@docmind.local",      "role": UserRole.STUDENT,     "password": "student123"},
+    {"username": "mariam_s",    "name": "Mariam Youssef",        "email": "mariam@docmind.local",     "role": UserRole.STUDENT,     "password": "student123"},
 ]
 
 _SEMESTERS = [
@@ -79,49 +80,49 @@ _SEMESTERS = [
 ]
 
 _SUBJECTS = [
-    {"id": "cs101-f24",  "title": "Introduction to Computer Science", "description": "Fundamentals of programming, algorithms, and computational thinking.", "course_code": "CS101", "semester_id": "fall-2024",   "instructors": ["instructor", "bob_prof"], "students": ["student", "emma_s", "liam_s", "sofia_s"]},
-    {"id": "cs201-f24",  "title": "Data Structures & Algorithms",     "description": "Arrays, linked lists, trees, graphs, sorting, and search algorithms.",  "course_code": "CS201", "semester_id": "fall-2024",   "instructors": ["instructor"],              "students": ["student", "liam_s", "noah_s"]},
-    {"id": "cs301-f24",  "title": "Database Systems",                 "description": "Relational models, SQL, transactions, normalization, and query optimization.", "course_code": "CS301", "semester_id": "fall-2024",   "instructors": ["carol_inst"],             "students": ["emma_s", "sofia_s", "mia_s"]},
-    {"id": "cs401-f24",  "title": "Machine Learning",                 "description": "Supervised and unsupervised learning, neural networks, and model evaluation.", "course_code": "CS401", "semester_id": "fall-2024",   "instructors": ["dave_prof"],              "students": ["liam_s", "noah_s", "mia_s"]},
-    {"id": "cs101-sp25", "title": "Introduction to Computer Science", "description": "Fundamentals of programming, algorithms, and computational thinking.", "course_code": "CS101", "semester_id": "spring-2025", "instructors": ["bob_prof"],               "students": ["emma_s", "noah_s"]},
-    {"id": "cs202-sp25", "title": "Operating Systems",               "description": "Processes, threads, memory management, file systems, and I/O.",         "course_code": "CS202", "semester_id": "spring-2025", "instructors": ["carol_inst","instructor"],             "students": ["sofia_s", "liam_s", "noah_s"]},
-    {"id": "cs305-sp25", "title": "Computer Networks",               "description": "OSI model, TCP/IP, routing, network security, and distributed systems.",  "course_code": "CS305", "semester_id": "spring-2025", "instructors": ["dave_prof"],              "students": ["noah_s", "mia_s", "emma_s"]},
-    {"id": "cs402-sp25", "title": "Natural Language Processing",     "description": "Text processing, language models, transformers, and NLP applications.",   "course_code": "CS402", "semester_id": "spring-2025", "instructors": ["instructor", "dave_prof"],"students": ["mia_s", "liam_s", "student"]},
-    {"id": "math201-f24","title": "Linear Algebra",                  "description": "Vectors, matrices, eigenvalues, and applications in data science.",       "course_code": "MATH201","semester_id": "fall-2024",  "instructors": ["bob_prof"],               "students": ["sofia_s", "noah_s", "student"]},
-    {"id": "math301-sp25","title": "Probability & Statistics",       "description": "Probability theory, distributions, hypothesis testing, and regression.",   "course_code": "MATH301","semester_id": "spring-2025","instructors": ["carol_inst"],             "students": ["mia_s", "emma_s"]},
-    {"id": "cs310-f23",  "title": "Software Engineering",            "description": "SDLC, design patterns, testing, CI/CD, and agile methodologies.",         "course_code": "CS310", "semester_id": "fall-2023",   "instructors": ["instructor"],              "students": ["sofia_s"]},
-    {"id": "cs410-sp24", "title": "Computer Vision",                 "description": "Image processing, convolutional networks, object detection, and segmentation.", "course_code": "CS410", "semester_id": "spring-2024", "instructors": ["dave_prof","instructor"], "students": ["liam_s", "mia_s"]},
+    {"id": "cs101-f24",  "title": "Introduction to Computer Science", "description": "Fundamentals of programming, algorithms, and computational thinking.", "course_code": "CS101", "semester_id": "fall-2024",   "instructors": ["hoda_dr", "khaled_dr"], "students": ["student", "nour_s", "omar_s", "aya_s"]},
+    {"id": "cs201-f24",  "title": "Data Structures & Algorithms",     "description": "Arrays, linked lists, trees, graphs, sorting, and search algorithms.",  "course_code": "CS201", "semester_id": "fall-2024",   "instructors": ["hoda_dr"],              "students": ["student", "omar_s", "ahmed_s"]},
+    {"id": "cs301-f24",  "title": "Database Systems",                 "description": "Relational models, SQL, transactions, normalization, and query optimization.", "course_code": "CS301", "semester_id": "fall-2024",   "instructors": ["noha_dr"],              "students": ["nour_s", "aya_s", "mariam_s"]},
+    {"id": "cs401-f24",  "title": "Machine Learning",                 "description": "Supervised and unsupervised learning, neural networks, and model evaluation.", "course_code": "CS401", "semester_id": "fall-2024",   "instructors": ["tarek_dr"],             "students": ["omar_s", "ahmed_s", "mariam_s"]},
+    {"id": "cs101-sp25", "title": "Introduction to Computer Science", "description": "Fundamentals of programming, algorithms, and computational thinking.", "course_code": "CS101", "semester_id": "spring-2025", "instructors": ["khaled_dr"],            "students": ["nour_s", "ahmed_s"]},
+    {"id": "cs202-sp25", "title": "Operating Systems",               "description": "Processes, threads, memory management, file systems, and I/O.",         "course_code": "CS202", "semester_id": "spring-2025", "instructors": ["noha_dr", "hoda_dr"],   "students": ["aya_s", "omar_s", "ahmed_s"]},
+    {"id": "cs305-sp25", "title": "Computer Networks",               "description": "OSI model, TCP/IP, routing, network security, and distributed systems.",  "course_code": "CS305", "semester_id": "spring-2025", "instructors": ["tarek_dr"],             "students": ["ahmed_s", "mariam_s", "nour_s"]},
+    {"id": "cs402-sp25", "title": "Natural Language Processing",     "description": "Text processing, language models, transformers, and NLP applications.",   "course_code": "CS402", "semester_id": "spring-2025", "instructors": ["hoda_dr", "tarek_dr"],  "students": ["mariam_s", "omar_s", "student"]},
+    {"id": "math201-f24","title": "Linear Algebra",                  "description": "Vectors, matrices, eigenvalues, and applications in data science.",       "course_code": "MATH201","semester_id": "fall-2024",  "instructors": ["khaled_dr"],            "students": ["aya_s", "ahmed_s", "student"]},
+    {"id": "math301-sp25","title": "Probability & Statistics",       "description": "Probability theory, distributions, hypothesis testing, and regression.",   "course_code": "MATH301","semester_id": "spring-2025","instructors": ["noha_dr"],              "students": ["mariam_s", "nour_s"]},
+    {"id": "cs310-f23",  "title": "Software Engineering",            "description": "SDLC, design patterns, testing, CI/CD, and agile methodologies.",         "course_code": "CS310", "semester_id": "fall-2023",   "instructors": ["hoda_dr"],              "students": ["aya_s"]},
+    {"id": "cs410-sp24", "title": "Computer Vision",                 "description": "Image processing, convolutional networks, object detection, and segmentation.", "course_code": "CS410", "semester_id": "spring-2024", "instructors": ["tarek_dr", "hoda_dr"],  "students": ["omar_s", "mariam_s"]},
 ]
 
 _MATERIAL_SPECS = [
-    ("cs101-f24",   "Lecture 1 - Intro to Programming.pdf",      1_200_000, "application/pdf",                  "materials/cs101-f24/lecture1.pdf",       MaterialStatus.PROCESSED, "instructor"),
-    ("cs101-f24",   "Lecture 2 - Control Flow.pdf",              980_000,   "application/pdf",                  "materials/cs101-f24/lecture2.pdf",       MaterialStatus.PROCESSED, "instructor"),
-    ("cs201-f24",   "Week 1 - Arrays and Lists.pdf",             1_500_000, "application/pdf",                  "materials/cs201-f24/week1.pdf",          MaterialStatus.PROCESSED, "instructor"),
-    ("cs201-f24",   "Week 2 - Trees.pptx",                       2_100_000, "application/vnd.ms-powerpoint",    "materials/cs201-f24/week2.pptx",         MaterialStatus.PROCESSED, "instructor"),
-    ("cs301-f24",   "Relational Model.pdf",                      870_000,   "application/pdf",                  "materials/cs301-f24/relational.pdf",     MaterialStatus.PROCESSED, "carol_inst"),
-    ("cs401-f24",   "Introduction to ML.pptx",                   3_400_000, "application/vnd.ms-powerpoint",    "materials/cs401-f24/intro_ml.pptx",      MaterialStatus.PROCESSED, "dave_prof"),
-    ("cs202-sp25",  "Process Management.pdf",                    1_100_000, "application/pdf",                  "materials/cs202-sp25/processes.pdf",     MaterialStatus.PROCESSED, "carol_inst"),
-    ("cs305-sp25",  "TCP-IP Deep Dive.pdf",                      2_300_000, "application/pdf",                  "materials/cs305-sp25/tcpip.pdf",         MaterialStatus.PROCESSED, "dave_prof"),
-    ("cs402-sp25",  "Transformers Explained.pptx",               4_500_000, "application/vnd.ms-powerpoint",    "materials/cs402-sp25/transformers.pptx", MaterialStatus.INDEXING,  "instructor"),
-    ("math201-f24", "Vectors and Spaces.pdf",                    760_000,   "application/pdf",                  "materials/math201-f24/vectors.pdf",      MaterialStatus.PROCESSED, "bob_prof"),
-    ("math301-sp25","Probability Distributions.pdf",             920_000,   "application/pdf",                  "materials/math301-sp25/distributions.pdf",MaterialStatus.PROCESSED,"carol_inst"),
-    ("cs310-f23",   "Agile and Scrum.pptx",                      1_800_000, "application/vnd.ms-powerpoint",    "materials/cs310-f23/agile.pptx",         MaterialStatus.PROCESSED, "instructor"),
+    ("cs101-f24",   "Lecture 1 - Intro to Programming.pdf",      1_200_000, "application/pdf",                  "materials/cs101-f24/lecture1.pdf",        MaterialStatus.PROCESSED, "hoda_dr"),
+    ("cs101-f24",   "Lecture 2 - Control Flow.pdf",              980_000,   "application/pdf",                  "materials/cs101-f24/lecture2.pdf",        MaterialStatus.PROCESSED, "hoda_dr"),
+    ("cs201-f24",   "Week 1 - Arrays and Lists.pdf",             1_500_000, "application/pdf",                  "materials/cs201-f24/week1.pdf",           MaterialStatus.PROCESSED, "hoda_dr"),
+    ("cs201-f24",   "Week 2 - Trees.pptx",                       2_100_000, "application/vnd.ms-powerpoint",    "materials/cs201-f24/week2.pptx",          MaterialStatus.PROCESSED, "hoda_dr"),
+    ("cs301-f24",   "Relational Model.pdf",                      870_000,   "application/pdf",                  "materials/cs301-f24/relational.pdf",      MaterialStatus.PROCESSED, "noha_dr"),
+    ("cs401-f24",   "Introduction to ML.pptx",                   3_400_000, "application/vnd.ms-powerpoint",    "materials/cs401-f24/intro_ml.pptx",       MaterialStatus.PROCESSED, "tarek_dr"),
+    ("cs202-sp25",  "Process Management.pdf",                    1_100_000, "application/pdf",                  "materials/cs202-sp25/processes.pdf",      MaterialStatus.PROCESSED, "noha_dr"),
+    ("cs305-sp25",  "TCP-IP Deep Dive.pdf",                      2_300_000, "application/pdf",                  "materials/cs305-sp25/tcpip.pdf",          MaterialStatus.PROCESSED, "tarek_dr"),
+    ("cs402-sp25",  "Transformers Explained.pptx",               4_500_000, "application/vnd.ms-powerpoint",    "materials/cs402-sp25/transformers.pptx",  MaterialStatus.INDEXING,  "hoda_dr"),
+    ("math201-f24", "Vectors and Spaces.pdf",                    760_000,   "application/pdf",                  "materials/math201-f24/vectors.pdf",       MaterialStatus.PROCESSED, "khaled_dr"),
+    ("math301-sp25","Probability Distributions.pdf",             920_000,   "application/pdf",                  "materials/math301-sp25/distributions.pdf", MaterialStatus.PROCESSED, "noha_dr"),
+    ("cs310-f23",   "Agile and Scrum.pptx",                      1_800_000, "application/vnd.ms-powerpoint",    "materials/cs310-f23/agile.pptx",          MaterialStatus.PROCESSED, "hoda_dr"),
 ]
 
 # (owner_username, kind, subject_id, title)
 _CONV_SPECS = [
-    ("student",  ConversationKind.TUTOR, "cs101-f24",  "Help with loops"),
-    ("student",  ConversationKind.TUTOR, "cs201-f24",  "Binary tree traversal"),
-    ("emma_s",   ConversationKind.TUTOR, "cs301-f24",  "SQL joins question"),
-    ("emma_s",   ConversationKind.DOC,   None,         "Lecture notes summary"),
-    ("liam_s",   ConversationKind.TUTOR, "cs401-f24",  "Gradient descent help"),
-    ("liam_s",   ConversationKind.DOC,   None,         "ML paper review"),
-    ("sofia_s",  ConversationKind.TUTOR, "math201-f24","Eigenvalues practice"),
-    ("sofia_s",  ConversationKind.TUTOR, "cs202-sp25", "Scheduling algorithms"),
-    ("noah_s",   ConversationKind.TUTOR, "cs305-sp25", "TCP handshake"),
-    ("noah_s",   ConversationKind.DOC,   None,         "Networks notes"),
-    ("mia_s",    ConversationKind.TUTOR, "cs402-sp25", "Attention mechanism"),
-    ("mia_s",    ConversationKind.TUTOR, "math301-sp25","Bayesian inference"),
+    ("student",   ConversationKind.TUTOR, "cs101-f24",   "Help with loops"),
+    ("student",   ConversationKind.TUTOR, "cs201-f24",   "Binary tree traversal"),
+    ("nour_s",    ConversationKind.TUTOR, "cs301-f24",   "SQL joins question"),
+    ("nour_s",    ConversationKind.DOC,   None,          "Lecture notes summary"),
+    ("omar_s",    ConversationKind.TUTOR, "cs401-f24",   "Gradient descent help"),
+    ("omar_s",    ConversationKind.DOC,   None,          "ML paper review"),
+    ("aya_s",     ConversationKind.TUTOR, "math201-f24", "Eigenvalues practice"),
+    ("aya_s",     ConversationKind.TUTOR, "cs202-sp25",  "Scheduling algorithms"),
+    ("ahmed_s",   ConversationKind.TUTOR, "cs305-sp25",  "TCP handshake"),
+    ("ahmed_s",   ConversationKind.DOC,   None,          "Networks notes"),
+    ("mariam_s",  ConversationKind.TUTOR, "cs402-sp25",  "Attention mechanism"),
+    ("mariam_s",  ConversationKind.TUTOR, "math301-sp25","Bayesian inference"),
 ]
 
 # (user_q, assistant_reply)
@@ -141,18 +142,18 @@ _MESSAGE_PAIRS = [
 ]
 
 _ACTIVITY_SPECS = [
-    ("admin",      "Created user 'instructor'",               "Dr. Alice Martin",  {"role": "instructor"}),
-    ("admin",      "Created user 'bob_prof'",                 "Prof. Bob Chen",    {"role": "instructor"}),
-    ("admin",      "Created subject 'cs101-f24'",             "CS101 Fall 2024",   {"course_code": "CS101"}),
-    ("admin",      "Created subject 'cs201-f24'",             "CS201 Fall 2024",   {"course_code": "CS201"}),
-    ("admin",      "Enabled student access",                  None,                {"enabled": True}),
-    ("instructor", "Uploaded material 'Lecture 1'",           "CS101 Fall 2024",   {"size_bytes": 1200000}),
-    ("instructor", "Uploaded material 'Lecture 2'",           "CS101 Fall 2024",   {"size_bytes": 980000}),
-    ("carol_inst", "Uploaded material 'Relational Model'",    "CS301 Fall 2024",   {"size_bytes": 870000}),
-    ("dave_prof",  "Uploaded material 'Intro to ML'",         "CS401 Fall 2024",   {"size_bytes": 3400000}),
-    ("admin",      "Disabled student access for maintenance", None,                {"enabled": False}),
-    ("admin",      "Re-enabled student access",               None,                {"enabled": True}),
-    ("superadmin", "Promoted user 'instructor' to admin",     "Dr. Alice Martin",  {"old_role": "instructor", "new_role": "admin"}),
+    ("admin",      "Created user 'hoda_dr'",                  "Dr. Hoda Mahmoud",      {"role": "instructor"}),
+    ("admin",      "Created user 'khaled_dr'",                "Dr. Khaled Abdel-Aziz", {"role": "instructor"}),
+    ("admin",      "Created subject 'cs101-f24'",             "CS101 Fall 2024",        {"course_code": "CS101"}),
+    ("admin",      "Created subject 'cs201-f24'",             "CS201 Fall 2024",        {"course_code": "CS201"}),
+    ("admin",      "Enabled student access",                  None,                     {"enabled": True}),
+    ("hoda_dr",    "Uploaded material 'Lecture 1'",           "CS101 Fall 2024",        {"size_bytes": 1200000}),
+    ("hoda_dr",    "Uploaded material 'Lecture 2'",           "CS101 Fall 2024",        {"size_bytes": 980000}),
+    ("noha_dr",    "Uploaded material 'Relational Model'",    "CS301 Fall 2024",        {"size_bytes": 870000}),
+    ("tarek_dr",   "Uploaded material 'Intro to ML'",         "CS401 Fall 2024",        {"size_bytes": 3400000}),
+    ("admin",      "Disabled student access for maintenance", None,                     {"enabled": False}),
+    ("admin",      "Re-enabled student access",               None,                     {"enabled": True}),
+    ("superadmin", "Promoted user 'hoda_dr' to admin",        "Dr. Hoda Mahmoud",       {"old_role": "instructor", "new_role": "admin"}),
 ]
 
 
@@ -224,7 +225,7 @@ async def _seed_subjects(session: AsyncSession, uid_map: dict[str, str]) -> None
             if existing:
                 continue
             session.add(SubjectInstructor(subject_id=sid, user_id=uid))
-            _log("insert", f"  subject_instructor {sid} ← {uname}")
+            _log("insert", f"  subject_instructor {sid} <- {uname}")
 
         # subject_students (composite PK — safe to re-insert)
         for uname in spec.get("students", []):
@@ -235,7 +236,7 @@ async def _seed_subjects(session: AsyncSession, uid_map: dict[str, str]) -> None
             if existing:
                 continue
             session.add(SubjectStudent(subject_id=sid, user_id=uid))
-            _log("insert", f"  subject_student    {sid} ← {uname}")
+            _log("insert", f"  subject_student    {sid} <- {uname}")
 
     await session.flush()
 
@@ -313,7 +314,7 @@ async def _seed_conversations_and_messages(
 
             session.add(Message(id=user_msg_id, conversation_id=conv_id, role=MessageRole.USER,  text=pair[0]))
             session.add(Message(id=asst_msg_id, conversation_id=conv_id, role=asst_role,          text=pair[1]))
-            _log("insert", f"  messages (×2) for '{title}'")
+            _log("insert", f"  messages (x2) for '{title}'")
             await session.flush()
 
             # Feedback on the assistant message (alternating up/down)
@@ -403,28 +404,28 @@ async def main() -> None:
     factory = async_sessionmaker(bind=engine, expire_on_commit=False, class_=AsyncSession)
 
     async with factory() as session:
-        print("\n── Wipe ───────────────────────────────")
+        print("\n--- Wipe ---")
         await _wipe_all(session)
 
-        print("\n── Users ──────────────────────────────")
+        print("\n--- Users ---")
         uid_map = await _seed_users(session)
 
-        print("\n── Semesters ──────────────────────────")
+        print("\n--- Semesters ---")
         await _seed_semesters(session)
 
-        print("\n── Subjects & Instructors ─────────────")
+        print("\n--- Subjects & Instructors ---")
         await _seed_subjects(session, uid_map)
 
-        print("\n── Materials ──────────────────────────")
+        print("\n--- Materials ---")
         await _seed_materials(session, uid_map)
 
-        print("\n── Conversations, Files, Messages, Feedbacks ──")
+        print("\n--- Conversations, Files, Messages, Feedbacks ---")
         await _seed_conversations_and_messages(session, uid_map)
 
-        print("\n── Activities ─────────────────────────")
+        print("\n--- Activities ---")
         await _seed_activities(session, uid_map)
 
-        print("\n── System Flags ───────────────────────")
+        print("\n--- System Flags ---")
         await _seed_student_access_flag(session)
 
         await session.commit()

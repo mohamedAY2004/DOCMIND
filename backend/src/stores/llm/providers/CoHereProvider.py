@@ -22,6 +22,7 @@ class CoHereProvider(LLMInterface):
         self.embedding_size = None
 
         self.client = cohere.Client(api_key=self.api_key)
+        self.async_client = cohere.AsyncClient(api_key=self.api_key)
 
         self.enums = CoHereEnums
         self.logger = logging.getLogger(__name__)
@@ -64,6 +65,35 @@ class CoHereProvider(LLMInterface):
             return None
         
         return response.text
+
+    async def generate_text_async(self, prompt: str, chat_history: list = None,
+                                  generation_max_tokens: int = None,
+                                  temperature: float = None):
+        if not self.async_client:
+            self.logger.error("CoHere async client was not set")
+            return None
+
+        if not self.generation_model_id:
+            self.logger.error("Generation model for CoHere was not set")
+            return None
+
+        max_output_tokens = generation_max_tokens if generation_max_tokens else self.default_generation_max_output_tokens
+        temperature = temperature if temperature else self.default_generation_temperature
+        chat_history = chat_history if chat_history else []
+
+        response = await self.async_client.chat(
+            model=self.generation_model_id,
+            chat_history=chat_history,
+            message=self.process_text(prompt),
+            temperature=temperature,
+            max_tokens=max_output_tokens
+        )
+
+        if not response or not response.text:
+            self.logger.error("Error while generating text with CoHere (async)")
+            return None
+
+        return response.text
     
     def embed_text(self, text: Union[str, List[str]], document_type: str = None):
         if not self.client:
@@ -93,6 +123,36 @@ class CoHereProvider(LLMInterface):
             return None
         
         return [ f for f in response.embeddings.float ]
+
+    async def embed_text_async(self, text: Union[str, List[str]],
+                               document_type: str = None):
+        if not self.async_client:
+            self.logger.error("CoHere async client was not set")
+            return None
+
+        if isinstance(text, str):
+            text = [text]
+
+        if not self.embedding_model_id:
+            self.logger.error("Embedding model for CoHere was not set")
+            return None
+
+        input_type = CoHereEnums.DOCUMENT
+        if document_type == DocumentTypeEnum.QUERY:
+            input_type = CoHereEnums.QUERY
+
+        response = await self.async_client.embed(
+            model=self.embedding_model_id,
+            texts=[self.process_text(t) for t in text if t is not None],
+            input_type=input_type,
+            embedding_types=['float'],
+        )
+
+        if not response or not response.embeddings or not response.embeddings.float:
+            self.logger.error("Error while embedding text with CoHere (async)")
+            return None
+
+        return [f for f in response.embeddings.float]
     
     def construct_prompt(self, prompt: str, role: str):
         return {

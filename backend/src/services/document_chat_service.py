@@ -94,8 +94,13 @@ class DocumentChatService:
         for f in uploads:
             validate_doc_upload(f)
 
+        count = await self._conversations.count_for_owner(
+            owner_id=owner.id,
+            kind=ConversationKind.DOC
+        )
+
         conv = Conversation(
-            owner_id=owner.id, kind=ConversationKind.DOC, title="Chat 1"
+            owner_id=owner.id, kind=ConversationKind.DOC, title=f"Chat {count + 1}"
         )
         await self._conversations.add(conv)
 
@@ -192,6 +197,16 @@ class DocumentChatService:
         await rag.delete_collection(collection_for_conversation(conv.id))
         await self._conversations.delete(conv)
 
+    async def update_conversation(
+        self, owner: User, conv_id: str, title: str | None
+    ) -> ConversationResponse:
+        conv = await self._load_owned(owner, conv_id)
+        if title is not None:
+            conv.title = title
+            conv.updated_at = datetime.now(timezone.utc)
+        count = await self._conversations.message_count(conv.id)
+        return _conv_response(conv, count)
+
     async def send_message(
         self,
         owner: User,
@@ -255,9 +270,6 @@ class DocumentChatService:
         await self._messages.add(reply)
 
         conv.updated_at = datetime.now(timezone.utc)
-        # Auto-title on first user message.
-        if conv.title == "Chat 1" or conv.title.startswith("New "):
-            conv.title = (text[:77] + "...") if len(text) > 80 else text
 
         return ChatReplyResponse(
             userMessage=_message_response(user_msg),

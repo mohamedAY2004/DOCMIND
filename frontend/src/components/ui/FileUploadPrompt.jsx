@@ -2,8 +2,8 @@ import { useRef, useState, useCallback } from 'react'
 import { FileUp } from 'lucide-react'
 import PrimaryButton from './PrimaryButton'
 
-const FILE_TYPES = ['PDF', 'PPTX', 'PNG']
-const ACCEPT = '.pdf,.pptx,.png'
+const FILE_TYPES = ['PDF']
+const ACCEPT = '.pdf'
 
 const baseCardClass = [
   'flex flex-col items-center justify-center rounded-card border-2 border-dm-border',

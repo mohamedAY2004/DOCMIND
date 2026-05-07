@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { FileText, Loader2, Paperclip, Send, X } from 'lucide-react'
+import { FileText, Loader2, Paperclip, RefreshCw, Send, X } from 'lucide-react'
 import ChatMessageBubble from '../ui/ChatMessageBubble'
 import FileUploadPrompt from '../ui/FileUploadPrompt'
 import ProcessingState from '../ui/ProcessingState'
@@ -22,7 +22,8 @@ const sendBtnClass =
 const errorBannerClass =
   'shrink-0 flex items-center gap-3 border-t border-red-500/20 bg-red-500/5 px-4 py-2.5'
 
-const FILE_ACCEPT = '.pdf,.pptx,.png'
+const FILE_ACCEPT = '.pdf'
+const MAX_MSG = 2000
 
 function ChatScreen({
   // conversations sidebar
@@ -31,6 +32,7 @@ function ChatScreen({
   onSelectConversation,
   onNewChat,
   onDeleteConversation,
+  onRenameConversation,
   conversationsLoading = false,
   // files for the active (or in-flight) conversation
   files = [],
@@ -47,7 +49,10 @@ function ChatScreen({
     isTyping,
     streamingId,
     loadingHistory,
+    errorMessage,
+    lastFailedText,
     sendMessage,
+    retry,
     dismissError,
   } = useChat(activeConversationId)
   const [input, setInput] = useState('')
@@ -60,11 +65,12 @@ function ChatScreen({
   const hasFilesProcessing = files.some((f) => f.status === 'processing')
   const isUploadingFirst = !hasActive && !!uploadingFirstFileName
   const isBusy = status === 'loading' || hasFilesProcessing || !!streamingId
-  const sendDisabled = isBusy || loadingHistory
+  const msgTooLong = input.length > MAX_MSG
+  const sendDisabled = isBusy || loadingHistory || msgTooLong
 
   const handleSend = (e) => {
     e.preventDefault()
-    if (!input.trim() || isBusy) return
+    if (!input.trim() || isBusy || msgTooLong) return
     sendMessage(input)
     setInput('')
   }
@@ -112,6 +118,7 @@ function ChatScreen({
           onSelectChat={onSelectConversation}
           onNewChat={onNewChat}
           onDeleteChat={onDeleteConversation}
+          onRenameChat={onRenameConversation}
           loading={conversationsLoading}
           emptyLabel="No past conversations yet."
         />
@@ -155,7 +162,7 @@ function ChatScreen({
           <div ref={messagesRef} className={messagesClass}>
             {isUploadingFirst ? (
               <div className="flex h-full items-center justify-center">
-                <ProcessingState fileName={uploadingFirstFileName} />
+                <ProcessingState fileName={uploadingFirstFileName} indefinite />
               </div>
             ) : !hasActive ? (
               <div className="flex h-full items-center justify-center px-4 py-8">
@@ -188,48 +195,77 @@ function ChatScreen({
           {status === 'error' && (
             <div className={errorBannerClass}>
               <p className="flex-1 text-sm text-red-400">
-                Something went wrong. Please try again.
+                {errorMessage || 'Something went wrong. Please try again.'}
               </p>
-              <button
-                type="button"
-                onClick={dismissError}
-                className="text-sm font-medium text-red-400 hover:text-red-300 transition-colors"
-              >
-                Dismiss
-              </button>
+              <div className="flex items-center gap-2">
+                {lastFailedText && (
+                  <button
+                    type="button"
+                    onClick={retry}
+                    className="flex items-center gap-1.5 rounded-md bg-red-500/10 px-3 py-1.5 text-sm font-medium text-red-400 hover:bg-red-500/20 transition-colors"
+                  >
+                    <RefreshCw size={14} />
+                    Retry
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={dismissError}
+                  className="text-sm font-medium text-red-400 hover:text-red-300 transition-colors"
+                >
+                  Dismiss
+                </button>
+              </div>
             </div>
           )}
 
           {hasActive && (
-            <form onSubmit={handleSend} className={inputWrapClass}>
-              <div className="relative flex flex-1 items-center">
+            <div className="shrink-0 border-t border-dm-border bg-dm-card">
+              {msgTooLong && (
+                <p className="px-4 pt-2 text-xs text-red-400">
+                  Message is too long. Please shorten it to under {MAX_MSG} characters.
+                </p>
+              )}
+              <form onSubmit={handleSend} className={inputWrapClass}>
+                <div className="relative flex flex-1 items-center">
+                  <button
+                    type="button"
+                    onClick={handlePaperclipClick}
+                    className="absolute left-4 text-dm-muted hover:text-dm-primary transition-colors"
+                    aria-label="Upload file"
+                  >
+                    <Paperclip size={20} />
+                  </button>
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder={placeholderText}
+                    className={`${inputClass} ${msgTooLong ? 'border-red-500/60 focus:ring-red-500/20' : ''}`}
+                    disabled={isBusy || loadingHistory}
+                    aria-label="Message"
+                    maxLength={MAX_MSG + 200}
+                  />
+                </div>
+                {input.length > MAX_MSG * 0.8 && (
+                  <span className={`shrink-0 text-xs tabular-nums ${msgTooLong ? 'text-red-400' : 'text-dm-muted'}`}>
+                    {input.length}/{MAX_MSG}
+                  </span>
+                )}
                 <button
-                  type="button"
-                  onClick={handlePaperclipClick}
-                  className="absolute left-4 text-dm-muted hover:text-dm-primary transition-colors"
-                  aria-label="Upload file"
+                  type="submit"
+                  disabled={sendDisabled || !input.trim()}
+                  className={sendBtnClass}
+                  aria-label="Send"
                 >
-                  <Paperclip size={20} />
+                  {status === 'loading' ? (
+                    <Loader2 size={22} className="animate-spin text-dm-primary" />
+                  ) : (
+                    <Send size={22} className="text-current" />
+                  )}
                 </button>
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder={placeholderText}
-                  className={inputClass}
-                  disabled={sendDisabled}
-                  aria-label="Message"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={sendDisabled || !input.trim()}
-                className={sendBtnClass}
-                aria-label="Send"
-              >
-                <Send size={22} className="text-current" />
-              </button>
-            </form>
+              </form>
+            </div>
           )}
         </main>
       </div>

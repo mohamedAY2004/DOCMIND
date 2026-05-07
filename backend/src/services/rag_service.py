@@ -59,10 +59,12 @@ class RAGService:
             return 0
         texts = [c.text for c in chunks]
         metas = [c.metadata for c in chunks]
-        vectors = [
-            self._embedding.embed_text(text=t, document_type=DocumentTypeEnum.DOCUMENT.value)[0]
-            for t in texts
-        ]
+        vectors = []
+        for t in texts:
+            result = await self._embedding.embed_text_async(
+                text=t, document_type=DocumentTypeEnum.DOCUMENT.value
+            )
+            vectors.append(result[0])
         # IDs must be globally unique within the collection so that indexing a
         # new material never overwrites a previously indexed one. We combine an
         # optional caller-supplied prefix (e.g. the material id) with a random
@@ -94,7 +96,7 @@ class RAGService:
         limit: int = 5,
         threshold: float = 0.5,
     ) -> list:
-        vector = self._embedding.embed_text(
+        vector = await self._embedding.embed_text_async(
             text=query, document_type=DocumentTypeEnum.QUERY.value
         )
         if not vector:
@@ -151,5 +153,5 @@ class RAGService:
             chat_history.extend(history)
 
         full_prompt = "\n\n".join([docs_block, footer, query])
-        reply = self._generation.generate_text(prompt=full_prompt, chat_history=chat_history)
+        reply = await self._generation.generate_text_async(prompt=full_prompt, chat_history=chat_history)
         return reply or ""

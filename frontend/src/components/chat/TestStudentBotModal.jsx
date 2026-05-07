@@ -1,25 +1,10 @@
-import { useState, useRef, useEffect } from 'react'
-import { X, Bot, Send } from 'lucide-react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { X, Bot, Send, AlertCircle, Loader2, RefreshCw } from 'lucide-react'
+import { toast } from 'sonner'
 import ChatMessageBubble from '../ui/ChatMessageBubble'
+import TypingIndicator from './TypingIndicator'
 import useAutoScroll from '../../hooks/useAutoScroll'
-
-const SAMPLE_MESSAGES = [
-  {
-    id: '1',
-    role: 'assistant',
-    text: "Hello! I'm the student bot for this subject. Ask me anything about the materials you've uploaded.",
-  },
-  {
-    id: '2',
-    role: 'user',
-    text: 'What are the main topics in the first lecture?',
-  },
-  {
-    id: '3',
-    role: 'assistant',
-    text: 'Based on the uploaded materials, the first lecture covers an introduction to the core concepts, including definitions and key terminology. I can go into more detail on any section you specify.',
-  },
-]
+import { sendTestBotMessage } from '../../services/subjectService'
 
 const backdropClass =
   'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm transition-opacity'
@@ -36,14 +21,58 @@ const bodyClass = 'flex-1 min-h-0 overflow-y-auto px-6 py-4'
 const noteClass = 'mb-4 text-sm text-dm-muted'
 const inputWrapClass = 'flex shrink-0 items-center gap-3 border-t border-dm-border bg-dm-card p-4'
 const inputClass =
-  'flex-1 rounded-xl border border-dm-border bg-dm-background py-3 px-4 text-dm-foreground placeholder:text-dm-muted focus:outline-none focus:ring-2 focus:ring-dm-primary'
+  'flex-1 rounded-xl border border-dm-border bg-dm-background py-3 px-4 text-dm-foreground placeholder:text-dm-muted focus:outline-none focus:ring-2 focus:ring-dm-primary disabled:opacity-50 disabled:cursor-not-allowed'
+const emptyStateClass =
+  'flex flex-col items-center justify-center gap-3 h-full text-center px-4'
 
-function TestStudentBotModal({ isOpen, onClose, subjectName }) {
-  const [messages, setMessages] = useState(SAMPLE_MESSAGES)
+const MAX_MSG = 2000
+
+/**
+ * Return a user-friendly message from a service error.
+ */
+function friendlyError(err) {
+  if (err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')) {
+    return 'The response took too long. The server may be under heavy load — please try again.'
+  }
+  if (!navigator.onLine) {
+    return 'You appear to be offline. Check your connection and try again.'
+  }
+  const code = err?.response?.data?.code
+  const serverMsg = err?.response?.data?.message
+  if (code === 'SUBJECT_NOT_READY') {
+    return serverMsg || 'No indexed materials yet. Upload a PDF and wait for processing.'
+  }
+  if (code === 'NOT_FOUND') return 'Subject not found.'
+  if (serverMsg) return serverMsg
+  const status = err?.response?.status
+  if (status >= 500) return 'The server encountered an error. Please try again in a moment.'
+  return 'Something went wrong. Please try again.'
+}
+
+function TestStudentBotModal({ isOpen, onClose, subjectName, subjectId }) {
+  const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
-  const messagesEndRef = useRef(null)
-  useAutoScroll(messagesEndRef, [isOpen, messages])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [lastFailedText, setLastFailedText] = useState('')
+  const messagesRef = useRef(null)
+  const inputRef = useRef(null)
+  useAutoScroll(messagesRef, [isOpen, messages, loading])
 
+  // Reset conversation when modal opens/closes
+  useEffect(() => {
+    if (isOpen) {
+      setMessages([])
+      setInput('')
+      setError('')
+      setLastFailedText('')
+      setLoading(false)
+      // Focus input after mount
+      setTimeout(() => inputRef.current?.focus(), 100)
+    }
+  }, [isOpen])
+
+  // Escape key to close
   useEffect(() => {
     if (!isOpen) return
     const handleEsc = (e) => {
@@ -53,19 +82,70 @@ function TestStudentBotModal({ isOpen, onClose, subjectName }) {
     return () => window.removeEventListener('keydown', handleEsc)
   }, [isOpen, onClose])
 
-  const handleSend = (e) => {
-    e.preventDefault()
-    const text = input.trim()
-    if (!text) return
-    setMessages((prev) => [...prev, { id: String(Date.now()), role: 'user', text }])
-    setInput('')
-  }
+  const doSend = useCallback(
+    async (text) => {
+      if (!text || loading) return
+      if (text.length > MAX_MSG) {
+        toast.error(`Message is too long. Max ${MAX_MSG} characters.`)
+        return
+      }
+
+      setError('')
+      setLastFailedText('')
+      const userMsg = {
+        id: `user-${Date.now()}`,
+        role: 'user',
+        text,
+      }
+      setMessages((prev) => [...prev, userMsg])
+      setInput('')
+      setLoading(true)
+
+      try {
+        const data = await sendTestBotMessage(subjectId, text)
+        const botMsg = {
+          id: `bot-${Date.now()}`,
+          role: 'assistant',
+          text: data.reply || 'No response received.',
+        }
+        setMessages((prev) => [...prev, botMsg])
+        setLastFailedText('')
+      } catch (err) {
+        const errorText = friendlyError(err)
+        setError(errorText)
+        setLastFailedText(text)
+        // Remove the optimistic user message so they can retry
+        setMessages((prev) => prev.filter((m) => m.id !== userMsg.id))
+      } finally {
+        setLoading(false)
+        setTimeout(() => inputRef.current?.focus(), 50)
+      }
+    },
+    [loading, subjectId],
+  )
+
+  const handleSend = useCallback(
+    (e) => {
+      e.preventDefault()
+      doSend(input.trim())
+    },
+    [input, doSend],
+  )
+
+  const handleRetry = useCallback(() => {
+    if (lastFailedText) {
+      setError('')
+      doSend(lastFailedText)
+    }
+  }, [lastFailedText, doSend])
 
   const handleBackdropClick = (e) => {
     if (e.target === e.currentTarget) onClose()
   }
 
   if (!isOpen) return null
+
+  const isEmpty = messages.length === 0 && !loading
 
   return (
     <div
@@ -78,7 +158,9 @@ function TestStudentBotModal({ isOpen, onClose, subjectName }) {
       <div className={modalClass} onClick={(e) => e.stopPropagation()}>
         <header className={headerClass}>
           <div className={headerLeftClass}>
-            <Bot size={24} className="shrink-0 text-dm-primary" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-dm-primary/15">
+              <Bot size={20} className="shrink-0 text-dm-primary" />
+            </div>
             <div className="min-w-0">
               <h2 id="test-bot-modal-title" className={titleClass}>
                 Test Student Bot
@@ -96,30 +178,93 @@ function TestStudentBotModal({ isOpen, onClose, subjectName }) {
           </button>
         </header>
 
-        <div ref={messagesEndRef} className={bodyClass}>
-          <p className={noteClass}>
-            This is a preview of how students will interact with your bot.
-          </p>
-          {messages.map((m) => (
-            <ChatMessageBubble key={m.id} role={m.role} text={m.text} variant="modal" />
-          ))}
+        <div ref={messagesRef} className={bodyClass}>
+          {isEmpty ? (
+            <div className={emptyStateClass}>
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-dm-primary/10">
+                <Bot size={40} className="text-dm-primary" strokeWidth={1.5} />
+              </div>
+              <p className="text-lg font-semibold text-dm-foreground">
+                Test your bot
+              </p>
+              <p className="max-w-sm text-sm text-dm-muted">
+                Send a question below to preview how students will interact with
+                the AI tutor based on your uploaded materials.
+              </p>
+            </div>
+          ) : (
+            <>
+              <p className={noteClass}>
+                This is a live preview — responses are generated from your
+                indexed materials. No history is saved.
+              </p>
+              {messages.map((m) => (
+                <ChatMessageBubble
+                  key={m.id}
+                  role={m.role}
+                  text={m.text}
+                  variant="modal"
+                />
+              ))}
+              {loading && <TypingIndicator maxWidth="max-w-2xl" />}
+            </>
+          )}
         </div>
+
+        {error && (
+          <div className="shrink-0 flex items-center gap-2 border-t border-red-500/20 bg-red-500/5 px-4 py-2.5">
+            <AlertCircle size={16} className="shrink-0 text-red-400" />
+            <p className="flex-1 text-sm text-red-400">{error}</p>
+            <div className="flex items-center gap-2">
+              {lastFailedText && (
+                <button
+                  type="button"
+                  onClick={handleRetry}
+                  className="flex items-center gap-1.5 rounded-md bg-red-500/10 px-3 py-1.5 text-sm font-medium text-red-400 hover:bg-red-500/20 transition-colors"
+                >
+                  <RefreshCw size={14} />
+                  Retry
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setError('')
+                  setLastFailedText('')
+                }}
+                className="text-sm font-medium text-red-400 hover:text-red-300 transition-colors"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSend} className={inputWrapClass}>
           <input
+            ref={inputRef}
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Type a message..."
+            placeholder={
+              loading ? 'Generating response…' : 'Ask a question as a student…'
+            }
             className={inputClass}
             aria-label="Message"
+            disabled={loading}
+            maxLength={MAX_MSG + 200}
           />
           <button
             type="submit"
-            className="shrink-0 rounded-lg p-2 text-dm-primary hover:bg-dm-background transition-colors"
+            disabled={!input.trim() || loading}
+            className="shrink-0 rounded-lg p-2 text-dm-primary hover:bg-dm-primary/10 transition-all duration-150 active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
             aria-label="Send"
           >
-            <Send size={24} className="text-current" />
+            {loading ? (
+              <Loader2 size={24} className="animate-spin text-dm-primary" />
+            ) : (
+              <Send size={24} className="text-current" />
+            )}
           </button>
         </form>
       </div>

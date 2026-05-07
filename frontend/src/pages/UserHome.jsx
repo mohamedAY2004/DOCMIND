@@ -12,7 +12,7 @@ const logoutBtnClass =
 
 function UserHome() {
   const { user, logout } = useAuth()
-  const userName = user?.username ?? 'Student'
+  const userName = user?.name || user?.username || 'Student'
 
   return (
     <AppLayout

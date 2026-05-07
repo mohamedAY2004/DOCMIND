@@ -6,6 +6,7 @@ import {
   addDocFile,
   createDocConversation,
   deleteDocConversation,
+  updateDocConversation,
   listDocConversations,
   listDocFiles,
   removeDocFile,
@@ -15,10 +16,14 @@ const PROCESSING_POLL_MS = 3000
 const MAX_FILES = 5
 
 function humanizeUploadError(err, fallback = 'Upload failed.') {
+  if (err?.code === 'ECONNABORTED' || err?.message?.includes('timeout'))
+    return 'Upload timed out. The file may be too large or the connection is slow.'
+  if (!navigator.onLine)
+    return 'You appear to be offline. Check your connection and try again.'
   const code = err?.response?.data?.code
   if (code === 'FILE_TOO_LARGE') return 'File is larger than the 50 MiB limit.'
   if (code === 'UNSUPPORTED_MEDIA_TYPE')
-    return 'Only PDF, PPTX, and PNG files are supported.'
+    return 'Only PDF files are supported.'
   if (code === 'FILE_LIMIT' || code === 'MAX_FILES_EXCEEDED')
     return `Only ${MAX_FILES} documents can be attached to a conversation.`
   if (code === 'FILE_ENCRYPTED')
@@ -36,9 +41,11 @@ function ChatWithDoc() {
     prependConversation,
     updateConversation,
     deleteConversation,
+    renameConversation,
   } = useConversations({
     fetcher: listDocConversations,
     remover: deleteDocConversation,
+    updater: updateDocConversation,
   })
 
   const [files, setFiles] = useState([])
@@ -198,6 +205,7 @@ function ChatWithDoc() {
   // Keep the sidebar label fresh when the first message renames the chat.
   // If the server returns a renamed conversation later we just let the
   // list refetch on reload; this placeholder name is good enough for now.
+  /* Removed auto-title logic as backend no longer replaces title
   useEffect(() => {
     if (!activeId || !uploadingFirstFileName) return
     const current = conversations.find((c) => c.id === activeId)
@@ -205,6 +213,7 @@ function ChatWithDoc() {
       updateConversation(activeId, { title: uploadingFirstFileName })
     }
   }, [activeId, uploadingFirstFileName, conversations, updateConversation])
+  */
 
   return (
     <ChatScreen
@@ -213,6 +222,7 @@ function ChatWithDoc() {
       onSelectConversation={handleSelectConversation}
       onNewChat={handleNewChat}
       onDeleteConversation={handleDeleteConversation}
+      onRenameConversation={renameConversation}
       conversationsLoading={conversationsLoading}
       files={files}
       onFirstUpload={handleFirstUpload}

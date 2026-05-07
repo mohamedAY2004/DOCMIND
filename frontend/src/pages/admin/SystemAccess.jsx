@@ -7,12 +7,15 @@ import PrimaryButton from '../../components/ui/PrimaryButton'
 import { adminCardClass } from '../../utils/motion'
 import { getStudentAccess, setStudentAccess } from '../../services/systemAccessService'
 
+const MAX_MSG_LENGTH = 300
+
 function SystemAccess() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [enabled, setEnabled] = useState(true)
   const [message, setMessage] = useState('')
   const [updatedAt, setUpdatedAt] = useState(null)
+  const msgTooLong = message.length > MAX_MSG_LENGTH
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -34,6 +37,7 @@ function SystemAccess() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (msgTooLong) return
     setSaving(true)
     try {
       const data = await setStudentAccess({ enabled, message: message.trim() })
@@ -116,13 +120,23 @@ function SystemAccess() {
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder="e.g. The platform is closed until 3:00 PM for exams."
-                  className="w-full resize-y rounded-xl border border-dm-border bg-dm-background px-4 py-3 text-sm text-dm-foreground placeholder:text-dm-muted/70 focus:border-dm-primary/50 focus:outline-none focus:ring-2 focus:ring-dm-primary/20"
+                  className={`w-full resize-y rounded-xl border bg-dm-background px-4 py-3 text-sm text-dm-foreground placeholder:text-dm-muted/70 focus:outline-none focus:ring-2 ${msgTooLong ? 'border-red-500/60 focus:border-red-500/60 focus:ring-red-500/20' : 'border-dm-border focus:border-dm-primary/50 focus:ring-dm-primary/20'}`}
                 />
+                <div className="flex items-center justify-between">
+                  {msgTooLong ? (
+                    <p className="text-xs text-red-400">Message is too long. Please shorten it.</p>
+                  ) : (
+                    <span />
+                  )}
+                  <span className={`ml-auto text-xs ${msgTooLong ? 'text-red-400 font-medium' : 'text-dm-muted'}`}>
+                    {message.length} / {MAX_MSG_LENGTH}
+                  </span>
+                </div>
               </div>
 
               <p className="text-xs text-dm-muted">Last saved: {updatedLabel}</p>
 
-              <PrimaryButton type="submit" disabled={saving} fullWidth={false} className="sm:w-auto sm:self-start">
+              <PrimaryButton type="submit" disabled={saving || msgTooLong} fullWidth={false} className="sm:w-auto sm:self-start">
                 {saving ? (
                   'Saving…'
                 ) : (

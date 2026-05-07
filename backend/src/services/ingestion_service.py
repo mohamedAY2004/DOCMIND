@@ -1,7 +1,7 @@
 """Parse uploaded files into text chunks.
 
-Supports PDF (via PyMuPDF), PPTX (via python-pptx), and PNG (placeholder OCR
-hook). Plain text files are accepted too to help the legacy RAG debug routes.
+Supports PDF (via PyMuPDF), PPTX (via python-pptx), PNG (OCR not yet
+implemented — returns a descriptive stub), and plain text / markdown files.
 """
 from __future__ import annotations
 

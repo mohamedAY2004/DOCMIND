@@ -151,10 +151,13 @@ function Analytics() {
     { label: 'Satisfaction', value: `${satisfactionPct}%`, icon: ThumbsUp, accent: 'text-dm-primary bg-dm-primary/10' },
   ]
 
-  const feedbackPie = [
-    { name: 'Positive', value: totalPositive || 1 },
-    { name: 'Negative', value: totalNegative || 0 },
-  ]
+  const hasFeedback = totalPositive + totalNegative > 0
+  const feedbackPie = hasFeedback
+    ? [
+        { name: 'Positive', value: totalPositive },
+        { name: 'Negative', value: totalNegative },
+      ]
+    : []
 
   const subjectBars = filteredSubjects.map((s) => ({
     name: (s.title || '').length > 12 ? s.title.slice(0, 12) + '…' : s.title,
@@ -338,35 +341,44 @@ function Analytics() {
                 transition={{ delay: 0.45, duration: 0.4 }}
               >
                 <h2 className="mb-6 text-lg font-semibold text-dm-foreground">Feedback Distribution</h2>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={feedbackPie}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={70}
-                      outerRadius={110}
-                      paddingAngle={4}
-                      dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {feedbackPie.map((_, i) => (
-                        <Cell key={i} fill={PIE_COLORS[i]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="mt-4 flex items-center justify-center gap-6">
-                  <span className="flex items-center gap-2 text-sm text-dm-muted">
-                    <span className="h-3 w-3 rounded-full bg-emerald-400" />
-                    Positive ({totalPositive.toLocaleString()})
-                  </span>
-                  <span className="flex items-center gap-2 text-sm text-dm-muted">
-                    <span className="h-3 w-3 rounded-full bg-red-400" />
-                    Negative ({totalNegative.toLocaleString()})
-                  </span>
-                </div>
+                {hasFeedback ? (
+                  <>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie
+                          data={feedbackPie}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={70}
+                          outerRadius={110}
+                          paddingAngle={4}
+                          dataKey="value"
+                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        >
+                          {feedbackPie.map((_, i) => (
+                            <Cell key={i} fill={PIE_COLORS[i]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="mt-4 flex items-center justify-center gap-6">
+                      <span className="flex items-center gap-2 text-sm text-dm-muted">
+                        <span className="h-3 w-3 rounded-full bg-emerald-400" />
+                        Positive ({totalPositive.toLocaleString()})
+                      </span>
+                      <span className="flex items-center gap-2 text-sm text-dm-muted">
+                        <span className="h-3 w-3 rounded-full bg-red-400" />
+                        Negative ({totalNegative.toLocaleString()})
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex h-[300px] flex-col items-center justify-center gap-2">
+                    <ThumbsUp size={32} className="text-dm-muted/40" />
+                    <p className="text-sm text-dm-muted">No feedback data yet.</p>
+                  </div>
+                )}
               </motion.section>
             </div>
 

@@ -12,6 +12,7 @@ import {
 } from '../../services/adminService'
 
 const SLUG_RE = /^[a-z0-9-]{2,64}$/
+const COURSE_CODE_RE = /^[A-Z0-9-]{2,20}$/
 
 const DEFAULT_FORM = {
   id: '',
@@ -120,13 +121,33 @@ function SubjectFormModal({
   const validate = () => {
     const e = {}
     if (!isEdit) {
-      if (!form.id.trim()) e.id = 'Required'
-      else if (!SLUG_RE.test(form.id.trim()))
-        e.id = 'Lowercase letters, numbers, hyphens (2–64)'
+      if (!form.id.trim()) {
+        e.id = 'Subject ID is required.'
+      } else if (!SLUG_RE.test(form.id.trim())) {
+        e.id = 'Lowercase letters, numbers, and hyphens only (2–64 characters).'
+      }
     }
-    if (!form.title.trim()) e.title = 'Required'
-    if (!form.description.trim()) e.description = 'Required'
-    if (!form.courseCode.trim()) e.courseCode = 'Required'
+    const title = form.title.trim()
+    if (!title) {
+      e.title = 'Title is required.'
+    } else if (title.length > 120) {
+      e.title = 'At most 120 characters.'
+    }
+    const desc = form.description.trim()
+    if (!desc) {
+      e.description = 'Description is required.'
+    } else if (desc.length < 10) {
+      e.description = 'At least 10 characters.'
+    }
+    const code = form.courseCode.trim().toUpperCase()
+    if (!code) {
+      e.courseCode = 'Course code is required.'
+    } else if (!COURSE_CODE_RE.test(code)) {
+      e.courseCode = 'Uppercase letters, numbers, and hyphens only (2–20 characters).'
+    }
+    if (instructorIds.length === 0) {
+      e.instructors = 'At least one instructor must be assigned.'
+    }
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -211,25 +232,27 @@ function SubjectFormModal({
             />
           </FormField>
 
-          <FormField label="Course code" required error={errors.courseCode}>
+          <FormField label="Course code" required error={errors.courseCode} hint="Uppercase letters, numbers, hyphens">
             <input
               type="text"
               value={form.courseCode}
               onChange={(e) =>
-                setForm((f) => ({ ...f, courseCode: e.target.value }))
+                setForm((f) => ({ ...f, courseCode: e.target.value.toUpperCase() }))
               }
               className={inputClass}
               placeholder="MATH-102"
+              maxLength={20}
             />
           </FormField>
 
-          <FormField label="Title" required error={errors.title}>
+          <FormField label="Title" required error={errors.title} hint="Up to 120 characters">
             <input
               type="text"
               value={form.title}
               onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
               className={inputClass}
               placeholder="Calculus II"
+              maxLength={120}
             />
           </FormField>
 
@@ -251,7 +274,7 @@ function SubjectFormModal({
           </FormField>
         </div>
 
-        <FormField label="Description" required error={errors.description}>
+        <FormField label="Description" required error={errors.description} hint="10–500 characters">
           <textarea
             value={form.description}
             onChange={(e) =>
@@ -265,7 +288,9 @@ function SubjectFormModal({
 
         <FormField
           label="Instructors"
+          required
           hint={loading ? 'Loading users…' : 'Pick one or more instructors'}
+          error={errors.instructors}
         >
           <MultiSelect
             options={instructorOptions}

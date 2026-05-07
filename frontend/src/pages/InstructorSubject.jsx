@@ -50,6 +50,8 @@ const itemFade = {
 }
 
 const INDEXING_POLL_MS = 4000
+const MAX_FILE_BYTES = 50 * 1024 * 1024
+const ALLOWED_EXTENSIONS = new Set(['.pdf'])
 
 function InstructorSubject() {
   const { user, logout } = useAuth()
@@ -61,6 +63,8 @@ function InstructorSubject() {
   const [instructors, setInstructors] = useState([])
   const [materials, setMaterials] = useState([])
   const [testBotModalOpen, setTestBotModalOpen] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(null) // null = idle, 0-100 = uploading
+
 
   const subjectName = subject?.title || titleCaseSlug(subjectId)
 
@@ -115,9 +119,12 @@ function InstructorSubject() {
     return () => clearTimeout(t)
   }, [materials, refreshMaterials])
 
+  const isUploading = uploadProgress !== null
+
   const handleBrowseFiles = useCallback(() => {
+    if (isUploading) return // Prevent double-uploads
     fileInputRef.current?.click()
-  }, [])
+  }, [isUploading])
 
   const handleFileChange = useCallback(
     async (e) => {
@@ -125,26 +132,52 @@ function InstructorSubject() {
       e.target.value = ''
       if (!file) return
 
+      const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase()
+      if (!ALLOWED_EXTENSIONS.has(ext)) {
+        toast.error('Only PDF files are supported.')
+        return
+      }
+      if (file.size > MAX_FILE_BYTES) {
+        toast.error('File is larger than the 50 MB limit.')
+        return
+      }
+
       const toastId = `upload-${Date.now()}`
       toast.loading(`Uploading ${file.name}…`, { id: toastId })
+      setUploadProgress(0)
 
       try {
-        const saved = await uploadMaterial(subjectId, file)
+        const saved = await uploadMaterial(subjectId, file, {
+          onUploadProgress: (progressEvent) => {
+            const pct = progressEvent.total
+              ? Math.round((progressEvent.loaded / progressEvent.total) * 100)
+              : 0
+            setUploadProgress(pct)
+          },
+        })
         setMaterials((prev) => [...prev, saved])
         toast.success(`Uploaded ${file.name}. Indexing…`, { id: toastId })
       } catch (err) {
         const code = err?.response?.data?.code
-        const msg =
-          code === 'FILE_TOO_LARGE'
-            ? 'File is larger than the 50 MiB limit.'
-            : code === 'UNSUPPORTED_MEDIA_TYPE'
-              ? 'Only PDF and PPTX files are supported.'
-              : code === 'CONFLICT'
-                ? 'A material with this name already exists.'
-                : code === 'FILE_ENCRYPTED'
-                  ? 'Encrypted or password-protected PDFs cannot be processed. Please remove the password and try again.'
-                  : err?.response?.data?.message || 'Upload failed.'
+        let msg = 'Upload failed.'
+        if (err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')) {
+          msg = 'Upload timed out. The file may be too large or the connection is slow.'
+        } else if (!navigator.onLine) {
+          msg = 'You appear to be offline. Check your connection and try again.'
+        } else if (code === 'FILE_TOO_LARGE') {
+          msg = 'File is larger than the 50 MiB limit.'
+        } else if (code === 'UNSUPPORTED_MEDIA_TYPE') {
+          msg = 'Only PDF files are supported.'
+        } else if (code === 'CONFLICT') {
+          msg = 'A material with this name already exists.'
+        } else if (code === 'FILE_ENCRYPTED') {
+          msg = 'Encrypted or password-protected PDFs cannot be processed. Please remove the password and try again.'
+        } else if (err?.response?.data?.message) {
+          msg = err.response.data.message
+        }
         toast.error(msg, { id: toastId })
+      } finally {
+        setUploadProgress(null)
       }
     },
     [subjectId],
@@ -191,7 +224,7 @@ function InstructorSubject() {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".pdf,.pptx"
+          accept=".pdf"
           className="sr-only"
           aria-hidden
           onChange={handleFileChange}
@@ -288,15 +321,23 @@ function InstructorSubject() {
                   <Cloud size={22} className="text-dm-primary" />
                   <h2 className={cardTitleClass}>Upload Materials</h2>
                 </div>
-                <span className="text-sm text-dm-muted">PDF, PPTX (Max 50MB)</span>
+                <span className="text-sm text-dm-muted">PDF only (Max 50MB)</span>
               </div>
               <div className="mt-6">
                 <UploadZone
-                  title="Click or drag files to upload"
+                  title={isUploading ? 'Uploading…' : 'Click or drag files to upload'}
                   hint="Uploads are shared with every instructor on this subject."
-                  buttonText="Browse Files"
+                  buttonText={isUploading ? `Uploading ${uploadProgress}%` : 'Browse Files'}
                   onBrowse={handleBrowseFiles}
                 />
+                {isUploading && (
+                  <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-dm-border">
+                    <div
+                      className="h-full rounded-full bg-dm-primary transition-all duration-300 ease-out"
+                      style={{ width: `${uploadProgress}%` }}
+                    />
+                  </div>
+                )}
               </div>
             </motion.section>
 
@@ -445,6 +486,7 @@ function InstructorSubject() {
         isOpen={testBotModalOpen}
         onClose={() => setTestBotModalOpen(false)}
         subjectName={subjectName}
+        subjectId={subjectId}
       />
     </AppLayout>
   )

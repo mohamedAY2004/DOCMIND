@@ -75,6 +75,10 @@ export default {
           '0%, 100%': { filter: 'drop-shadow(0 0 6px rgba(74,222,128,0.1))' },
           '50%': { filter: 'drop-shadow(0 0 28px rgba(74,222,128,0.55))' },
         },
+        'fade-in': {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
       },
       animation: {
         'float': 'float 3s ease-in-out infinite',
@@ -85,6 +89,7 @@ export default {
         'typing-dot': 'typing-dot 1.4s ease-in-out infinite',
         'breathe-glow': 'breathe-glow 3s ease-in-out infinite',
         'float-glow': 'float 3s ease-in-out infinite, breathe-glow 3s ease-in-out infinite',
+        'fade-in': 'fade-in 0.4s ease-out both',
       },
     },
   },
