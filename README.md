@@ -1,6 +1,8 @@
-# DocMindFull
+# DocMind
 
-DocMindFull is an AI-powered academic assistant platform that helps students learn from course materials through conversational AI, while giving instructors and administrators operational control over subjects, users, and engagement analytics.
+![DocMind Logo](frontend/src/assets/docmind-logo.png)
+
+DocMind is an AI-powered academic assistant platform that helps students learn from course materials through conversational AI, while giving instructors and administrators operational control over subjects, users, and engagement analytics.
 
 ## Project Purpose
 
@@ -10,7 +12,7 @@ The project is designed to solve three core problems in modern academic workflow
 - Instructors need better tooling to organize content and monitor usage.
 - Admins need visibility into system activity, adoption, and feedback.
 
-DocMindFull addresses these needs with a role-based full-stack application that combines document-aware chat, subject tutors, and operational dashboards.
+DocMind addresses these needs with a role-based full-stack application that combines document-aware chat, subject tutors, and operational dashboards.
 
 ## What This Project Is
 
@@ -38,7 +40,7 @@ This repository contains a full-stack monorepo with:
 ## Repository Structure
 
 ```text
-DocMindFull/
+DocMind/
 ├── frontend/                 # React application (UI, routes, services)
 ├── backend/
 │   ├── src/                  # FastAPI source code
@@ -46,6 +48,11 @@ DocMindFull/
 │   └── README.md             # Backend-specific setup notes
 └── README.md                 # You are here
 ```
+
+## Product vs Landing Page
+
+- **Application (this repository)**: The full DocMind product (frontend + backend), including authentication, chat workflows, instructor tools, and admin operations.
+- **Landing Page (marketing only)**: [doc-mind-landing.vercel.app](https://doc-mind-landing.vercel.app/) — this introduces DocMind but is **not** the application itself.
 
 ## Quick Start
 
@@ -103,11 +110,14 @@ The backend exposes:
 
 ## Contributors
 
-> Fill this section with your contributors.
+> Team size: 6 members. Replace placeholders with names and profile links.
 
-- `Your Name` — `Role` — `GitHub/Contact`
-- `Contributor Name` — `Role` — `GitHub/Contact`
-- `Contributor Name` — `Role` — `GitHub/Contact`
+- `` — **Product Manager** — `GitHub/Contact`
+- `Name` — **Frontend Engineer** — `GitHub/Contact`
+- `Name` — **Backend Engineer** — `GitHub/Contact`
+- `Name` — **AI/ML Engineer** — `GitHub/Contact`
+- `Name` — **DevOps Engineer** — `GitHub/Contact`
+- `Name` — **QA Engineer** — `GitHub/Contact`
 
 ## License
 
