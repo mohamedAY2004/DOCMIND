@@ -447,7 +447,6 @@ cd frontend && npm install && npm run dev
 | Name | GitHub |
 |-----|------|
 | **Mohamed Youness** | https://github.com/mohamedAY2004 |
-| **Youssef Kamal** | https://github.com/MajikorX |
 
 ### AI
 | Name | GitHub |
