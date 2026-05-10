@@ -446,13 +446,13 @@ cd frontend && npm install && npm run dev
 ### Backend
 | Name | GitHub |
 |-----|------|
-| **Mohamed Youness** | https://github.com/mohamedAY2004 |
+| **Mohamed Younes** | https://github.com/mohamedAY2004 |
 
 ### AI
 | Name | GitHub |
 |-----|------|
 | **Amr Mustafa** | https://github.com/AmrMustafa2 |
-| **Mohamed Youness** | https://github.com/mohamedAY2004 |
+| **Mohamed Younes** | https://github.com/mohamedAY2004 |
 | **Ahmed Abo El-Naga** | https://github.com/AhmedAboelnaga004 |
 
 ### Mobile
