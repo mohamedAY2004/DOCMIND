@@ -442,6 +442,7 @@ cd frontend && npm install && npm run dev
 |-----|------|
 | **Abdulrhman Mohamed** | https://github.com/yeagx |
 | **Mohamed Amgad** | https://github.com/Mohamedamged17 |
+| **Youssef Kamal** | https://github.com/MajikorX |
 
 ### Backend
 | Name | GitHub |
