@@ -1,0 +1,15 @@
+# Run: dart run flutter_native_splash:create --path=flutter_native_splash.yaml
+flutter_native_splash:
+  # Full-screen background image (no color required)
+  image: "assets/images/splash.png"
+  color: "#0A1619"
+  #color_dark: "#0A1619"
+
+  # Android 12+ does not support background_image; use matching dark teal.
+  android_12:
+    color: "#0A1619"
+    #color_dark: "#0A1619"
+    image: "assets/logo/splash_logo.png"
+    #image_dark: "assets/logo/splash_logo.png"
+    branding: "assets/images/splash_branding.png"
+    #branding_dark: "assets/images/splash_branding.png"

@@ -1,0 +1,105 @@
+# Architectural Report: Docmind App
+
+## 1) PROJECT STRUCTURE OVERVIEW
+- `lib/core/`: Contains application-wide configurations, constants (colors, assets, texts), theme details, and routing definitions.
+- `lib/features/`: Designed to contain distinct feature modules. Currently, only the `auth` feature exists.
+- `lib/main.dart`: The main entry point of the Flutter application.
+
+**Analysis**: The folder structure attempts a feature-based Clean Architecture approach, separating core infrastructure from specific feature implementations. However, it is fundamentally incomplete as key architectural layers are missing.
+
+---
+
+## 2) FEATURE BREAKDOWN
+Currently, there is only one feature implemented:
+- `auth`: Its purpose is to handle user authentication flows and user type selection.
+- **Layers present**: `domain`, `presentation`. The `data` layer is entirely missing.
+  - `domain`: Contains only `entities` (the core business objects).
+  - `presentation`: Contains `controllers` (GetX state management and presentation logic) and `pages` (UI components).
+- **Important files**:
+  - `choose_user_type_page.dart`: The UI page containing buttons to select between "Under Institution" or "Regular User".
+  - `choose_user_type_controller.dart`: The GetX controller responsible for handling the user's selection and routing.
+  - `user_type.dart`: An enum defining the types of users (`university`, `normal`).
+
+---
+
+## 3) DOMAIN ANALYSIS
+- **Entities**: `UserType` (Enum). Its role is to define the available user categories in the authentication flow.
+- **UseCases**: None exist. There are no classes encapsulating specific business rules.
+- **Repository interfaces**: None exist. There are no contracts defining how data should be fetched or stored.
+
+---
+
+## 4) DATA LAYER ANALYSIS
+- **Models**: None exist. No DTOs (Data Transfer Objects) mapping JSON to Domain Entities.
+- **Repository implementations**: None exist.
+- **Remote and local data sources**: None exist. Application has no API communication or local storage mechanics established.
+- **Data flow**: There is no data flowing from an API to the UI. The application is completely static and UI-driven at this stage.
+
+---
+
+## 5) PRESENTATION LAYER ANALYSIS
+- **Main Pages**: `ChooseUserTypePage` (feature UI), `_PlaceholderHomePage` (a dummy page in core routes).
+- **Controllers**: `ChooseUserTypeController` (a `GetxController`).
+- **State flow**: Extremely simple. The UI triggers a method on the controller, passing an enum value. The controller processes this immediately without asynchronous state mutations.
+- **Navigation**: Handled via GetX named routes (`Get.toNamed`), keeping navigation logic out of the UI files, which is a good practice.
+- **Dependency injection**: Configured directly inside the view. The `ChooseUserTypePage` uses `GetBuilder<ChooseUserTypeController>(init: ChooseUserTypeController(), ...)`. There are no global or route-specific `Bindings` established.
+
+---
+
+## 6) ROUTING FLOW
+- **App entry point**: `main.dart` initializes `DocMindApp`, returning a `GetMaterialApp`.
+- **Splash logic**: `flutter_native_splash.yaml` is configured in the project root, meaning a native splash screen handles the initial loading period before Flutter draws the first frame.
+- **Decision making**: The entry screen is hardcoded to `home: const ChooseUserTypePage()` in `main.dart` (the `initialRoute` property is commented out).
+- **Navigation flow (Textual Diagram)**:
+  ```text
+  [App Start] 
+       │
+       ▼
+  [ChooseUserTypePage]
+       │
+       ├─ (Selects University) ──▶ [Navigate to /university-login]
+       │
+       └─ (Selects Regular) ─────▶ [Navigate to /sign-in]
+  ```
+
+---
+
+## 7) COMPLETE DATA FLOW
+Since the Data and API layers are missing, the step-by-step data flow is truncated:
+
+1. **User action**: User taps the "Under Institution" card on `ChooseUserTypePage`.
+2. **Controller**: `ChooseUserTypeController.selectUserType(UserType.university)` is invoked.
+3. **Navigation**: The controller evaluates the type and calls `Get.toNamed(AppRoutes.universityLogin)`.
+4. **UseCase / Repository / DataSource / API**: N/A (Not implemented, no external data requested or submitted).
+5. **Back to UI**: The route changes, rendering the new page (though the target routes are not yet fully defined in `AppPages`).
+
+---
+
+## 8) DEPENDENCY GRAPH
+- The `presentation` layer depends on the `domain` layer (Controller imports `UserType` entity).
+- The `presentation` layer depends on the `core` layer (UI imports constants, Controller imports routes).
+- **Clean Architecture violations**: There are no strict violations in terms of reversed dependencies (e.g., Domain depending on Data). However, the immediate instantiation of the controller inside the UI (`init: ChooseUserTypeController()`) tightens coupling and circumvents proper Dependency Injection (DI).
+- **UI calling Data layer**: No. (Data layer does not exist).
+
+---
+
+## 9) TECHNICAL DEBT & STRUCTURE PROBLEMS
+- **Architectural mistakes**: The Data layer and Use Cases are completely absent. True Clean Architecture requires Use Cases to orchestrate business logic and interact with Repositories.
+- **Coupling problems**: Controller initialization is coupled to the Page widget. To properly manage lifecycle and dependencies in GetX, `Bindings` should be created and attached to the routes in `AppPages`.
+- **Scalability risks**: If developers continue to build without UseCases and Repositories, the project will degrade into a "Fat Controller" architecture, where GetX controllers handle business logic, API calls, and state management simultaneously.
+- **Duplicated logic**: None observed; the codebase is too small.
+
+---
+
+## 10) SUMMARY
+- **Strengths**: 
+  - Clear separation of core constants, themes, and routes.
+  - The UI is well-structured, extracts widgets (`UserTypeCard`), and strictly uses centralized color/asset constant files.
+  - Good use of GetX for separating routing logic from UI files.
+- **Weaknesses**: 
+  - Fundamentally incomplete implementation of Clean Architecture.
+  - Lack of Dependency Injection mechanisms (no GetX Bindings).
+- **Scalability score**: **5 / 10** 
+  - The directory mapping supports scalability, but the currently established patterns (inline DI, missing abstractions) will hinder scaling if not corrected early.
+- **Clean Architecture compliance score**: **3 / 10** 
+  - While folders are named correctly (`domain`, `presentation`), the actual architectural tenets (Repositories resolving Data Sources, Use Cases orchestrating Entities) are completely absent.

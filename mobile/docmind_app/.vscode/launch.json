@@ -1,0 +1,25 @@
+{
+    "configurations": [
+        {
+            "type": "dart",
+            "request": "launch",
+            "name": "DocMind APP",
+            "program": "lib/main.dart",
+            "flutterMode": "debug"
+        },
+        {
+            "type": "dart",
+            "request": "launch",
+            "name": "DocMind APP (Profile Mode)",
+            "program": "lib/main.dart",
+            "flutterMode": "profile"
+        },
+        {
+            "type": "dart",
+            "request": "launch",
+            "name": "DocMind APP (Release Mode)",
+            "program": "lib/main.dart",
+            "flutterMode": "release"
+        }
+    ]
+}

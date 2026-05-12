@@ -1,0 +1,19 @@
+# Run: dart run flutter_launcher_icons
+# Config here; pubspec.yaml should not duplicate launcher icon settings.
+flutter_launcher_icons:
+  image_path: "assets/logo/app_logo.png"
+
+  android: "launcher_icon"
+  image_path_android: "assets/logo/app_logo.png"
+  min_sdk_android: 16
+  # Green background so adaptive icon is not white; use your exact brand green if different.
+  adaptive_icon_background: "#0F9197"
+  adaptive_icon_foreground: "assets/logo/app_logo.png"
+  # Inset so the logo sits inside the circular mask and isn’t cropped at the edges.
+  adaptive_icon_foreground_inset: 25
+
+  ios: true
+  image_path_ios: "assets/logo/app_logo.png"
+  remove_alpha_ios: true
+  # Same green so transparent areas aren’t filled with white.
+  background_color_ios: "#0F9197"

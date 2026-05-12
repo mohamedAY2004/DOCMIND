@@ -1,0 +1,15 @@
+1) Open Windows PowerShell as Administrator and run
+wsl hostname -I
+
+Type those commands:
+netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=5000 connectaddress=172.25.201.106 connectport=5000
+netsh advfirewall firewall add rule name="WSL FastAPI 5000" dir=in action=allow protocol=TCP localport=5000
+
+then u can use ur laptop ip address on phone like:
+http://192.168.1.4:5000/docs
+
+
+If we need to delete old proxy and add new:
+
+netsh interface portproxy reset
+netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=5000 connectaddress=NEW_WSL_IP connectport=5000
