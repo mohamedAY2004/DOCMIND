@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import PrimaryButton from './PrimaryButton'
+import { primarySurfaceClass } from '../../constants/themeClasses'
 
 const cardClass =
   'flex flex-col rounded-card border border-dm-border bg-dm-card p-7 shadow-lg shadow-black/25 hover:scale-[1.02] hover:shadow-xl hover:border-dm-primary/30 transition-all duration-300'
@@ -9,7 +10,7 @@ const titleClass = 'text-lg font-bold text-dm-foreground'
 const descClass = 'mt-2 flex-1 text-sm leading-relaxed text-dm-muted'
 const buttonWrapClass = 'mt-6'
 const buttonStyleClass =
-  'block w-full rounded-xl py-3 px-4 text-center font-medium bg-dm-primary text-dm-foreground shadow-md shadow-dm-primary/25 transition-all duration-300 hover:shadow-lg hover:shadow-dm-primary/35 hover:brightness-110'
+  `${primarySurfaceClass} block w-full rounded-xl py-3 px-4 text-center font-medium transition-all duration-300 hover:shadow-lg hover:shadow-dm-primary/35 hover:brightness-110`
 
 function ActionCard({ icon, title, description, buttonText, href, onClick, className = '' }) {
   return (

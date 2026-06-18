@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AASTMT Student Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* ── Left Hero ── */
+    .hero {
+      flex: 1;
+      position: relative;
+      background: #1a1a1a;
+      overflow: hidden;
+    }
+
+    .hero-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.85;
+      display: block;
+    }
+
+    /* fallback gradient when image missing */
+    .hero-fallback {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #1b4332 0%, #2d6a4f 40%, #74c69d 100%);
+    }
+
+    .hero-caption {
+      position: absolute;
+      bottom: 32px;
+      left: 32px;
+      color: #fff;
+      max-width: 520px;
+    }
+
+    .hero-caption h1 {
+      font-size: 1.7rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.55);
+    }
+
+    .hero-caption h1 span { font-weight: 400; }
+
+    .hero-caption p {
+      font-size: 0.85rem;
+      line-height: 1.6;
+      opacity: 0.92;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    }
+
+    /* ── Right Panel ── */
+    .panel {
+      width: 380px;
+      min-width: 340px;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 40px 36px 24px;
+      box-shadow: -4px 0 24px rgba(0,0,0,0.12);
+    }
+
+    .panel-body { display: flex; flex-direction: column; gap: 0; }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 32px;
+    }
+
+    .brand-logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      object-fit: contain;
+    }
+
+    /* Fallback crest when image missing */
+    .brand-logo-fallback {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #1a3a5c;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 1.2rem;
+    }
+
+    .brand-name {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #1a1a2e;
+    }
+
+    .brand-name span { font-weight: 400; }
+
+    /* Registration */
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #555;
+      margin-bottom: 8px;
+      letter-spacing: 0.02em;
+    }
+
+    .btn-register {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      background: #e63946;
+      color: #fff;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-align: center;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-bottom: 24px;
+      transition: background 0.2s;
+      text-decoration: none;
+    }
+
+    .btn-register:hover { background: #c1121f; }
+
+    .divider {
+      border: none;
+      border-top: 1px solid #e5e5e5;
+      margin-bottom: 20px;
+    }
+
+    /* Login Form */
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 0.875rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      color: #333;
+    }
+
+    .form-control::placeholder { color: #aaa; }
+
+    .form-control:focus {
+      border-color: #0077b6;
+      box-shadow: 0 0 0 3px rgba(0,119,182,0.12);
+    }
+
+    /* Fake CAPTCHA */
+    .captcha-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 10px 14px;
+      margin-bottom: 10px;
+      background: #fafafa;
+    }
+
+    .captcha-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .captcha-checkbox {
+      width: 20px;
+      height: 20px;
+      border: 2px solid #aaa;
+      border-radius: 2px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+
+    .captcha-checkbox.checked {
+      background: #4caf50;
+      border-color: #4caf50;
+    }
+
+    .captcha-checkbox.checked::after {
+      content: '✓';
+      color: #fff;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .captcha-text {
+      font-size: 0.8rem;
+      color: #333;
+    }
+
+    .captcha-logo {
+      text-align: right;
+      font-size: 0.6rem;
+      color: #aaa;
+      line-height: 1.4;
+    }
+
+    .captcha-logo .rc-logo {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #4a90d9;
+      display: block;
+    }
+
+    /* Remember Me */
+    .remember {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 16px;
+      font-size: 0.8rem;
+      color: #555;
+      cursor: pointer;
+    }
+
+    .remember input { cursor: pointer; }
+
+    /* Login button */
+    .btn-login {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      background: #0077b6;
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-bottom: 12px;
+      transition: background 0.2s, transform 0.1s;
+      font-family: inherit;
+    }
+
+    .btn-login:hover { background: #005f8d; }
+    .btn-login:active { transform: scale(0.99); }
+
+    .btn-login.loading {
+      background: #005f8d;
+      cursor: not-allowed;
+    }
+
+    .forgot {
+      font-size: 0.75rem;
+      color: #666;
+      text-align: center;
+    }
+
+    .forgot a {
+      color: #0077b6;
+      text-decoration: none;
+    }
+
+    .forgot a:hover { text-decoration: underline; }
+
+    /* Error */
+    .error-msg {
+      background: #fee2e2;
+      border: 1px solid #fca5a5;
+      color: #b91c1c;
+      font-size: 0.8rem;
+      padding: 8px 12px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+      display: none;
+    }
+
+    .error-msg.visible { display: block; }
+
+    /* Footer */
+    .panel-footer {
+      font-size: 0.7rem;
+      color: #aaa;
+      text-align: center;
+    }
+
+    /* Loading spinner overlay */
+    .loader-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(255,255,255,0.7);
+      z-index: 999;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .loader-overlay.visible { display: flex; }
+
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 4px solid #e5e5e5;
+      border-top-color: #0077b6;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    .loader-overlay p {
+      font-size: 0.9rem;
+      color: #333;
+      font-weight: 500;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <!-- Left Hero -->
+  <div class="hero">
+    <img
+      src="images/campus.jpg"
+      alt="AASTMT Campus"
+      class="hero-img"
+      onerror="this.style.display='none'; document.querySelector('.hero-fallback').style.display='block';"
+    />
+    <div class="hero-fallback" style="display:none; position:absolute; inset:0;"></div>
+    <div class="hero-caption">
+      <h1><strong>AASTMT</strong> <span>Student Portal</span></h1>
+      <p>
+        AASTMT Student Portal is an online gateway where students can log in to access important
+        program information. Student Portal contain information on courses, transcripts, timetables,
+        exam schedules and department contact numbers.
+      </p>
+    </div>
+  </div>
+
+  <!-- Right Panel -->
+  <div class="panel">
+    <div class="panel-body">
+
+      <!-- Brand -->
+      <div class="brand">
+        <img
+          src="images/AASTMT_Logo.png"
+          alt="AASTMT"
+          class="brand-logo"
+        />
+        <div class="brand-name"><strong>Student</strong> <span>Portal</span></div>
+      </div>
+
+      <!-- Registration -->
+      <div class="section-label">Registration</div>
+      <a href="#" class="btn-register">Open Registration</a>
+
+      <hr class="divider" />
+
+      <!-- Login -->
+      <div class="section-label">Login</div>
+
+      <div id="errorMsg" class="error-msg">Invalid Registration Number or Pin Code. Please try again.</div>
+
+      <form id="loginForm" novalidate>
+        <div class="form-group">
+          <input
+            id="regNumber"
+            type="text"
+            class="form-control"
+            placeholder="Registration Number"
+            autocomplete="username"
+          />
+        </div>
+        <div class="form-group">
+          <input
+            id="pinCode"
+            type="password"
+            class="form-control"
+            placeholder="Pin Code"
+            autocomplete="current-password"
+          />
+        </div>
+
+        <!-- Fake CAPTCHA -->
+        <div class="captcha-box" id="captchaBox">
+          <div class="captcha-left">
+            <div class="captcha-checkbox" id="captchaCheck" onclick="toggleCaptcha()"></div>
+            <span class="captcha-text">I'm not a robot</span>
+          </div>
+          <div class="captcha-logo">
+            <span class="rc-logo">reCAPTCHA</span>
+            <span>Privacy – Terms</span>
+          </div>
+        </div>
+
+        <!-- Remember Me -->
+        <label class="remember">
+          <input type="checkbox" id="rememberMe" />
+          Remember Me
+        </label>
+
+        <button type="submit" class="btn-login" id="loginBtn">Login</button>
+      </form>
+
+      <div class="forgot">
+        Can't log in or Forgot Password?
+        <a href="#">Click here</a> to send your password
+      </div>
+
+    </div>
+
+    <div class="panel-footer">
+      Copyright © 2019 Information and Documentation Center · AASTMT
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div class="loader-overlay" id="loaderOverlay">
+    <div class="spinner"></div>
+    <p>Signing you in…</p>
+  </div>
+
+  <script>
+    let captchaDone = false;
+
+    function toggleCaptcha() {
+      const box = document.getElementById('captchaCheck');
+      captchaDone = !captchaDone;
+      box.classList.toggle('checked', captchaDone);
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      const reg = document.getElementById('regNumber').value.trim();
+      const pin = document.getElementById('pinCode').value.trim();
+      const err = document.getElementById('errorMsg');
+
+      // Basic validation
+      if (!reg || !pin) {
+        err.textContent = 'Please enter your Registration Number and Pin Code.';
+        err.classList.add('visible');
+        return;
+      }
+
+      if (!captchaDone) {
+        err.textContent = 'Please complete the CAPTCHA verification.';
+        err.classList.add('visible');
+        return;
+      }
+
+      err.classList.remove('visible');
+
+      // Store credentials for SSO passthrough (demo only)
+      sessionStorage.setItem('portal_reg', reg);
+      sessionStorage.setItem('portal_pin', pin);
+      sessionStorage.setItem('portal_name', getDisplayName(reg));
+
+      // Show loader then navigate
+      document.getElementById('loaderOverlay').classList.add('visible');
+      setTimeout(() => {
+        window.location.href = 'portal.html';
+      }, 1600);
+    });
+
+    // Generate a plausible student name from the reg number
+    function getDisplayName(reg) {
+      const names = [
+        'Aya Ibrahim',
+        'Mohamed Ahmed Hassan',
+        'Sara Khaled Ibrahim',
+        'Ahmed Mostafa Ali',
+        'Nour Elsayed Mahmoud'
+      ];
+      const idx = parseInt(reg.slice(-1), 10) % names.length;
+      return names[isNaN(idx) ? 0 : idx];
+    }
+  </script>
+</body>
+</html>

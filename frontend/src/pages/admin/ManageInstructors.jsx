@@ -13,6 +13,7 @@ import {
   ChevronDown,
 } from 'lucide-react'
 import AdminLayout from '../../components/layout/AdminLayout'
+import { primaryButtonCompactClass } from '../../constants/themeClasses'
 import UserFormModal from '../../components/admin/UserFormModal'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import Modal from '../../components/admin/Modal'
@@ -107,7 +108,7 @@ function AssignSubjectDialog({ open, onClose, instructor, available, onAssigned 
             type="button"
             onClick={handleAssign}
             disabled={busy || !subjectId}
-            className="flex items-center gap-1.5 rounded-xl bg-dm-primary px-4 py-2 text-sm font-semibold text-dm-foreground transition-colors hover:bg-dm-primary/80 disabled:opacity-50"
+            className={`${primaryButtonCompactClass} disabled:opacity-50`}
           >
             {busy && <Loader2 size={14} className="animate-spin" />}
             Assign
@@ -414,7 +415,7 @@ function ManageInstructors() {
           <button
             type="button"
             onClick={openCreate}
-            className="flex items-center gap-1.5 rounded-xl bg-dm-primary px-3 py-2 text-sm font-semibold text-dm-foreground transition-colors hover:bg-dm-primary/80"
+            className={`${primaryButtonCompactClass} px-3 py-2`}
           >
             <UserPlus size={14} />
             Add instructor

@@ -14,6 +14,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import AdminLayout from '../../components/layout/AdminLayout'
+import { primaryButtonCompactClass, primaryChipActiveClass } from '../../constants/themeClasses'
 import InstructorAvatarGroup from '../../components/ui/InstructorAvatarGroup'
 import {
   getSubjectStats,
@@ -385,7 +386,7 @@ function SubjectFeedback() {
                     onClick={() => setFeedbackFilter(f)}
                     className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-all duration-200 ${
                       feedbackFilter === f
-                        ? 'bg-dm-primary text-dm-foreground'
+                        ? primaryChipActiveClass
                         : 'text-dm-muted hover:bg-dm-background hover:text-dm-foreground'
                     }`}
                   >
@@ -398,7 +399,7 @@ function SubjectFeedback() {
                 type="button"
                 onClick={handleGenerateReport}
                 disabled={isGenerating || filteredFeedback.length === 0}
-                className="flex items-center gap-1.5 rounded-xl bg-dm-primary px-4 py-2 text-xs font-semibold text-dm-foreground transition-all hover:bg-dm-primary/80 disabled:cursor-not-allowed disabled:opacity-40"
+                className={`${primaryButtonCompactClass} px-4 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-40`}
               >
                 {isGenerating ? (
                   <Loader2 size={14} className="animate-spin" />

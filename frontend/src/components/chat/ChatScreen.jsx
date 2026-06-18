@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
-import { FileText, Loader2, Paperclip, RefreshCw, Send, X } from 'lucide-react'
+import { FileText, Loader2, Paperclip, Send, X } from 'lucide-react'
 import ChatMessageBubble from '../ui/ChatMessageBubble'
+import ErrorBanner from '../ui/ErrorBanner'
 import FileUploadPrompt from '../ui/FileUploadPrompt'
 import ProcessingState from '../ui/ProcessingState'
 import TypingIndicator from './TypingIndicator'
@@ -19,9 +20,6 @@ const inputClass =
   'flex-1 rounded-xl border border-dm-border bg-dm-background py-3 pl-12 pr-4 text-dm-foreground placeholder:text-dm-muted transition-shadow duration-200 focus:outline-none focus:ring-2 focus:ring-dm-primary focus:shadow-md focus:shadow-dm-primary/10 disabled:opacity-50 disabled:cursor-not-allowed'
 const sendBtnClass =
   'shrink-0 rounded-lg p-2 text-dm-primary transition-all duration-150 hover:bg-dm-primary/10 hover:opacity-90 active:scale-95 disabled:opacity-40 disabled:pointer-events-none'
-const errorBannerClass =
-  'shrink-0 flex items-center gap-3 border-t border-red-500/20 bg-red-500/5 px-4 py-2.5'
-
 const FILE_ACCEPT = '.pdf'
 const MAX_MSG = 2000
 
@@ -193,30 +191,11 @@ function ChatScreen({
           </div>
 
           {status === 'error' && (
-            <div className={errorBannerClass}>
-              <p className="flex-1 text-sm text-red-400">
-                {errorMessage || 'Something went wrong. Please try again.'}
-              </p>
-              <div className="flex items-center gap-2">
-                {lastFailedText && (
-                  <button
-                    type="button"
-                    onClick={retry}
-                    className="flex items-center gap-1.5 rounded-md bg-red-500/10 px-3 py-1.5 text-sm font-medium text-red-400 hover:bg-red-500/20 transition-colors"
-                  >
-                    <RefreshCw size={14} />
-                    Retry
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={dismissError}
-                  className="text-sm font-medium text-red-400 hover:text-red-300 transition-colors"
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
+            <ErrorBanner
+              message={errorMessage}
+              onRetry={lastFailedText ? retry : undefined}
+              onDismiss={dismissError}
+            />
           )}
 
           {hasActive && (

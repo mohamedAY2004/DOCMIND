@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Loader2, Save, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import Modal from './Modal'
+import { primaryButtonCompactClass } from '../../constants/themeClasses'
 import FormField, { inputClass, selectClass } from './FormField'
 import MultiSelect from './MultiSelect'
 import {
@@ -320,7 +321,7 @@ function UserFormModal({
           <button
             type="submit"
             disabled={submitting}
-            className="flex items-center gap-1.5 rounded-xl bg-dm-primary px-4 py-2 text-sm font-semibold text-dm-foreground transition-colors hover:bg-dm-primary/80 disabled:opacity-60"
+            className={primaryButtonCompactClass}
           >
             {submitting ? (
               <Loader2 size={14} className="animate-spin" />

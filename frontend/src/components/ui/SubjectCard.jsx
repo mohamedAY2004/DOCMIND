@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { primarySurfaceClass } from '../../constants/themeClasses'
 
 const cardClass = [
   'group flex flex-col rounded-card border border-dm-border bg-dm-card p-6 md:p-8',
@@ -12,9 +13,8 @@ const descClass = 'mt-2 flex-1 text-sm leading-relaxed text-dm-muted'
 const buttonWrapClass = 'mt-6'
 
 const buttonStyleClass = [
+  primarySurfaceClass,
   'flex w-full items-center justify-center gap-2 rounded-xl py-3 px-4',
-  'font-medium bg-dm-primary text-dm-foreground',
-  'shadow-md shadow-dm-primary/20',
   'transition-all duration-300',
   'group-hover:shadow-lg group-hover:shadow-dm-primary/30 group-hover:scale-[1.02] group-hover:brightness-110',
 ].join(' ')

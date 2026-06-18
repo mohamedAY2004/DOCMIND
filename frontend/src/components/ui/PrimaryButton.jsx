@@ -1,5 +1,4 @@
-const buttonClass =
-  'rounded-xl font-medium py-3 px-4 bg-dm-primary text-dm-foreground transition-all duration-200 hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-dm-primary focus:ring-offset-2 focus:ring-offset-dm-card'
+import { primaryButtonClass } from '../../constants/themeClasses'
 
 function PrimaryButton({
   children,
@@ -11,7 +10,7 @@ function PrimaryButton({
   return (
     <button
       type={type}
-      className={[buttonClass, fullWidth && 'w-full', className]
+      className={[primaryButtonClass, fullWidth && 'w-full', className]
         .filter(Boolean)
         .join(' ')}
       {...props}

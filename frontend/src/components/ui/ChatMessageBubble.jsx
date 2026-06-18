@@ -5,6 +5,7 @@ import { Brain, User, Copy, Check } from 'lucide-react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
+import { primarySurfaceClassBr } from '../../constants/themeClasses'
 
 const bubbleUserAddClass = 'flex-row-reverse ml-auto'
 
@@ -15,7 +16,7 @@ const assistantInnerModalClass =
 const assistantInnerTutorClass =
   'rounded-xl bg-gradient-to-br from-dm-card via-dm-card/90 to-dm-card/70 border border-dm-border/30 p-4 text-dm-foreground shadow-md shadow-dm-primary/5 transition-all duration-200 hover:shadow-lg hover:shadow-dm-primary/10'
 const bubbleUserInnerClass =
-  'rounded-xl bg-dm-primary p-4 text-dm-foreground shadow-sm transition-shadow duration-200 hover:shadow-md'
+  `${primarySurfaceClassBr} rounded-xl p-4 transition-shadow duration-200 hover:shadow-lg hover:shadow-dm-primary/30`
 
 const actionBtnBase =
   'flex h-7 w-7 items-center justify-center rounded-md transition-all duration-150 hover:bg-dm-background'
@@ -79,26 +80,26 @@ function ChatMessageBubble({
           className={`mt-0.5 shrink-0 flex h-8 w-8 items-center justify-center rounded-full ${
             isAssistant
               ? 'bg-dm-primary/10 ring-2 ring-dm-primary/20'
-              : 'bg-dm-primary/30'
+              : 'bg-dm-primary/20 ring-2 ring-dm-primary/30'
           }`}
         >
           <Icon
             size={16}
             className={
-              isAssistant ? 'text-dm-primary' : 'text-dm-foreground'
+              isAssistant ? 'text-dm-primary' : 'text-dm-primary'
             }
           />
         </div>
       ) : (
         <Icon
           size={24}
-          className={`mt-1 shrink-0 ${isAssistant ? 'text-dm-primary' : 'text-dm-foreground'}`}
+          className={`mt-1 shrink-0 ${isAssistant ? 'text-dm-primary' : 'text-dm-primary'}`}
         />
       )}
       <div className="flex flex-col gap-1 min-w-0">
         <div className={innerClass}>
           {isAssistant ? (
-            <div className="chat-prose prose prose-sm prose-invert max-w-none">
+            <div className="chat-prose prose prose-sm max-w-none">
               <Markdown
                 remarkPlugins={remarkPlugins}
                 rehypePlugins={rehypePlugins}
@@ -108,7 +109,7 @@ function ChatMessageBubble({
               {streaming && <StreamingCursor />}
             </div>
           ) : (
-            <div className="whitespace-pre-wrap">
+            <div className="whitespace-pre-wrap text-white">
               {text}
             </div>
           )}

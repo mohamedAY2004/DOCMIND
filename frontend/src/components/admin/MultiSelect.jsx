@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, useEffect } from 'react'
 import { Check, ChevronDown, Search, X } from 'lucide-react'
+import { primaryChipActiveClass } from '../../constants/themeClasses'
 
 /**
  * Tailwind-styled multi-select with checkbox rows + a pill preview.
@@ -150,7 +151,7 @@ function MultiSelect({
                     <span
                       className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
                         checked
-                          ? 'border-dm-primary bg-dm-primary text-dm-foreground'
+                          ? `border-dm-primary ${primaryChipActiveClass}`
                           : 'border-dm-border'
                       }`}
                     >

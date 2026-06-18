@@ -6,14 +6,15 @@ import InputField from '../components/ui/InputField'
 import InstructorSubjectCard from '../components/ui/InstructorSubjectCard'
 import GradientBackdrop from '../components/ui/GradientBackdrop'
 import PageFooter from '../components/ui/PageFooter'
+import ThemeToggle from '../components/ui/ThemeToggle'
 import useAuth from '../hooks/useAuth'
 import {
   getInstructorSubjects,
   getSubjectInstructors,
 } from '../services/subjectService'
-import docmindLogo from '../assets/docmind-logo.png'
-import { stagger, fadeUp } from '../utils/motion'
 import { instructorDisplayName, normalizeInstructorRow } from '../utils/formatters'
+import { primarySurfaceClass } from '../constants/themeClasses'
+import { stagger, fadeUp } from '../utils/motion'
 
 function unwrapList(res) {
   if (!res) return []
@@ -111,7 +112,7 @@ function InstructorHome() {
       topNav={
         <AppTopBar
           title="DocMind"
-          logo={docmindLogo}
+          showLogo
           logoClassName="h-14 w-auto object-contain"
           logoHref="/instructor"
         >
@@ -120,12 +121,13 @@ function InstructorHome() {
               <InputField
                 placeholder="Search Subjects"
                 icon={<Search size={16} className="text-current" />}
-                className="rounded-xl border-white/10 bg-white/5 backdrop-blur"
+                className="rounded-xl border-dm-border/50 bg-dm-background/50 backdrop-blur"
                 compact
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
+            <ThemeToggle />
             <button
               type="button"
               onClick={logout}
@@ -159,7 +161,7 @@ function InstructorHome() {
             </section>
             <button
               type="button"
-              className="rounded-xl bg-dm-primary px-4 py-2.5 text-sm font-medium text-dm-foreground transition-all duration-200 hover:opacity-95 hover:scale-[1.03] active:scale-95"
+              className={`${primarySurfaceClass} rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:opacity-95 hover:scale-[1.03] active:scale-95`}
             >
               Semester: Fall 2025
             </button>

@@ -11,6 +11,7 @@ import {
   MoreVertical,
 } from 'lucide-react'
 import AdminLayout from '../../components/layout/AdminLayout'
+import { primaryButtonCompactClass, primaryChipActiveClass } from '../../constants/themeClasses'
 import Pagination from '../../components/ui/Pagination'
 import UserFormModal from '../../components/admin/UserFormModal'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
@@ -273,7 +274,7 @@ function ManageUsers() {
                   onClick={() => { setRoleFilter(r); setPage(1) }}
                   className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
                     roleFilter === r
-                      ? 'bg-dm-primary text-dm-foreground'
+                      ? primaryChipActiveClass
                       : 'bg-dm-card border border-dm-border text-dm-muted hover:bg-dm-background hover:text-dm-foreground'
                   }`}
                 >
@@ -284,7 +285,7 @@ function ManageUsers() {
             <button
               type="button"
               onClick={openCreate}
-              className="flex items-center gap-1.5 rounded-xl bg-dm-primary px-3 py-2 text-xs font-semibold text-dm-foreground transition-colors hover:bg-dm-primary/80"
+              className={`${primaryButtonCompactClass} px-3 py-2 text-xs`}
             >
               <UserPlus size={14} />
               Add user

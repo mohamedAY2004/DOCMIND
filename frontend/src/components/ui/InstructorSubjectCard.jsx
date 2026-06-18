@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { FileText, Loader2, Users } from 'lucide-react'
 import PrimaryButton from './PrimaryButton'
 import InstructorAvatarGroup from './InstructorAvatarGroup'
+import { primarySurfaceClass } from '../../constants/themeClasses'
 
 const cardClass =
   'flex flex-col overflow-hidden rounded-card border border-dm-border bg-dm-card shadow-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:border-dm-primary/40'
@@ -19,7 +20,7 @@ const courseInfoClass = 'mt-1 text-sm text-dm-muted'
 const pdfRowClass = 'mt-3 flex items-center gap-2 text-sm text-dm-muted'
 const buttonWrapClass = 'mt-5'
 const buttonLinkClass =
-  'block w-full rounded-xl bg-dm-primary py-3 px-4 text-center font-medium text-dm-foreground transition-opacity hover:opacity-95'
+  `${primarySurfaceClass} block w-full rounded-xl py-3 px-4 text-center font-medium transition-opacity hover:opacity-95`
 
 function StatusBadge({ status }) {
   if (status === 'ready') {

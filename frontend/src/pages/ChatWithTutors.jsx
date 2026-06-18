@@ -5,8 +5,8 @@ import { AppLayout, AppTopBar } from '../components/layout'
 import SubjectCard from '../components/ui/SubjectCard'
 import GradientBackdrop from '../components/ui/GradientBackdrop'
 import PageFooter from '../components/ui/PageFooter'
+import ThemeToggle from '../components/ui/ThemeToggle'
 import { getStudentSubjects } from '../services/subjectService'
-import docmindLogo from '../assets/docmind-logo.png'
 
 import { stagger, fadeUp } from '../utils/motion'
 
@@ -39,10 +39,14 @@ function ChatWithTutors() {
       topNav={
         <AppTopBar
           title="DocMind"
-          logo={docmindLogo}
+          showLogo
           logoClassName="h-14 w-auto object-contain"
           backTo="/home"
-        />
+        >
+          <div className="ml-auto">
+            <ThemeToggle />
+          </div>
+        </AppTopBar>
       }
     >
       <div className="relative flex flex-1 flex-col">

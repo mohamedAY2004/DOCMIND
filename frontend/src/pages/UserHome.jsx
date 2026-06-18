@@ -4,8 +4,8 @@ import { AppLayout, AppTopBar } from '../components/layout'
 import ActionCard from '../components/ui/ActionCard'
 import GradientBackdrop from '../components/ui/GradientBackdrop'
 import PageFooter from '../components/ui/PageFooter'
+import ThemeToggle from '../components/ui/ThemeToggle'
 import useAuth from '../hooks/useAuth'
-import docmindLogo from '../assets/docmind-logo.png'
 
 const logoutBtnClass =
   'ml-auto flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-dm-muted hover:bg-dm-background hover:text-dm-foreground transition-colors'
@@ -17,11 +17,14 @@ function UserHome() {
   return (
     <AppLayout
       topNav={
-        <AppTopBar title="DocMind" logo={docmindLogo} logoClassName="h-14 w-auto object-contain" logoHref="/home">
-          <button type="button" onClick={logout} className={logoutBtnClass} aria-label="Log out">
-            <LogOut size={18} className="shrink-0 text-current" />
-            Log out
-          </button>
+        <AppTopBar title="DocMind" showLogo logoClassName="h-14 w-auto object-contain" logoHref="/home">
+          <div className="ml-auto flex items-center gap-1">
+            <ThemeToggle />
+            <button type="button" onClick={logout} className={logoutBtnClass} aria-label="Log out">
+              <LogOut size={18} className="shrink-0 text-current" />
+              Log out
+            </button>
+          </div>
         </AppTopBar>
       }
     >

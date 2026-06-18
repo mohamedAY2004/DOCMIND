@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { X, Bot, Send, AlertCircle, Loader2, RefreshCw } from 'lucide-react'
+import { X, Bot, Send, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import ChatMessageBubble from '../ui/ChatMessageBubble'
+import ErrorBanner from '../ui/ErrorBanner'
 import TypingIndicator from './TypingIndicator'
 import useAutoScroll from '../../hooks/useAutoScroll'
 import { sendTestBotMessage } from '../../services/subjectService'
@@ -212,32 +213,12 @@ function TestStudentBotModal({ isOpen, onClose, subjectName, subjectId }) {
         </div>
 
         {error && (
-          <div className="shrink-0 flex items-center gap-2 border-t border-red-500/20 bg-red-500/5 px-4 py-2.5">
-            <AlertCircle size={16} className="shrink-0 text-red-400" />
-            <p className="flex-1 text-sm text-red-400">{error}</p>
-            <div className="flex items-center gap-2">
-              {lastFailedText && (
-                <button
-                  type="button"
-                  onClick={handleRetry}
-                  className="flex items-center gap-1.5 rounded-md bg-red-500/10 px-3 py-1.5 text-sm font-medium text-red-400 hover:bg-red-500/20 transition-colors"
-                >
-                  <RefreshCw size={14} />
-                  Retry
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  setError('')
-                  setLastFailedText('')
-                }}
-                className="text-sm font-medium text-red-400 hover:text-red-300 transition-colors"
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
+          <ErrorBanner
+            message={error}
+            icon
+            onRetry={lastFailedText ? handleRetry : undefined}
+            onDismiss={() => { setError(''); setLastFailedText('') }}
+          />
         )}
 
         <form onSubmit={handleSend} className={inputWrapClass}>

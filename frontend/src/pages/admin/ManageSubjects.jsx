@@ -12,6 +12,7 @@ import {
   MoreVertical,
 } from 'lucide-react'
 import AdminLayout from '../../components/layout/AdminLayout'
+import { primaryButtonCompactClass, primaryChipActiveClass } from '../../constants/themeClasses'
 import Pagination from '../../components/ui/Pagination'
 import SubjectFormModal from '../../components/admin/SubjectFormModal'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
@@ -197,7 +198,7 @@ function ManageSubjects() {
             <button
               type="button"
               onClick={openCreate}
-              className="flex items-center gap-1.5 rounded-xl bg-dm-primary px-3 py-2 text-sm font-semibold text-dm-foreground transition-colors hover:bg-dm-primary/80"
+              className={`${primaryButtonCompactClass} px-3 py-2`}
             >
               <BookPlus size={14} />
               Add subject

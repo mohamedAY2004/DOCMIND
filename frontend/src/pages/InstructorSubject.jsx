@@ -19,6 +19,7 @@ import PrimaryButton from '../components/ui/PrimaryButton'
 import UploadZone from '../components/ui/UploadZone'
 import PageFooter from '../components/ui/PageFooter'
 import InstructorAvatarGroup from '../components/ui/InstructorAvatarGroup'
+import ThemeToggle from '../components/ui/ThemeToggle'
 import useAuth from '../hooks/useAuth'
 import {
   getSubjectById,
@@ -33,7 +34,6 @@ import {
   titleCaseSlug,
 } from '../utils/formatters'
 import { fadeUp } from '../utils/motion'
-import docmindLogo from '../assets/docmind-logo.png'
 
 const cardClass = 'rounded-card border border-dm-border bg-dm-card p-8 shadow-xl'
 const cardHeaderClass = 'flex items-center justify-between gap-2'
@@ -203,20 +203,23 @@ function InstructorSubject() {
       topNav={
         <AppTopBar
           title="DocMind"
-          logo={docmindLogo}
+          showLogo
           logoHref="/instructor"
           logoClassName="h-14 w-auto object-contain"
           backTo="/instructor"
         >
-          <button
-            type="button"
-            onClick={logout}
-            className="ml-auto flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-dm-muted hover:bg-dm-background hover:text-dm-foreground transition-colors"
-            aria-label="Log out"
-          >
-            <LogOut size={18} className="shrink-0 text-current" />
-            Log out
-          </button>
+          <div className="ml-auto flex items-center gap-1">
+            <ThemeToggle />
+            <button
+              type="button"
+              onClick={logout}
+              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-dm-muted hover:bg-dm-background hover:text-dm-foreground transition-colors"
+              aria-label="Log out"
+            >
+              <LogOut size={18} className="shrink-0 text-current" />
+              Log out
+            </button>
+          </div>
         </AppTopBar>
       }
     >
@@ -367,10 +370,10 @@ function InstructorSubject() {
                     aria-hidden
                   />
                   <div
-                    className="absolute inset-4 rounded-full bg-dm-primary/5 shadow-[0_0_30px_rgba(13,110,115,0.25)]"
+                    className="absolute inset-4 rounded-full bg-dm-primary/5 shadow-[0_0_30px_rgb(var(--dm-primary)/0.25)]"
                     aria-hidden
                   />
-                  <Bot size={44} className="relative text-dm-primary drop-shadow-[0_0_8px_rgba(13,110,115,0.5)]" />
+                  <Bot size={44} className="relative text-dm-primary drop-shadow-[0_0_8px_rgb(var(--dm-primary)/0.5)]" />
                 </div>
                 <p className="mt-4 text-sm font-medium text-dm-foreground">Bot Ready</p>
                 <PrimaryButton

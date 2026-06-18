@@ -13,7 +13,8 @@ import {
 } from 'lucide-react'
 import useAuth from '../../hooks/useAuth'
 import { TOP_CHROME_ROW_MIN_CLASS } from '../../constants/layoutChrome'
-import docmindLogo from '../../assets/docmind-logo.png'
+import ThemeToggle from '../ui/ThemeToggle'
+import DocMindLogo from '../ui/DocMindLogo'
 
 const NAV_ITEMS = [
   { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
@@ -50,7 +51,7 @@ function AdminLayout({ children, title }) {
         <div
           className={`flex items-center gap-3 border-b border-dm-border/50 px-5 py-4 ${TOP_CHROME_ROW_MIN_CLASS}`}
         >
-          <img src={docmindLogo} alt="" className="h-10 w-auto object-contain" aria-hidden />
+          <DocMindLogo alt="" className="h-10 w-auto object-contain" />
           <div className="min-w-0">
             <span className="block text-base font-semibold text-dm-foreground">DocMind</span>
             <span className="flex items-center gap-1 text-xs text-dm-primary">
@@ -88,12 +89,15 @@ function AdminLayout({ children, title }) {
           ))}
         </nav>
 
-        {/* Logout */}
-        <div className="shrink-0 border-t border-dm-border/50 p-3">
+        <div className="shrink-0 border-t border-dm-border/50 p-3 flex flex-col gap-1">
+          <div className="flex items-center gap-3 rounded-xl px-4 py-2">
+            <ThemeToggle />
+            <span className="text-sm text-dm-muted">Theme</span>
+          </div>
           <button
             type="button"
             onClick={logout}
-            className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 text-dm-muted hover:bg-dm-background hover:text-dm-foreground w-full`}
+            className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 text-dm-muted hover:bg-dm-background hover:text-dm-foreground w-full"
           >
             <LogOut size={20} className="shrink-0" />
             Log out
@@ -108,19 +112,22 @@ function AdminLayout({ children, title }) {
           className={`shrink-0 flex items-center justify-between border-b border-dm-border bg-dm-card px-6 py-4 ${TOP_CHROME_ROW_MIN_CLASS}`}
         >
           <div className="flex items-center gap-3 lg:hidden">
-            <img src={docmindLogo} alt="" className="h-8 w-auto object-contain" aria-hidden />
+            <DocMindLogo alt="" className="h-8 w-auto object-contain" />
             <span className="text-sm font-semibold text-dm-foreground">DocMind Admin</span>
           </div>
           {title && (
             <h1 className="text-xl font-bold text-dm-foreground">{title}</h1>
           )}
-          <button
-            type="button"
-            onClick={logout}
-            className="lg:hidden flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-dm-muted hover:bg-dm-background hover:text-dm-foreground transition-colors"
-          >
-            <LogOut size={16} />
-          </button>
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <button
+              type="button"
+              onClick={logout}
+              className="lg:hidden flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-dm-muted hover:bg-dm-background hover:text-dm-foreground transition-colors"
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
         </header>
 
         {/* Page content with exit/enter animation */}

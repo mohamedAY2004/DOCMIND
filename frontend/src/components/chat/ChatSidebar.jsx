@@ -11,6 +11,8 @@ import {
   X,
 } from 'lucide-react'
 
+import { primarySurfaceClass } from '../../constants/themeClasses'
+
 const toggleBtnClass =
   'flex h-8 w-8 items-center justify-center rounded-lg text-dm-muted hover:bg-dm-background hover:text-dm-foreground transition-colors'
 
@@ -250,7 +252,7 @@ function ChatSidebar({
         <button
           type="button"
           onClick={onNewChat}
-          className={`flex w-full items-center justify-center gap-2 rounded-xl bg-dm-primary py-2.5 px-4 font-medium text-dm-foreground transition-opacity hover:opacity-90 active:scale-[0.98] ${
+          className={`${primarySurfaceClass} flex w-full items-center justify-center gap-2 rounded-xl py-2.5 px-4 font-medium transition-opacity hover:opacity-90 active:scale-[0.98] ${
             collapsed ? 'px-0' : ''
           }`}
         >

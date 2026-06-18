@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Menu } from 'lucide-react'
+import DocMindLogo from '../ui/DocMindLogo'
 
 const barClass = 'flex h-14 items-center gap-3 px-4 md:px-6'
 const logoClass = 'h-8 w-auto object-contain'
@@ -8,11 +9,11 @@ const menuButtonClass =
 const backButtonClass =
   'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-dm-muted hover:bg-dm-background hover:text-dm-foreground transition-colors'
 
-function AppTopBar({ title, logo, logoClassName, logoHref, backTo, onMenuClick, children }) {
+function AppTopBar({ title, showLogo = false, logoClassName, logoHref, backTo, onMenuClick, children }) {
   const logoContent = (
     <>
-      {logo && (
-        <img src={logo} alt="" className={logoClassName || logoClass} aria-hidden />
+      {showLogo && (
+        <DocMindLogo className={logoClassName || logoClass} alt="" />
       )}
       {title && <span className="text-lg font-semibold text-dm-foreground">{title}</span>}
     </>

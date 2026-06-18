@@ -7,6 +7,7 @@ import AuthHeader, { UserIcon, LockIcon } from '../components/ui/AuthHeader'
 import InputField from '../components/ui/InputField'
 import PasswordField from '../components/ui/PasswordField'
 import PrimaryButton from '../components/ui/PrimaryButton'
+import ThemeToggle from '../components/ui/ThemeToggle'
 import useAuth from '../hooks/useAuth'
 import { getStudentAccess } from '../services/systemAccessService'
 
@@ -72,9 +73,12 @@ function Login() {
 
   return (
     <AuthCard>
+      <div className="absolute top-4 right-4 z-10">
+        <ThemeToggle />
+      </div>
       {studentAccessNote && (
         <div
-          className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200/90"
+          className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-600"
           role="status"
         >
           {studentAccessNote}

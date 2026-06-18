@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import Modal from './Modal'
+import { primaryButtonCompactClass } from '../../constants/themeClasses'
 
 function ConfirmDialog({
   open,
@@ -50,7 +51,7 @@ function ConfirmDialog({
           className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-60 ${
             destructive
               ? 'bg-red-500/90 text-white hover:bg-red-500'
-              : 'bg-dm-primary text-dm-foreground hover:bg-dm-primary/80'
+              : `${primaryButtonCompactClass} hover:opacity-90`
           }`}
         >
           {busy && <Loader2 size={14} className="animate-spin" />}

@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { primaryChipActiveClass } from '../../constants/themeClasses'
 
 const navBtnClass =
   'rounded-lg p-1.5 hover:bg-dm-background transition-colors disabled:opacity-30 disabled:pointer-events-none'
@@ -28,7 +29,7 @@ function Pagination({ page, totalPages, totalItems, pageSize, onPageChange }) {
             onClick={() => onPageChange(n)}
             className={`h-8 w-8 rounded-lg text-xs font-medium transition-all duration-200 ${
               page === n
-                ? 'bg-dm-primary text-dm-foreground'
+                ? primaryChipActiveClass
                 : 'hover:bg-dm-background text-dm-muted'
             }`}
           >

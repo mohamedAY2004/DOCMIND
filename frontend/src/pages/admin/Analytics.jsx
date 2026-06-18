@@ -17,10 +17,20 @@ import {
   getDailyUsage,
   getSemesters,
 } from '../../services/adminService'
+import useTheme from '../../hooks/useTheme'
 import { stagger, adminCardClass } from '../../utils/motion'
 
-const CHART_AXIS = { fill: '#8AA3A5', fontSize: 12 }
-const CHART_GRID = { strokeDasharray: '3 3', stroke: '#1F3A3B' }
+function useChartColors() {
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
+  return {
+    axis: { fill: isDark ? '#8AA3A5' : '#5F7A7C', fontSize: 12 },
+    grid: { strokeDasharray: '3 3', stroke: isDark ? '#1F3A3B' : '#D4DEDE' },
+    tooltip: { backgroundColor: isDark ? '#142B2C' : '#FFFFFF', border: `1px solid ${isDark ? '#1F3A3B' : '#D4DEDE'}` },
+    legendColor: isDark ? '#8AA3A5' : '#5F7A7C',
+  }
+}
+
 const PIE_COLORS = ['#22c55e', '#ef4444']
 
 const TIME_RANGES = [
@@ -54,6 +64,7 @@ function unwrapList(res) {
 }
 
 function Analytics() {
+  const chartColors = useChartColors()
   const [users, setUsers] = useState([])
   const [subjectStats, setSubjectStats] = useState([])
   const [dailyUsage, setDailyUsage] = useState([])
@@ -284,11 +295,11 @@ function Analytics() {
           <h2 className="mb-6 text-lg font-semibold text-dm-foreground">Daily Usage Trends</h2>
           <ResponsiveContainer width="100%" height={320}>
             <LineChart data={dailyUsage}>
-              <CartesianGrid {...CHART_GRID} />
-              <XAxis dataKey="day" tick={CHART_AXIS} />
-              <YAxis tick={CHART_AXIS} />
+              <CartesianGrid {...chartColors.grid} />
+              <XAxis dataKey="day" tick={chartColors.axis} />
+              <YAxis tick={chartColors.axis} />
               <Tooltip content={<CustomTooltip />} />
-              <Legend wrapperStyle={{ fontSize: 12, color: '#8AA3A5' }} />
+              <Legend wrapperStyle={{ fontSize: 12, color: chartColors.legendColor }} />
               <Line
                 type="monotone"
                 dataKey="conversations"
@@ -324,9 +335,9 @@ function Analytics() {
                 <h2 className="mb-6 text-lg font-semibold text-dm-foreground">Questions per Subject</h2>
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={subjectBars}>
-                    <CartesianGrid {...CHART_GRID} />
-                    <XAxis dataKey="name" tick={CHART_AXIS} interval={0} angle={-20} textAnchor="end" height={60} />
-                    <YAxis tick={CHART_AXIS} />
+                    <CartesianGrid {...chartColors.grid} />
+                    <XAxis dataKey="name" tick={chartColors.axis} interval={0} angle={-20} textAnchor="end" height={60} />
+                    <YAxis tick={chartColors.axis} />
                     <Tooltip content={<CustomTooltip />} />
                     <Bar dataKey="questions" name="Questions" fill="#0D6E73" radius={[6, 6, 0, 0]} />
                   </BarChart>
@@ -392,11 +403,11 @@ function Analytics() {
               <h2 className="mb-6 text-lg font-semibold text-dm-foreground">Feedback Breakdown by Subject</h2>
               <ResponsiveContainer width="100%" height={320}>
                 <BarChart data={subjectBars}>
-                  <CartesianGrid {...CHART_GRID} />
-                  <XAxis dataKey="name" tick={CHART_AXIS} interval={0} angle={-20} textAnchor="end" height={60} />
-                  <YAxis tick={CHART_AXIS} />
+                  <CartesianGrid {...chartColors.grid} />
+                  <XAxis dataKey="name" tick={chartColors.axis} interval={0} angle={-20} textAnchor="end" height={60} />
+                  <YAxis tick={chartColors.axis} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Legend wrapperStyle={{ fontSize: 12, color: '#8AA3A5' }} />
+                  <Legend wrapperStyle={{ fontSize: 12, color: chartColors.legendColor }} />
                   <Bar dataKey="positive" name="Positive" stackId="fb" fill="#22c55e" radius={[0, 0, 0, 0]} />
                   <Bar dataKey="negative" name="Negative" stackId="fb" fill="#ef4444" radius={[6, 6, 0, 0]} />
                 </BarChart>

@@ -1,5 +1,5 @@
 import { User, Lock } from 'lucide-react'
-import docmindLogo from '../../assets/docmind-logo.png'
+import DocMindLogo from './DocMindLogo'
 
 function UserIcon() {
   return <User size={20} className="text-current" />
@@ -15,8 +15,7 @@ function AuthHeader() {
   return (
     <header className="mb-8 text-center">
       <div className="inline-block">
-        <img
-          src={docmindLogo}
+        <DocMindLogo
           alt="DocMind"
           className="mx-auto h-48 w-auto object-contain animate-float-glow"
         />

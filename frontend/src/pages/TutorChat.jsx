@@ -4,6 +4,7 @@ import { AlertTriangle } from 'lucide-react'
 import TutorChatScreen from '../components/chat/TutorChatScreen'
 import { getSubjectById } from '../services/subjectService'
 import { titleCaseSlug } from '../utils/formatters'
+import { primarySurfaceClass } from '../constants/themeClasses'
 
 function TutorChat() {
   const [searchParams] = useSearchParams()
@@ -35,7 +36,7 @@ function TutorChat() {
         </p>
         <Link
           to="/tutors"
-          className="mt-2 rounded-xl bg-dm-primary px-5 py-2.5 text-sm font-semibold text-dm-foreground transition-colors hover:bg-dm-primary/80"
+          className={`${primarySurfaceClass} mt-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors hover:opacity-95`}
         >
           Back to tutors
         </Link>
