@@ -1,0 +1,90 @@
+---
+description: Flutter/Dart clean architecture, GetX, and Dio conventions for the DocMind mobile app
+globs: mobile/**/*.dart
+alwaysApply: false
+---
+
+# DocMind Mobile — Flutter Conventions
+
+## Architecture: Clean Architecture per Feature
+
+Every feature lives in `lib/features/<feature>/` with three layers:
+
+```
+lib/features/<feature>/
+├── data/
+│   ├── datasources/     # remote API calls (Dio) and local storage
+│   ├── dtos/            # JSON-serializable DTOs
+│   └── repositories/    # concrete repository implementations
+├── domain/
+│   ├── entities/        # plain Dart classes, no framework deps
+│   ├── repositories/    # abstract interfaces
+│   ├── usecases/        # one class per use case
+│   └── failures/        # domain failure types
+└── presentation/
+    ├── pages/           # full-screen widgets
+    ├── widgets/         # feature-specific reusable widgets
+    └── controllers/     # GetX controllers (state + business logic bridge)
+```
+
+**Dependency direction**: `presentation` → `domain` ← `data` (data depends on domain interfaces)
+
+## State Management & DI — GetX
+
+- Use `GetX` / `Obx` for reactive UI; bind controllers via `Get.put` or `Get.lazyPut`
+- Controllers go in `presentation/controllers/`; they call use cases, not repositories directly
+- Route to new pages with `Get.toNamed(AppRoutes.routeName)`; define all named routes in `lib/core/routes/app_routes.dart`
+
+```dart
+// ✅ GOOD — controller calls use case
+class AuthController extends GetxController {
+  final LoginUseCase _loginUseCase;
+  AuthController(this._loginUseCase);
+
+  Future<void> login(String email, String password) async {
+    final result = await _loginUseCase(email, password);
+    result.fold((failure) => ..., (user) => ...);
+  }
+}
+
+// ❌ BAD — controller calls repository directly
+class AuthController extends GetxController {
+  final AuthRepository _repo; // skip use case layer
+}
+```
+
+## HTTP — Dio Client
+
+- All API calls go through `lib/core/network/dio_client.dart`
+- Base URL and endpoint constants live in `lib/core/api_constants.dart` — never hardcode URLs elsewhere
+- Handle errors in the data layer; return `Either<Failure, T>` from repositories (using `dartz` or similar)
+- Attach auth token in the Dio interceptor; do not pass tokens manually per call
+
+## Naming Conventions
+
+| Layer | Suffix | Example |
+|-------|--------|---------|
+| Use cases | `_usecase.dart` | `login_usecase.dart` |
+| DTOs | `_dto.dart` | `user_dto.dart` |
+| Controllers | `_controller.dart` | `auth_controller.dart` |
+| Repositories (abstract) | `_repository.dart` | `auth_repository.dart` |
+| Implementations | `_repository_impl.dart` | `auth_repository_impl.dart` |
+| Pages | `_page.dart` | `login_page.dart` |
+
+- Dart files: `snake_case`; classes: `PascalCase`; variables/methods: `camelCase`
+
+## Shared Core (`lib/core/`)
+
+- `network/` — Dio client, interceptors
+- `routes/` — `AppRoutes` named route constants
+- `theme/` — colors, text styles, spacing tokens
+- Do not put feature-specific code in `core/`; keep it truly shared
+
+## Adding a New Feature
+
+1. Create `lib/features/<name>/` with all three layer folders
+2. Define domain entities and abstract repository in `domain/`
+3. Write use cases (one per operation) in `domain/usecases/`
+4. Implement repository + DTOs + datasource in `data/`
+5. Wire GetX controller + pages in `presentation/`
+6. Register routes in `app_routes.dart` and bind controller in the binding class

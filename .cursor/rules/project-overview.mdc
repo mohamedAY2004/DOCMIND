@@ -1,0 +1,45 @@
+---
+description: DocMind project architecture, stack, folder layout, and cross-cutting conventions
+alwaysApply: true
+---
+
+# DocMind — Project Overview
+
+DocMind is a monorepo with three surfaces:
+
+| Surface | Path | Stack |
+|---------|------|-------|
+| Backend API | `backend/src/` | Python 3.10+, FastAPI, SQLAlchemy 2 (async), PostgreSQL + pgvector |
+| Web frontend | `frontend/src/` | React 19, Vite, Tailwind CSS, React Router v7 |
+| Mobile app | `mobile/docmind_app/lib/` | Flutter/Dart, GetX, Dio |
+
+## Key Entry Points
+
+- Backend: `backend/src/main.py` — mounts all routers under `/api`, init LLM/vector clients
+- Frontend: `frontend/src/main.jsx` → `App.jsx` → `routes/index.jsx`
+- Mobile: `mobile/docmind_app/lib/main.dart`
+
+## Dual-DB Architecture (Backend)
+
+The backend intentionally runs **two** database access paths — keep them separate:
+
+1. **Official API** (`/api/*`) — SQLAlchemy async session via `app.state.session_maker`
+2. **Legacy/debug API** (`/api/v1/data/*`, `/api/v1/nlp/*`) — raw asyncpg pool on `app.db_pool`, used by `controllers/` only
+
+## Roles & Access
+
+Three roles: `student`, `instructor`, `admin`.
+A global `StudentAccessFlag` can disable all student logins (returns `403 STUDENT_ACCESS_DISABLED`).
+
+## Docker
+
+`backend/docker/docker-compose.yml` starts **PostgreSQL only**.
+Run migrations via: `docker compose run --rm migrate`
+
+## Cross-Cutting Conventions
+
+- **No magic strings** — use enum values from `db/models/`, `stores/llm/LLMEnums.py`, etc.
+- **Settings** always from `helpers/config.py` `get_settings()` (cached singleton) — never read env vars directly
+- **Errors** use `APIError(code=ErrorCode.X, status=4xx)` from `helpers/errors.py`; never raise bare `HTTPException` in services
+- **Migrations** — schema changes go through Alembic (`alembic/versions/`); never mutate tables in application code
+- **Secrets** — never hardcode credentials; read from `.env` via `Settings`
