@@ -4,9 +4,14 @@ Every runtime-configurable value lives here. Services read configuration via
 `get_settings()` (cached). No module should read environment variables directly.
 """
 from functools import lru_cache
+from pathlib import Path
 from typing import List, Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# backend/src/.env — resolved absolutely so settings load regardless of the
+# current working directory (e.g. when running scripts from seeds/).
+_ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 
 
 class Settings(BaseSettings):
@@ -89,7 +94,7 @@ class Settings(BaseSettings):
     # ==================== Misc ====================
     STUDENT_ACCESS_DEFAULT_ENABLED: bool = True
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=_ENV_FILE, extra="ignore")
 
 
 @lru_cache

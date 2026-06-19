@@ -6,9 +6,15 @@ Run after ``alembic upgrade head``:
     docker compose run --rm migrate       # via Docker
 
 Tables seeded (≥10 rows each where applicable):
-    users (12), semesters (4), subjects (12), subject_instructors (12),
+    users (12), semesters (4), subjects (12), subject_instructors (12+),
     materials (12), conversations (12), document_files (12), messages (24),
-    feedbacks (12), activities (12), student_access_flag (1 singleton)
+    feedbacks (12), activities (12+), student_access_flag (1 singleton)
+
+Instructor roles per subject (InstructorSubjectRole):
+    SUPER  — owns the subject; can upload/delete materials and manage roster.
+    VIEWER — read-only; can view materials and analytics but cannot modify.
+Each subject_instructor row carries an explicit ``instructor_role`` field.
+Exactly one SUPER per subject is enforced by a partial unique index.
 
 Each run **truncates** all seeded tables and inserts fresh rows from this file.
 Re-run whenever you change seed data so the database matches (same admin passwords, etc.).
@@ -79,19 +85,24 @@ _SEMESTERS = [
     {"id": "spring-2025", "label": "Spring 2025", "sort_order": 4},
 ]
 
+# "instructors" is a list of (username, InstructorSubjectRole) tuples.
+# The partial unique index enforces exactly one SUPER per subject.
+_S = InstructorSubjectRole.SUPER
+_V = InstructorSubjectRole.VIEWER
+
 _SUBJECTS = [
-    {"id": "cs101-f24",  "title": "Introduction to Computer Science", "description": "Fundamentals of programming, algorithms, and computational thinking.", "course_code": "CS101", "semester_id": "fall-2024",   "instructors": ["hoda_dr", "khaled_dr"], "students": ["student", "nour_s", "omar_s", "aya_s"]},
-    {"id": "cs201-f24",  "title": "Data Structures & Algorithms",     "description": "Arrays, linked lists, trees, graphs, sorting, and search algorithms.",  "course_code": "CS201", "semester_id": "fall-2024",   "instructors": ["hoda_dr"],              "students": ["student", "omar_s", "ahmed_s"]},
-    {"id": "cs301-f24",  "title": "Database Systems",                 "description": "Relational models, SQL, transactions, normalization, and query optimization.", "course_code": "CS301", "semester_id": "fall-2024",   "instructors": ["noha_dr"],              "students": ["nour_s", "aya_s", "mariam_s"]},
-    {"id": "cs401-f24",  "title": "Machine Learning",                 "description": "Supervised and unsupervised learning, neural networks, and model evaluation.", "course_code": "CS401", "semester_id": "fall-2024",   "instructors": ["tarek_dr"],             "students": ["omar_s", "ahmed_s", "mariam_s"]},
-    {"id": "cs101-sp25", "title": "Introduction to Computer Science", "description": "Fundamentals of programming, algorithms, and computational thinking.", "course_code": "CS101", "semester_id": "spring-2025", "instructors": ["khaled_dr"],            "students": ["nour_s", "ahmed_s"]},
-    {"id": "cs202-sp25", "title": "Operating Systems",               "description": "Processes, threads, memory management, file systems, and I/O.",         "course_code": "CS202", "semester_id": "spring-2025", "instructors": ["noha_dr", "hoda_dr"],   "students": ["aya_s", "omar_s", "ahmed_s"]},
-    {"id": "cs305-sp25", "title": "Computer Networks",               "description": "OSI model, TCP/IP, routing, network security, and distributed systems.",  "course_code": "CS305", "semester_id": "spring-2025", "instructors": ["tarek_dr"],             "students": ["ahmed_s", "mariam_s", "nour_s"]},
-    {"id": "cs402-sp25", "title": "Natural Language Processing",     "description": "Text processing, language models, transformers, and NLP applications.",   "course_code": "CS402", "semester_id": "spring-2025", "instructors": ["hoda_dr", "tarek_dr"],  "students": ["mariam_s", "omar_s", "student"]},
-    {"id": "math201-f24","title": "Linear Algebra",                  "description": "Vectors, matrices, eigenvalues, and applications in data science.",       "course_code": "MATH201","semester_id": "fall-2024",  "instructors": ["khaled_dr"],            "students": ["aya_s", "ahmed_s", "student"]},
-    {"id": "math301-sp25","title": "Probability & Statistics",       "description": "Probability theory, distributions, hypothesis testing, and regression.",   "course_code": "MATH301","semester_id": "spring-2025","instructors": ["noha_dr"],              "students": ["mariam_s", "nour_s"]},
-    {"id": "cs310-f23",  "title": "Software Engineering",            "description": "SDLC, design patterns, testing, CI/CD, and agile methodologies.",         "course_code": "CS310", "semester_id": "fall-2023",   "instructors": ["hoda_dr"],              "students": ["aya_s"]},
-    {"id": "cs410-sp24", "title": "Computer Vision",                 "description": "Image processing, convolutional networks, object detection, and segmentation.", "course_code": "CS410", "semester_id": "spring-2024", "instructors": ["tarek_dr", "hoda_dr"],  "students": ["omar_s", "mariam_s"]},
+    {"id": "cs101-f24",   "title": "Introduction to Computer Science", "description": "Fundamentals of programming, algorithms, and computational thinking.",      "course_code": "CS101",   "semester_id": "fall-2024",   "instructors": [("hoda_dr", _S), ("khaled_dr", _V)],           "students": ["student", "nour_s", "omar_s", "aya_s"]},
+    {"id": "cs201-f24",   "title": "Data Structures & Algorithms",     "description": "Arrays, linked lists, trees, graphs, sorting, and search algorithms.",     "course_code": "CS201",   "semester_id": "fall-2024",   "instructors": [("hoda_dr", _S)],                              "students": ["student", "omar_s", "ahmed_s"]},
+    {"id": "cs301-f24",   "title": "Database Systems",                 "description": "Relational models, SQL, transactions, normalization, and query optimization.", "course_code": "CS301", "semester_id": "fall-2024",   "instructors": [("noha_dr", _S)],                              "students": ["nour_s", "aya_s", "mariam_s"]},
+    {"id": "cs401-f24",   "title": "Machine Learning",                 "description": "Supervised and unsupervised learning, neural networks, and model evaluation.", "course_code": "CS401", "semester_id": "fall-2024",   "instructors": [("tarek_dr", _S)],                             "students": ["omar_s", "ahmed_s", "mariam_s"]},
+    {"id": "cs101-sp25",  "title": "Introduction to Computer Science", "description": "Fundamentals of programming, algorithms, and computational thinking.",      "course_code": "CS101",   "semester_id": "spring-2025", "instructors": [("khaled_dr", _S)],                            "students": ["nour_s", "ahmed_s"]},
+    {"id": "cs202-sp25",  "title": "Operating Systems",               "description": "Processes, threads, memory management, file systems, and I/O.",              "course_code": "CS202",   "semester_id": "spring-2025", "instructors": [("noha_dr", _S), ("hoda_dr", _V)],             "students": ["aya_s", "omar_s", "ahmed_s"]},
+    {"id": "cs305-sp25",  "title": "Computer Networks",               "description": "OSI model, TCP/IP, routing, network security, and distributed systems.",     "course_code": "CS305",   "semester_id": "spring-2025", "instructors": [("tarek_dr", _S)],                             "students": ["ahmed_s", "mariam_s", "nour_s"]},
+    {"id": "cs402-sp25",  "title": "Natural Language Processing",     "description": "Text processing, language models, transformers, and NLP applications.",      "course_code": "CS402",   "semester_id": "spring-2025", "instructors": [("hoda_dr", _S), ("tarek_dr", _V)],            "students": ["mariam_s", "omar_s", "student"]},
+    {"id": "math201-f24", "title": "Linear Algebra",                  "description": "Vectors, matrices, eigenvalues, and applications in data science.",          "course_code": "MATH201", "semester_id": "fall-2024",   "instructors": [("khaled_dr", _S)],                            "students": ["aya_s", "ahmed_s", "student"]},
+    {"id": "math301-sp25","title": "Probability & Statistics",        "description": "Probability theory, distributions, hypothesis testing, and regression.",      "course_code": "MATH301", "semester_id": "spring-2025", "instructors": [("noha_dr", _S)],                              "students": ["mariam_s", "nour_s"]},
+    {"id": "cs310-f23",   "title": "Software Engineering",            "description": "SDLC, design patterns, testing, CI/CD, and agile methodologies.",            "course_code": "CS310",   "semester_id": "fall-2023",   "instructors": [("hoda_dr", _S)],                              "students": ["aya_s"]},
+    {"id": "cs410-sp24",  "title": "Computer Vision",                 "description": "Image processing, convolutional networks, object detection, and segmentation.", "course_code": "CS410", "semester_id": "spring-2024", "instructors": [("tarek_dr", _S), ("hoda_dr", _V)],            "students": ["omar_s", "mariam_s"]},
 ]
 
 _MATERIAL_SPECS = [
@@ -142,18 +153,24 @@ _MESSAGE_PAIRS = [
 ]
 
 _ACTIVITY_SPECS = [
-    ("admin",      "Created user 'hoda_dr'",                  "Dr. Hoda Mahmoud",      {"role": "instructor"}),
-    ("admin",      "Created user 'khaled_dr'",                "Dr. Khaled Abdel-Aziz", {"role": "instructor"}),
-    ("admin",      "Created subject 'cs101-f24'",             "CS101 Fall 2024",        {"course_code": "CS101"}),
-    ("admin",      "Created subject 'cs201-f24'",             "CS201 Fall 2024",        {"course_code": "CS201"}),
-    ("admin",      "Enabled student access",                  None,                     {"enabled": True}),
-    ("hoda_dr",    "Uploaded material 'Lecture 1'",           "CS101 Fall 2024",        {"size_bytes": 1200000}),
-    ("hoda_dr",    "Uploaded material 'Lecture 2'",           "CS101 Fall 2024",        {"size_bytes": 980000}),
-    ("noha_dr",    "Uploaded material 'Relational Model'",    "CS301 Fall 2024",        {"size_bytes": 870000}),
-    ("tarek_dr",   "Uploaded material 'Intro to ML'",         "CS401 Fall 2024",        {"size_bytes": 3400000}),
-    ("admin",      "Disabled student access for maintenance", None,                     {"enabled": False}),
-    ("admin",      "Re-enabled student access",               None,                     {"enabled": True}),
-    ("superadmin", "Promoted user 'hoda_dr' to admin",        "Dr. Hoda Mahmoud",       {"old_role": "instructor", "new_role": "admin"}),
+    ("admin",      "Created user 'hoda_dr'",                             "Dr. Hoda Mahmoud",      {"role": "instructor"}),
+    ("admin",      "Created user 'khaled_dr'",                           "Dr. Khaled Abdel-Aziz", {"role": "instructor"}),
+    ("admin",      "Created subject 'cs101-f24'",                        "CS101 Fall 2024",        {"course_code": "CS101"}),
+    ("admin",      "Created subject 'cs201-f24'",                        "CS201 Fall 2024",        {"course_code": "CS201"}),
+    ("admin",      "Assigned hoda_dr as super instructor of cs101-f24",  "CS101 Fall 2024",        {"instructor": "hoda_dr",   "instructor_role": "super"}),
+    ("admin",      "Assigned khaled_dr as viewer of cs101-f24",          "CS101 Fall 2024",        {"instructor": "khaled_dr", "instructor_role": "viewer"}),
+    ("admin",      "Assigned noha_dr as super instructor of cs202-sp25", "CS202 Spring 2025",      {"instructor": "noha_dr",   "instructor_role": "super"}),
+    ("admin",      "Assigned hoda_dr as viewer of cs202-sp25",           "CS202 Spring 2025",      {"instructor": "hoda_dr",   "instructor_role": "viewer"}),
+    ("admin",      "Assigned hoda_dr as super instructor of cs402-sp25", "CS402 Spring 2025",      {"instructor": "hoda_dr",   "instructor_role": "super"}),
+    ("admin",      "Assigned tarek_dr as viewer of cs402-sp25",          "CS402 Spring 2025",      {"instructor": "tarek_dr",  "instructor_role": "viewer"}),
+    ("admin",      "Enabled student access",                             None,                     {"enabled": True}),
+    ("hoda_dr",    "Uploaded material 'Lecture 1'",                      "CS101 Fall 2024",        {"size_bytes": 1200000}),
+    ("hoda_dr",    "Uploaded material 'Lecture 2'",                      "CS101 Fall 2024",        {"size_bytes": 980000}),
+    ("noha_dr",    "Uploaded material 'Relational Model'",               "CS301 Fall 2024",        {"size_bytes": 870000}),
+    ("tarek_dr",   "Uploaded material 'Intro to ML'",                    "CS401 Fall 2024",        {"size_bytes": 3400000}),
+    ("admin",      "Disabled student access for maintenance",            None,                     {"enabled": False}),
+    ("admin",      "Re-enabled student access",                          None,                     {"enabled": True}),
+    ("superadmin", "Promoted user 'hoda_dr' to admin",                   "Dr. Hoda Mahmoud",       {"old_role": "instructor", "new_role": "admin"}),
 ]
 
 
@@ -216,16 +233,14 @@ async def _seed_subjects(session: AsyncSession, uid_map: dict[str, str]) -> None
             ))
             _log("insert", f"subject '{sid}'")
 
-        # subject_instructors (composite PK — safe to re-insert)
-        # First instructor in the list is the super instructor.
-        for idx, uname in enumerate(spec["instructors"]):
+        # subject_instructors — roles are explicit in _SUBJECTS data.
+        for uname, role in spec["instructors"]:
             uid = uid_map.get(uname)
             if not uid:
                 continue
             existing = await session.get(SubjectInstructor, {"subject_id": sid, "user_id": uid})
             if existing:
                 continue
-            role = InstructorSubjectRole.SUPER if idx == 0 else InstructorSubjectRole.VIEWER
             session.add(SubjectInstructor(subject_id=sid, user_id=uid, instructor_role=role))
             _log("insert", f"  subject_instructor {sid} <- {uname} ({role.value})")
 
