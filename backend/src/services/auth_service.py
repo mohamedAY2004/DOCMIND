@@ -1,8 +1,7 @@
 """Authentication business logic (spec §4 + §2.3)."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import datetime
 
 from fastapi import status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.models import User, UserRole, UserStatus
 from helpers.auth import (
     create_access_token,
-    decode_access_token,
     verify_password,
 )
 from helpers.errors import APIError, ErrorCode
@@ -75,13 +73,8 @@ class AuthService:
             welcomeMessage=f"Welcome back, {user.name}!",
         )
 
-    async def logout(self, jti: str) -> None:
-        """Revoke the token's ``jti``. Idempotent."""
-        try:
-            payload = _safe_decode(jti)
-        except Exception:
-            payload = None
-        expires_at = _expiry_from_payload(payload)
+    async def logout(self, jti: str, expires_at: datetime) -> None:
+        """Revoke ``jti`` until ``expires_at`` (the token's real expiry). Idempotent."""
         await self._blocklist.revoke(jti, expires_at)
 
     async def me(self, user: User) -> MeResponse:
@@ -93,20 +86,3 @@ class AuthService:
                 role=user.role.value,
             )
         )
-
-
-def _safe_decode(token_or_jti: str) -> Optional[dict]:
-    try:
-        return decode_access_token(token_or_jti)
-    except Exception:
-        return None
-
-
-def _expiry_from_payload(payload: Optional[dict]) -> datetime:
-    if payload and "exp" in payload:
-        try:
-            return datetime.fromtimestamp(int(payload["exp"]), tz=timezone.utc)
-        except Exception:  # noqa: BLE001
-            pass
-    # Fallback: blocklist for 24h.
-    return datetime.now(timezone.utc).replace(microsecond=0)

@@ -70,10 +70,11 @@ class FeedbackService:
         )
 
     async def delete(self, caller: User, message_id: str) -> None:
-        await self._assert_can_feedback(caller, message_id)
+        # Ownership of the feedback *record* is the real guard here — no need to
+        # re-run the conversation/AI-reply checks from ``_assert_can_feedback``.
         existing = await self._feedback.get_by_message(message_id)
         if existing is None:
-            return
+            return  # idempotent: nothing to remove
         if existing.user_id != caller.id:
             raise APIError(
                 ErrorCode.FORBIDDEN,

@@ -1,6 +1,7 @@
 """FastAPI dependencies for auth, RBAC, DB sessions, and the student-access gate."""
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import AsyncIterator, Callable
 
 from fastapi import Depends, Request, status
@@ -10,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import User, UserRole, UserStatus
 from helpers.auth import decode_access_token
+from helpers.config import get_settings
 from helpers.errors import APIError, ErrorCode
 from repositories.system_flag_repository import SystemFlagRepository
 from repositories.token_blocklist_repository import TokenBlocklistRepository
@@ -94,9 +96,15 @@ async def get_current_user(
             "Account is no longer active.",
         )
 
-    # Spec §9: update last_active on every authenticated call.
-    await UserRepository(session).touch_last_active(user.id)
-    # Keep the caller JTI on the request for logout / audit.
+    # Spec §9: keep last_active fresh, but throttle the write so plain GETs don't
+    # each incur a user-row UPDATE (and a rollback hazard on later read errors).
+    throttle = get_settings().LAST_ACTIVE_THROTTLE_SECONDS
+    now = datetime.now(timezone.utc)
+    last_active = user.last_active
+    if last_active is not None and last_active.tzinfo is None:
+        last_active = last_active.replace(tzinfo=timezone.utc)
+    if last_active is None or (now - last_active).total_seconds() >= throttle:
+        await UserRepository(session).touch_last_active(user.id)
     return user
 
 
@@ -195,10 +203,14 @@ def require_student() -> Callable[[User], User]:
     return require_role(UserRole.STUDENT)
 
 
-def get_jti_from_request(
+def get_logout_claims(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
-) -> str:
-    """Utility for /auth/logout to grab the JTI without re-auth plumbing."""
+) -> tuple[str, datetime]:
+    """Return ``(jti, expires_at)`` from the caller's token for /auth/logout.
+
+    The blocklist row should live exactly until the token would have expired, so
+    we derive ``expires_at`` from the token's own ``exp`` claim here (the route
+    only ever had the ``jti`` before, which made the expiry meaningless)."""
     token = _parse_bearer(credentials)
     try:
         payload = decode_access_token(token)
@@ -215,4 +227,18 @@ def get_jti_from_request(
             status.HTTP_401_UNAUTHORIZED,
             "Malformed token.",
         )
-    return jti
+    exp = payload.get("exp")
+    if exp is not None:
+        expires_at = datetime.fromtimestamp(int(exp), tz=timezone.utc)
+    else:
+        # No exp claim (shouldn't happen for our tokens) — fall back to the
+        # configured token lifetime so the row still gets purged eventually.
+        expires_at = now_plus_token_lifetime()
+    return jti, expires_at
+
+
+def now_plus_token_lifetime() -> datetime:
+    settings = get_settings()
+    from datetime import timedelta
+
+    return datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_EXPIRE_MINUTES)

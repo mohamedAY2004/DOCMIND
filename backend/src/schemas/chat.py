@@ -31,7 +31,7 @@ class UpdateConversationRequest(BaseModel):
 class DocumentFileResponse(BaseModel):
     id: str
     name: str
-    status: Literal["processing", "ready"]
+    status: Literal["processing", "ready", "failed"]
     sizeBytes: int
     mime: str
 

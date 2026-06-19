@@ -100,6 +100,8 @@ class RAGService:
             text=query, document_type=DocumentTypeEnum.QUERY.value
         )
         if not vector:
+            # Intentional soft-degrade: on an embedding failure we return no
+            # context so chat answers "no relevant info" rather than erroring.
             logger.error("Failed to embed query for collection %s", collection_name)
             return []
         vector = vector[0]

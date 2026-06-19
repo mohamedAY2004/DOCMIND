@@ -11,7 +11,7 @@ class MaterialResponse(BaseModel):
     name: str
     size: str  # pre-formatted per spec
     date: str  # pre-formatted per spec
-    status: Literal["indexing", "processed"]
+    status: Literal["indexing", "processed", "failed"]
     uploadedById: str
     uploadedByName: str
     uploadedByInitials: Optional[str] = None

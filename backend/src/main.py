@@ -91,6 +91,22 @@ async def _startup() -> None:
     app.state.engine = engine
     app.state.session_maker = session_maker
 
+    # Drop already-expired token-blocklist rows on boot so the table doesn't grow
+    # unbounded. A scheduled job is the longer-term home for this sweep.
+    try:
+        from datetime import datetime, timezone
+
+        from repositories.token_blocklist_repository import TokenBlocklistRepository
+
+        async with session_maker() as session:
+            async with session.begin():
+                removed = await TokenBlocklistRepository(session).purge_expired(
+                    datetime.now(timezone.utc)
+                )
+        logger.info("Purged %d expired token-blocklist rows on startup", removed)
+    except Exception:  # noqa: BLE001
+        logger.exception("Token-blocklist purge on startup failed")
+
     # ----- LLM + VectorDB + Templates -----
     llm_factory = LLMProviderFactory(settings)
     app.generation_client = llm_factory.create(settings.GENERATION_BACKEND)

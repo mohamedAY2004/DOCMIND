@@ -13,6 +13,7 @@ from ..base import Base, TimestampMixin, pg_enum
 class DocumentFileStatus(str, enum.Enum):
     PROCESSING = "processing"
     READY = "ready"
+    FAILED = "failed"
 
 
 def _new_file_id() -> str:

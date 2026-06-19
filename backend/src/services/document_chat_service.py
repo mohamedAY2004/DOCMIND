@@ -332,6 +332,7 @@ class DocumentChatService:
         settings = get_settings()
         max_bytes = settings.UPLOAD_DOC_MAX_MB * 1024 * 1024
         total = 0
+        too_large = False
         async with aiofiles.open(storage, "wb") as fh:
             while True:
                 data = await upload.read(settings.FILE_DEFAULT_CHUNK_SIZE)
@@ -339,13 +340,21 @@ class DocumentChatService:
                     break
                 total += len(data)
                 if total > max_bytes:
-                    os.unlink(storage)
-                    raise APIError(
-                        ErrorCode.FILE_TOO_LARGE,
-                        status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                        "File exceeds the maximum allowed size.",
-                    )
+                    too_large = True
+                    break
                 await fh.write(data)
+        # Unlink AFTER the handle is closed — Windows refuses to remove a file
+        # while it is still open.
+        if too_large:
+            try:
+                os.unlink(storage)
+            except FileNotFoundError:
+                pass
+            raise APIError(
+                ErrorCode.FILE_TOO_LARGE,
+                status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                "File exceeds the maximum allowed size.",
+            )
         if ext == ".pdf" and detect_pdf_encrypted(storage):
             os.unlink(storage)
             raise APIError(
@@ -361,7 +370,16 @@ class DocumentChatService:
             storage_path=str(storage),
             status=DocumentFileStatus.PROCESSING,
         )
-        await self._files.add(record)
+        try:
+            await self._files.add(record)
+        except Exception:
+            # Row failed to persist — remove the just-written file so it isn't
+            # orphaned on disk.
+            try:
+                os.unlink(storage)
+            except FileNotFoundError:
+                pass
+            raise
         job = {
             "file_id": record.id,
             "conversation_id": conv_id,
@@ -425,3 +443,12 @@ async def index_doc_file_job(
                 )
     except Exception:  # noqa: BLE001
         logger.exception("Indexing failed for doc file %s", file_id)
+        # Surface the failure so the file doesn't stay stuck in PROCESSING.
+        try:
+            async with session_factory() as session:
+                async with session.begin():
+                    await DocumentFileRepository(session).set_status(
+                        file_id, DocumentFileStatus.FAILED
+                    )
+        except Exception:  # noqa: BLE001
+            logger.exception("Could not mark doc file %s as FAILED", file_id)

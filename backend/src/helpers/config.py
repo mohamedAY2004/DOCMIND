@@ -76,6 +76,10 @@ class Settings(BaseSettings):
     JWT_ALG: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 720  # 12 hours, per spec §2.1
     BCRYPT_ROUNDS: int = 12
+    # Throttle the per-request ``last_active`` write: only update when the stored
+    # timestamp is at least this many seconds stale, to keep read endpoints from
+    # issuing a user-row UPDATE on every call.
+    LAST_ACTIVE_THROTTLE_SECONDS: int = 300
 
     # ==================== CORS ====================
     # Comma-separated list in the env file, e.g.

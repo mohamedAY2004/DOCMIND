@@ -37,6 +37,16 @@ from services.rag_service import RAGService, collection_for_subject
 logger = logging.getLogger("docmind.materials")
 
 
+def _best_effort_unlink(path) -> None:
+    """Remove a file, ignoring the case where it is already gone."""
+    try:
+        os.unlink(path)
+    except FileNotFoundError:
+        pass
+    except OSError as exc:  # pragma: no cover - best effort
+        logger.warning("Failed to remove file %s: %s", path, exc)
+
+
 class MaterialService:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -156,15 +166,29 @@ class MaterialService:
         safe = clean_filename(Path(upload.filename or "file").stem) + ext
         storage = directory / f"{random_suffix(16)}_{safe}"
 
-        chunk_size = get_settings().FILE_DEFAULT_CHUNK_SIZE
+        settings = get_settings()
+        max_bytes = settings.UPLOAD_MATERIAL_MAX_MB * 1024 * 1024
         total = 0
+        too_large = False
         async with aiofiles.open(storage, "wb") as fh:
             while True:
-                data = await upload.read(chunk_size)
+                data = await upload.read(settings.FILE_DEFAULT_CHUNK_SIZE)
                 if not data:
                     break
                 total += len(data)
+                if total > max_bytes:
+                    too_large = True
+                    break
                 await fh.write(data)
+        # Unlink AFTER the handle is closed — Windows refuses to remove a file
+        # while it is still open.
+        if too_large:
+            _best_effort_unlink(storage)
+            raise APIError(
+                ErrorCode.FILE_TOO_LARGE,
+                status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                "File exceeds the maximum allowed size.",
+            )
 
         if ext == ".pdf" and detect_pdf_encrypted(storage):
             os.unlink(storage)
@@ -183,7 +207,14 @@ class MaterialService:
             status=MaterialStatus.INDEXING,
             uploaded_by_id=caller.id,
         )
-        await self._materials.add(material)
+        try:
+            await self._materials.add(material)
+        except Exception:
+            # The file is already on disk but the row failed to persist — don't
+            # leave it orphaned. (A commit failure *after* this method returns is
+            # a rarer residual; a periodic orphan sweep is the longer-term fix.)
+            _best_effort_unlink(storage)
+            raise
 
         await self._activity.record(
             action="Material uploaded",
@@ -297,3 +328,14 @@ async def index_material_job(
                 )
     except Exception:  # noqa: BLE001
         logger.exception("Indexing failed for material %s", material_id)
+        # Surface the failure on the row so it doesn't stay stuck in INDEXING.
+        try:
+            async with session_factory() as session:
+                async with session.begin():
+                    await MaterialRepository(session).set_status(
+                        material_id, MaterialStatus.FAILED
+                    )
+        except Exception:  # noqa: BLE001
+            logger.exception(
+                "Could not mark material %s as FAILED", material_id
+            )

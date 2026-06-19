@@ -13,6 +13,7 @@ from ..base import Base, TimestampMixin, pg_enum
 class MaterialStatus(str, enum.Enum):
     INDEXING = "indexing"
     PROCESSED = "processed"
+    FAILED = "failed"
 
 
 def _new_material_id() -> str:

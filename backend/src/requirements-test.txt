@@ -1,0 +1,8 @@
+# Test-only dependencies (not needed to run the app).
+# Install into the project env, e.g.:
+#   pip install -r requirements-test.txt
+pytest==8.*
+pytest-asyncio==0.23.*
+# httpx 0.28 keeps google-genai's ">=0.28.1" constraint satisfied while still
+# working with AsyncClient + ASGITransport used by the integration tests.
+httpx>=0.28,<1.0

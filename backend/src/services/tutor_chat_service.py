@@ -132,7 +132,7 @@ class TutorChatService:
             resp = _message_response(m)
             fb = fb_map.get(m.id)
             if fb is not None:
-                resp.feedback = fb.value if hasattr(fb, "value") else fb
+                resp.feedback = fb.value
             items.append(resp)
         return Page.build(items=items, total=total, params=params)
 

@@ -81,19 +81,6 @@ class SubjectRepository(BaseRepository[Subject]):
         result = await self.session.execute(stmt)
         return [row for row in result.scalars().all()]
 
-    async def instructors_detailed(self, subject_id: str) -> Sequence[User]:
-        stmt = (
-            select(User)
-            .join(SubjectInstructor, SubjectInstructor.user_id == User.id)
-            .where(
-                SubjectInstructor.subject_id == subject_id,
-                User.role == UserRole.INSTRUCTOR,
-            )
-            .order_by(User.name)
-        )
-        result = await self.session.execute(stmt)
-        return result.scalars().all()
-
     async def instructors_with_roles(
         self, subject_id: str
     ) -> Sequence[tuple[User, InstructorSubjectRole]]:
@@ -111,6 +98,9 @@ class SubjectRepository(BaseRepository[Subject]):
         return [(row[0], row[1]) for row in result.all()]
 
     async def get_super_instructor(self, subject_id: str) -> Optional[User]:
+        # The partial unique index (uq_subject_one_super) guarantees at most one
+        # super per subject; order + limit defensively so a legacy double-super
+        # still resolves deterministically.
         stmt = (
             select(User)
             .join(SubjectInstructor, SubjectInstructor.user_id == User.id)
@@ -118,6 +108,8 @@ class SubjectRepository(BaseRepository[Subject]):
                 SubjectInstructor.subject_id == subject_id,
                 SubjectInstructor.instructor_role == InstructorSubjectRole.SUPER,
             )
+            .order_by(User.id)
+            .limit(1)
         )
         result = await self.session.execute(stmt)
         return result.scalars().first()

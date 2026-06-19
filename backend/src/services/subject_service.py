@@ -189,11 +189,14 @@ class SubjectService:
 
     async def delete(self, actor: User, subject_id: str) -> None:
         subject = await self.get_or_404(subject_id)
+        # Deliberately block on *any* conversation (not just "active" ones):
+        # deleting the subject would cascade away its chat history, so we refuse
+        # while any conversation still references it.
         if await self._subjects.has_active_conversations(subject_id):
             raise APIError(
                 ErrorCode.CONFLICT,
                 status.HTTP_409_CONFLICT,
-                "Subject has active conversations and cannot be deleted.",
+                "Subject has conversations and cannot be deleted; remove them first.",
             )
         await self._activity.record(
             action="Subject deleted", actor=actor, subject_label=subject.title
@@ -213,7 +216,15 @@ class SubjectService:
         - If the roster is empty → raise (a subject must have a super if it has instructors).
         """
         if not instructor_ids:
-            # No instructors — nothing to validate; replace_instructors handles the empty case.
+            # No instructors — there's no one to be super. A caller that still
+            # supplied a superInstructorId is contradicting itself; reject it
+            # instead of silently dropping the value.
+            if preferred_super_id:
+                raise APIError(
+                    ErrorCode.VALIDATION_ERROR,
+                    status.HTTP_400_BAD_REQUEST,
+                    "superInstructorId must be one of the assigned instructors.",
+                )
             return ""
         if preferred_super_id:
             if preferred_super_id not in instructor_ids:
@@ -227,31 +238,36 @@ class SubjectService:
         return instructor_ids[0]
 
     async def _validate_instructor_ids(self, ids: List[str]) -> None:
-        if not ids:
-            return
-        found = await self._users.list_by_ids(ids)
-        found_ids = {u.id for u in found if u.role == UserRole.INSTRUCTOR}
-        missing = [uid for uid in ids if uid not in found_ids]
-        if missing:
-            raise APIError(
-                ErrorCode.VALIDATION_ERROR,
-                status.HTTP_400_BAD_REQUEST,
-                "One or more instructor ids are invalid.",
-                details={"invalid_instructor_ids": missing},
-            )
+        await self._validate_role_ids(
+            ids, UserRole.INSTRUCTOR, "instructor", "invalid_instructor_ids"
+        )
 
     async def _validate_student_ids(self, ids: List[str]) -> None:
+        await self._validate_role_ids(
+            ids, UserRole.STUDENT, "student", "invalid_student_ids"
+        )
+
+    async def _validate_role_ids(
+        self, ids: List[str], expected: UserRole, label: str, detail_key: str
+    ) -> None:
+        """Validate that every id is an existing user with role ``expected``.
+
+        Distinguishes ids that don't exist from ids that exist but have the
+        wrong role, so the admin sees an accurate reason instead of a blanket
+        "invalid".
+        """
         if not ids:
             return
         found = await self._users.list_by_ids(ids)
-        found_ids = {u.id for u in found if u.role == UserRole.STUDENT}
-        missing = [uid for uid in ids if uid not in found_ids]
-        if missing:
+        by_id = {u.id: u for u in found}
+        not_found = [uid for uid in ids if uid not in by_id]
+        wrong_role = [uid for uid in ids if uid in by_id and by_id[uid].role != expected]
+        if not_found or wrong_role:
             raise APIError(
                 ErrorCode.VALIDATION_ERROR,
                 status.HTTP_400_BAD_REQUEST,
-                "One or more student ids are invalid.",
-                details={"invalid_student_ids": missing},
+                f"One or more {label} ids are invalid.",
+                details={detail_key: not_found, "wrong_role_ids": wrong_role},
             )
 
     async def _validate_subject_ids_exist(self, ids: List[str]) -> None:

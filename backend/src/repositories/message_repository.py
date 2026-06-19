@@ -41,13 +41,19 @@ class MessageRepository(BaseRepository[Message]):
         return rows, total
 
     async def history(self, conv_id: str, limit: int = 20) -> Sequence[Message]:
+        """Return the most-recent ``limit`` messages in chronological order.
+
+        Fetch newest-first with the LIMIT (so we keep the *latest* turns, not
+        the opening ones), then reverse so callers still receive them oldest →
+        newest for the agent prompt.
+        """
         result = await self.session.execute(
             select(Message)
             .where(Message.conversation_id == conv_id)
-            .order_by(Message.created_at.asc())
+            .order_by(Message.created_at.desc())
             .limit(limit)
         )
-        return result.scalars().all()
+        return list(reversed(result.scalars().all()))
 
     async def count_since(
         self, role: MessageRole, since: datetime

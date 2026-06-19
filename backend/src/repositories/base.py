@@ -31,7 +31,10 @@ class BaseRepository(Generic[TModel]):
         await self.session.flush()
 
     async def count(self, stmt: Optional[Select] = None) -> int:
-        base = stmt if stmt is not None else select(self.model)
-        subq = base.with_only_columns(func.count()).order_by(None)
+        # Wrap the statement in a subquery so the count is correct even when the
+        # base query carries joins / DISTINCT (``with_only_columns(count)`` would
+        # otherwise multiply rows across the joins).
+        base = (stmt if stmt is not None else select(self.model)).order_by(None)
+        subq = select(func.count()).select_from(base.subquery())
         result = await self.session.execute(subq)
         return int(result.scalar() or 0)

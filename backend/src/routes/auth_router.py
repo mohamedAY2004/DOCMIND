@@ -1,11 +1,13 @@
 """Auth routes (spec §4)."""
 from __future__ import annotations
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import User
-from helpers.deps import get_current_user, get_jti_from_request, get_session
+from helpers.deps import get_current_user, get_logout_claims, get_session
 from schemas.auth import LoginRequest, LoginResponse, MeResponse
 from services.auth_service import AuthService
 
@@ -26,10 +28,11 @@ async def login(
     response_model=None,
 )
 async def logout(
-    jti: str = Depends(get_jti_from_request),
+    claims: tuple[str, datetime] = Depends(get_logout_claims),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
-    await AuthService(session).logout(jti)
+    jti, expires_at = claims
+    await AuthService(session).logout(jti, expires_at)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
