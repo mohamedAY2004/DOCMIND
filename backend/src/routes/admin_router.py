@@ -191,7 +191,15 @@ async def activity_feed(
 @analytics_router.get("/daily", response_model=List[DailyUsageResponse])
 async def analytics_daily(
     days: int = Query(14, ge=1, le=90),
+    semesterId: Optional[str] = Query(None),
+    subjectId: Optional[str] = Query(None),
+    instructorId: Optional[str] = Query(None),
     session: AsyncSession = Depends(get_session),
     _admin: User = Depends(require_role(UserRole.ADMIN)),
 ) -> List[DailyUsageResponse]:
-    return await AdminStatsService(session).daily_usage(days=days)
+    return await AdminStatsService(session).daily_usage(
+        days=days,
+        semester_id=semesterId,
+        subject_id=subjectId,
+        instructor_id=instructorId,
+    )

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import List
+from typing import List, Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -119,9 +119,21 @@ class AdminStatsService:
             superInstructorId=super_instructor.id if super_instructor else None,
         )
 
-    async def daily_usage(self, days: int = 14) -> List[DailyUsageResponse]:
+    async def daily_usage(
+        self,
+        days: int = 14,
+        *,
+        subject_id: Optional[str] = None,
+        semester_id: Optional[str] = None,
+        instructor_id: Optional[str] = None,
+    ) -> List[DailyUsageResponse]:
         since = datetime.now(timezone.utc) - timedelta(days=days)
-        rows = await self._messages.daily_rollup(since)
+        rows = await self._messages.daily_rollup(
+            since,
+            subject_id=subject_id,
+            semester_id=semester_id,
+            instructor_id=instructor_id,
+        )
         return [
             DailyUsageResponse(
                 day=day.date() if hasattr(day, "date") else day,

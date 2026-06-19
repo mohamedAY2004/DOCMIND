@@ -6,7 +6,13 @@ from typing import Optional, Sequence
 
 from sqlalchemy import func, select
 
-from db.models import Conversation, Message, MessageRole
+from db.models import (
+    Conversation,
+    Message,
+    MessageRole,
+    Subject,
+    SubjectInstructor,
+)
 
 from .base import BaseRepository
 
@@ -66,22 +72,42 @@ class MessageRepository(BaseRepository[Message]):
         return int(result.scalar() or 0)
 
     async def daily_rollup(
-        self, since: datetime
+        self,
+        since: datetime,
+        *,
+        subject_id: Optional[str] = None,
+        semester_id: Optional[str] = None,
+        instructor_id: Optional[str] = None,
     ) -> Sequence[tuple[datetime, int, int]]:
-        """Return ``(day, distinct_conversations, user_message_count)`` per day."""
+        """Return ``(day, distinct_conversations, user_message_count)`` per day.
+
+        Optional ``subject_id`` / ``semester_id`` / ``instructor_id`` scope the
+        rollup to conversations belonging to the matching subject(s).
+        """
         day_col = func.date_trunc("day", Message.created_at).label("day")
-        stmt = (
-            select(
-                day_col,
-                func.count(func.distinct(Message.conversation_id)).label("convs"),
-                func.count(Message.id).filter(Message.role == MessageRole.USER).label(
-                    "questions"
-                ),
+        stmt = select(
+            day_col,
+            func.count(func.distinct(Message.conversation_id)).label("convs"),
+            func.count(Message.id)
+            .filter(Message.role == MessageRole.USER)
+            .label("questions"),
+        ).where(Message.created_at >= since)
+
+        if subject_id or semester_id or instructor_id:
+            stmt = stmt.join(Conversation, Conversation.id == Message.conversation_id)
+        if subject_id:
+            stmt = stmt.where(Conversation.subject_id == subject_id)
+        if semester_id:
+            stmt = stmt.join(Subject, Subject.id == Conversation.subject_id).where(
+                Subject.semester_id == semester_id
             )
-            .where(Message.created_at >= since)
-            .group_by(day_col)
-            .order_by(day_col)
-        )
+        if instructor_id:
+            subj_subq = select(SubjectInstructor.subject_id).where(
+                SubjectInstructor.user_id == instructor_id
+            )
+            stmt = stmt.where(Conversation.subject_id.in_(subj_subq))
+
+        stmt = stmt.group_by(day_col).order_by(day_col)
         result = await self.session.execute(stmt)
         return [(row.day, int(row.convs or 0), int(row.questions or 0)) for row in result]
 

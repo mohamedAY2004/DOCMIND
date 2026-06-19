@@ -107,12 +107,20 @@ export async function getActivityLog(limit = 20) {
   return data
 }
 
-export async function getDailyUsage(days = 14) {
-  // Backend accepts `days` (int, 1..90); keep the client aligned with the
-  // contract declared in backend/src/routes/admin_router.py.
-  const { data } = await apiClient.get('/admin/analytics/daily', {
-    params: { days },
-  })
+export async function getDailyUsage({
+  days = 14,
+  semesterId,
+  subjectId,
+  instructorId,
+} = {}) {
+  // Backend accepts `days` (int, 1..90) plus optional semesterId / subjectId /
+  // instructorId scoping; keep the client aligned with the contract declared in
+  // backend/src/routes/admin_router.py.
+  const params = { days }
+  if (semesterId) params.semesterId = semesterId
+  if (subjectId) params.subjectId = subjectId
+  if (instructorId) params.instructorId = instructorId
+  const { data } = await apiClient.get('/admin/analytics/daily', { params })
   return data
 }
 
