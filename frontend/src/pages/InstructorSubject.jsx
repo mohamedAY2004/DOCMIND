@@ -10,7 +10,8 @@ import {
   FileText,
   LogOut,
   Trash2,
-  Users,
+  ShieldCheck,
+  Mail,
   Loader2,
 } from 'lucide-react'
 import { AppLayout, AppTopBar } from '../components/layout'
@@ -18,7 +19,6 @@ import TestStudentBotModal from '../components/chat/TestStudentBotModal'
 import PrimaryButton from '../components/ui/PrimaryButton'
 import UploadZone from '../components/ui/UploadZone'
 import PageFooter from '../components/ui/PageFooter'
-import InstructorAvatarGroup from '../components/ui/InstructorAvatarGroup'
 import ThemeToggle from '../components/ui/ThemeToggle'
 import useAuth from '../hooks/useAuth'
 import {
@@ -28,11 +28,7 @@ import {
   deleteSubjectMaterial,
 } from '../services/subjectService'
 import { uploadMaterial } from '../services/uploadService'
-import {
-  getInstructorInitials,
-  normalizeInstructorRow,
-  titleCaseSlug,
-} from '../utils/formatters'
+import { getInstructorInitials, normalizeInstructorRow, titleCaseSlug } from '../utils/formatters'
 import { fadeUp } from '../utils/motion'
 
 const cardClass = 'rounded-card border border-dm-border bg-dm-card p-8 shadow-xl'
@@ -53,28 +49,60 @@ const INDEXING_POLL_MS = 4000
 const MAX_FILE_BYTES = 50 * 1024 * 1024
 const ALLOWED_EXTENSIONS = new Set(['.pdf'])
 
+function SuperInstructorContactCard({ superInstructor }) {
+  if (!superInstructor) return null
+  return (
+    <motion.section
+      className={`${cardClass} mb-8 !p-5 md:!p-6`}
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35 }}
+    >
+      <div className="flex flex-wrap items-center gap-4">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-dm-primary/15 text-dm-primary">
+          <ShieldCheck size={18} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-dm-foreground">
+            Super Instructor: {superInstructor.name}
+          </p>
+          <p className="mt-0.5 text-xs text-dm-muted">
+            Contact them to request material changes or additions.
+          </p>
+        </div>
+        <a
+          href={`mailto:${superInstructor.email}`}
+          className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-dm-primary/40 bg-dm-primary/10 px-4 py-2 text-sm font-medium text-dm-primary transition-colors hover:bg-dm-primary/20"
+        >
+          <Mail size={15} />
+          {superInstructor.email}
+        </a>
+      </div>
+    </motion.section>
+  )
+}
+
 function InstructorSubject() {
   const { user, logout } = useAuth()
   const userId = user?.id ?? null
-  const userRole = user?.role ?? null
   const { subjectId } = useParams()
   const fileInputRef = useRef(null)
   const [subject, setSubject] = useState(null)
   const [instructors, setInstructors] = useState([])
   const [materials, setMaterials] = useState([])
   const [testBotModalOpen, setTestBotModalOpen] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(null) // null = idle, 0-100 = uploading
-
+  const [uploadProgress, setUploadProgress] = useState(null)
 
   const subjectName = subject?.title || titleCaseSlug(subjectId)
 
-  const coInstructors = useMemo(
-    () => instructors.filter((i) => i.id !== userId),
-    [instructors, userId],
+  const superInstructor = useMemo(
+    () => instructors.find((i) => i.instructorRole === 'super') || null,
+    [instructors],
   )
-  const isAssigned = useMemo(
-    () => (userId ? instructors.some((i) => i.id === userId) : false),
-    [instructors, userId],
+
+  const isSuper = useMemo(
+    () => (userId ? superInstructor?.id === userId : false),
+    [superInstructor, userId],
   )
 
   const refreshMaterials = useCallback(async () => {
@@ -93,7 +121,6 @@ function InstructorSubject() {
     Promise.all([
       getSubjectById(subjectId).catch(() => null),
       getSubjectInstructors(subjectId).catch(() => []),
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       refreshMaterials(),
     ]).then(([subjectRes, instructorsRes]) => {
       if (cancelled) return
@@ -108,8 +135,6 @@ function InstructorSubject() {
     }
   }, [subjectId, refreshMaterials])
 
-  // Poll while any material is still indexing so the badge flips to
-  // "Processed" once the server finishes embedding the document.
   useEffect(() => {
     const anyIndexing = materials.some((m) => m.status === 'indexing')
     if (!anyIndexing) return
@@ -122,7 +147,7 @@ function InstructorSubject() {
   const isUploading = uploadProgress !== null
 
   const handleBrowseFiles = useCallback(() => {
-    if (isUploading) return // Prevent double-uploads
+    if (isUploading) return
     fileInputRef.current?.click()
   }, [isUploading])
 
@@ -224,14 +249,16 @@ function InstructorSubject() {
       }
     >
       <div className="mx-auto px-6 py-10 md:px-10 lg:py-12">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".pdf"
-          className="sr-only"
-          aria-hidden
-          onChange={handleFileChange}
-        />
+        {isSuper && (
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf"
+            className="sr-only"
+            aria-hidden
+            onChange={handleFileChange}
+          />
+        )}
 
         <motion.section
           className="mb-10"
@@ -239,115 +266,73 @@ function InstructorSubject() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
-          <h1 className="text-3xl font-bold text-dm-foreground md:text-4xl">{subjectName}</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-3xl font-bold text-dm-foreground md:text-4xl">{subjectName}</h1>
+            {isSuper ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-dm-primary/15 px-3 py-1 text-sm font-medium text-dm-primary">
+                <ShieldCheck size={14} />
+                Super Instructor
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-dm-background border border-dm-border px-3 py-1 text-sm font-medium text-dm-muted">
+                Viewer
+              </span>
+            )}
+          </div>
           <p className="mt-2 text-dm-muted">
-            Manage course materials, lecture notes, and configure the AI assistant for this
-            subject.
+            {isSuper
+              ? 'Manage course materials, lecture notes, and configure the AI assistant for this subject.'
+              : 'View course materials and test the AI assistant for this subject.'}
           </p>
         </motion.section>
 
-        {instructors.length > 0 && (
-          <motion.section
-            className={`${cardClass} mb-8 !p-5 md:!p-6`}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35 }}
-          >
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-dm-primary/15 text-dm-primary">
-                  <Users size={18} />
-                </span>
-                <div>
-                  <p className="text-sm font-semibold text-dm-foreground">
-                    {instructors.length === 1
-                      ? 'Sole instructor'
-                      : `${instructors.length} instructors share this subject`}
-                  </p>
-                  <p className="text-xs text-dm-muted">
-                    {coInstructors.length > 0
-                      ? `You co-teach with ${coInstructors
-                          .map((i) => i.name)
-                          .join(', ')}. All uploads are shared.`
-                      : 'You are currently the only instructor assigned.'}
-                    {!isAssigned && userRole === 'instructor' && (
-                      <span className="ml-1 text-amber-300">
-                        You are not on this subject&apos;s roster.
-                      </span>
-                    )}
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <InstructorAvatarGroup
-                  instructors={instructors}
-                  highlightId={userId}
-                  max={5}
-                  size="md"
-                />
-                <ul className="flex flex-wrap gap-2">
-                  {instructors.map((i) => {
-                    const isSelf = i.id === userId
-                    return (
-                      <li
-                        key={i.id}
-                        className={[
-                          'rounded-full border px-3 py-1 text-xs',
-                          isSelf
-                            ? 'border-dm-primary/50 bg-dm-primary/15 text-dm-foreground'
-                            : 'border-dm-border bg-dm-background text-dm-muted',
-                        ].join(' ')}
-                      >
-                        {i.name}
-                        {isSelf && (
-                          <span className="ml-1 text-dm-primary">(you)</span>
-                        )}
-                      </li>
-                    )
-                  })}
-                </ul>
-              </div>
-            </div>
-          </motion.section>
+        {!isSuper && superInstructor && (
+          <SuperInstructorContactCard superInstructor={superInstructor} />
         )}
 
         <div className="flex flex-col gap-10">
           <div className="grid grid-cols-12 gap-10">
-            <motion.section
-              className={`${cardClass} col-span-12 lg:col-span-8`}
-              variants={fadeUp}
-              initial="hidden"
-              animate="visible"
-            >
-              <div className={cardHeaderClass}>
-                <div className="flex items-center gap-2">
-                  <Cloud size={22} className="text-dm-primary" />
-                  <h2 className={cardTitleClass}>Upload Materials</h2>
-                </div>
-                <span className="text-sm text-dm-muted">PDF only (Max 50MB)</span>
-              </div>
-              <div className="mt-6">
-                <UploadZone
-                  title={isUploading ? 'Uploading…' : 'Click or drag files to upload'}
-                  hint="Uploads are shared with every instructor on this subject."
-                  buttonText={isUploading ? `Uploading ${uploadProgress}%` : 'Browse Files'}
-                  onBrowse={handleBrowseFiles}
-                />
-                {isUploading && (
-                  <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-dm-border">
-                    <div
-                      className="h-full rounded-full bg-dm-primary transition-all duration-300 ease-out"
-                      style={{ width: `${uploadProgress}%` }}
-                    />
+            {isSuper && (
+              <motion.section
+                className={`${cardClass} col-span-12 lg:col-span-8`}
+                variants={fadeUp}
+                initial="hidden"
+                animate="visible"
+              >
+                <div className={cardHeaderClass}>
+                  <div className="flex items-center gap-2">
+                    <Cloud size={22} className="text-dm-primary" />
+                    <h2 className={cardTitleClass}>Upload Materials</h2>
                   </div>
-                )}
-              </div>
-            </motion.section>
+                  <span className="text-sm text-dm-muted">PDF only (Max 50MB)</span>
+                </div>
+                <div className="mt-6">
+                  <UploadZone
+                    title={isUploading ? 'Uploading…' : 'Click or drag files to upload'}
+                    hint="Uploaded materials are available to all students enrolled in this subject."
+                    buttonText={isUploading ? `Uploading ${uploadProgress}%` : 'Browse Files'}
+                    onBrowse={handleBrowseFiles}
+                  />
+                  {isUploading && (
+                    <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-dm-border">
+                      <div
+                        className="h-full rounded-full bg-dm-primary transition-all duration-300 ease-out"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </motion.section>
+            )}
 
             <motion.section
-              className={`${cardClass} col-span-12 lg:col-span-4`}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
+              className={[
+                cardClass,
+                'col-span-12',
+                isSuper ? 'lg:col-span-4' : 'lg:col-span-12',
+              ].join(' ')}
+              initial={{ opacity: 0, x: isSuper ? 20 : 0, y: isSuper ? 0 : 12 }}
+              animate={{ opacity: 1, x: 0, y: 0 }}
               transition={{ delay: 0.15, duration: 0.4 }}
             >
               <div className={cardHeaderClass}>
@@ -402,13 +387,12 @@ function InstructorSubject() {
                   {materials.length}
                 </span>
               </div>
-              <span className="text-xs text-dm-muted">
-                Shared across all instructors
-              </span>
             </div>
             {materials.length === 0 ? (
               <p className="mt-6 rounded-xl border border-dashed border-dm-border bg-dm-background/40 px-4 py-8 text-center text-sm text-dm-muted">
-                No materials uploaded yet. Be the first on the team to add one.
+                {isSuper
+                  ? 'No materials uploaded yet. Upload a PDF to get started.'
+                  : 'No materials have been uploaded for this subject yet.'}
               </p>
             ) : (
               <ul className="mt-6 flex flex-col gap-3">
@@ -465,14 +449,16 @@ function InstructorSubject() {
                             </span>
                           )}
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(item.id)}
-                          className="shrink-0 rounded-lg p-2 text-dm-muted hover:bg-dm-border hover:text-dm-foreground transition-colors"
-                          aria-label={`Delete ${item.name}`}
-                        >
-                          <Trash2 size={20} />
-                        </button>
+                        {isSuper && (
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(item.id)}
+                            className="shrink-0 rounded-lg p-2 text-dm-muted hover:bg-dm-border hover:text-dm-foreground transition-colors"
+                            aria-label={`Delete ${item.name}`}
+                          >
+                            <Trash2 size={20} />
+                          </button>
+                        )}
                       </motion.li>
                     )
                   })}

@@ -12,6 +12,7 @@ class MessageResponse(BaseModel):
     role: Literal["user", "assistant", "doc"]
     text: str
     createdAt: datetime
+    feedback: Optional[Literal["up", "down"]] = None
 
 
 class ConversationResponse(BaseModel):

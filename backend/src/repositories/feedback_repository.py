@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Optional, Sequence
 
-from sqlalchemy import and_, func, or_, select, update
+from sqlalchemy import func, or_, select, update
 
 from db.models import (
     Conversation,
@@ -50,6 +50,16 @@ class FeedbackRepository(BaseRepository[Feedback]):
         await self.session.flush()
         return True
 
+    async def map_for_messages(self, message_ids: Sequence[str]) -> dict[str, FeedbackValue]:
+        """Return {message_id: FeedbackValue} for the given message ids."""
+        if not message_ids:
+            return {}
+        stmt = select(Feedback.message_id, Feedback.feedback).where(
+            Feedback.message_id.in_(message_ids)
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return {row.message_id: row.feedback for row in rows}
+
     async def count_by_subject(
         self, subject_id: str, value: FeedbackValue
     ) -> int:
@@ -76,15 +86,21 @@ class FeedbackRepository(BaseRepository[Feedback]):
         limit: int,
     ) -> tuple[list[dict], int]:
         """Return rows shaped for spec §10.4."""
-        prev_msg = (
-            select(
-                Message.id.label("prev_id"),
-                Message.conversation_id.label("conv_id"),
-                Message.text.label("question"),
-                Message.created_at.label("asked_at"),
+        from sqlalchemy.orm import aliased
+
+        UserMsg = aliased(Message)
+
+        question_subq = (
+            select(UserMsg.text)
+            .where(
+                UserMsg.conversation_id == Message.conversation_id,
+                UserMsg.role == MessageRole.USER,
+                UserMsg.created_at < Message.created_at,
             )
-            .where(Message.role == MessageRole.USER)
-            .subquery()
+            .order_by(UserMsg.created_at.desc())
+            .limit(1)
+            .correlate(Message)
+            .scalar_subquery()
         )
 
         stmt = (
@@ -95,7 +111,7 @@ class FeedbackRepository(BaseRepository[Feedback]):
                 Subject.title.label("subject"),
                 Subject.id.label("subject_id"),
                 Subject.semester_id.label("semester"),
-                prev_msg.c.question,
+                question_subq.label("question"),
                 Message.text.label("ai_response"),
                 Feedback.feedback,
                 Feedback.created_at,
@@ -104,13 +120,6 @@ class FeedbackRepository(BaseRepository[Feedback]):
             .join(Conversation, Conversation.id == Message.conversation_id)
             .join(Subject, Subject.id == Conversation.subject_id)
             .join(User, User.id == Feedback.user_id)
-            .outerjoin(
-                prev_msg,
-                and_(
-                    prev_msg.c.conv_id == Message.conversation_id,
-                    prev_msg.c.asked_at < Message.created_at,
-                ),
-            )
         )
 
         if semester is not None:
@@ -123,7 +132,7 @@ class FeedbackRepository(BaseRepository[Feedback]):
             like = f"%{search.lower()}%"
             stmt = stmt.where(
                 or_(
-                    func.lower(prev_msg.c.question).like(like),
+                    func.lower(question_subq).like(like),
                     func.lower(Message.text).like(like),
                 )
             )

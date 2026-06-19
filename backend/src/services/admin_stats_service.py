@@ -104,6 +104,7 @@ class AdminStatsService:
             )
         ).one()
         instructor_ids = await self._subjects.instructor_ids(subject.id)
+        super_instructor = await self._subjects.get_super_instructor(subject.id)
         return SubjectStatsResponse(
             id=subject.id,
             title=subject.title,
@@ -115,6 +116,7 @@ class AdminStatsService:
             thumbsUp=int(feedback_counts.up or 0),
             thumbsDown=int(feedback_counts.down or 0),
             instructorIds=instructor_ids,
+            superInstructorId=super_instructor.id if super_instructor else None,
         )
 
     async def daily_usage(self, days: int = 14) -> List[DailyUsageResponse]:

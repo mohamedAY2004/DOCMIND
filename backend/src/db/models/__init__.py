@@ -11,7 +11,7 @@ from .material import Material, MaterialStatus
 from .message import Message, MessageRole
 from .semester import Semester
 from .subject import Subject
-from .subject_instructor import SubjectInstructor
+from .subject_instructor import InstructorSubjectRole, SubjectInstructor
 from .subject_student import SubjectStudent
 from .system_flag import StudentAccessFlag
 from .token_blocklist import TokenBlocklist
@@ -31,6 +31,7 @@ __all__ = [
     "MessageRole",
     "Semester",
     "Subject",
+    "InstructorSubjectRole",
     "SubjectInstructor",
     "SubjectStudent",
     "StudentAccessFlag",

@@ -8,11 +8,7 @@ import GradientBackdrop from '../components/ui/GradientBackdrop'
 import PageFooter from '../components/ui/PageFooter'
 import ThemeToggle from '../components/ui/ThemeToggle'
 import useAuth from '../hooks/useAuth'
-import {
-  getInstructorSubjects,
-  getSubjectInstructors,
-} from '../services/subjectService'
-import { instructorDisplayName, normalizeInstructorRow } from '../utils/formatters'
+import { getInstructorSubjects } from '../services/subjectService'
 import { primarySurfaceClass } from '../constants/themeClasses'
 import { stagger, fadeUp } from '../utils/motion'
 
@@ -28,10 +24,6 @@ function InstructorHome() {
   const userId = user?.id ?? null
   const [search, setSearch] = useState('')
   const [subjects, setSubjects] = useState([])
-  /** subjectId → normalized roster (preferred for ordering + display). */
-  const [instructorsBySubjectId, setInstructorsBySubjectId] = useState({})
-  /** Merged map from all roster responses (fallback if a subject slice is empty). */
-  const [instructorsById, setInstructorsById] = useState({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -41,36 +33,9 @@ function InstructorHome() {
 
     getInstructorSubjects(userId)
       .catch(() => [])
-      .then(async (subjectsRes) => {
+      .then((subjectsRes) => {
         if (cancelled) return
-        const list = unwrapList(subjectsRes)
-        setSubjects(list)
-
-        // Resolve co-instructor display names via the per-subject roster
-        // endpoint (accessible to anyone with subject access). Runs in
-        // parallel; individual failures just leave that subject's roster
-        // unresolved.
-        const rosters = await Promise.all(
-          list.map((s) =>
-            getSubjectInstructors(s.id)
-              .then(unwrapList)
-              .catch(() => []),
-          ),
-        )
-        if (cancelled) return
-        const merged = {}
-        const perSubject = {}
-        list.forEach((s, idx) => {
-          const rows = (rosters[idx] || [])
-            .map(normalizeInstructorRow)
-            .filter(Boolean)
-          perSubject[s.id] = rows
-          rows.forEach((r) => {
-            merged[r.id] = r
-          })
-        })
-        setInstructorsBySubjectId(perSubject)
-        setInstructorsById(merged)
+        setSubjects(unwrapList(subjectsRes))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -81,30 +46,16 @@ function InstructorHome() {
     }
   }, [userId])
 
-  const resolveInstructors = (subject) => {
-    const ids = (subject.instructorIds || []).map((id) => String(id).trim())
-    const local = instructorsBySubjectId[subject.id] || []
-    const byId = Object.fromEntries(local.map((r) => [r.id, r]))
-    return ids.map((id) => {
-      if (byId[id]) return byId[id]
-      if (instructorsById[id]) return instructorsById[id]
-      return { id, name: instructorDisplayName({ id }) }
-    })
-  }
-
   const instructorSubjects = useMemo(() => {
     if (!search.trim()) return subjects
     const q = search.toLowerCase()
-    return subjects.filter((s) => {
-      const roster = resolveInstructors(s)
-      return (
+    return subjects.filter(
+      (s) =>
         (s.title || '').toLowerCase().includes(q) ||
         (s.courseCode || '').toLowerCase().includes(q) ||
-        (s.id || '').toLowerCase().includes(q) ||
-        roster.some((i) => (i.name || '').toLowerCase().includes(q))
-      )
-    })
-  }, [search, subjects, instructorsById, instructorsBySubjectId])
+        (s.id || '').toLowerCase().includes(q),
+    )
+  }, [search, subjects])
 
   return (
     <AppLayout
@@ -154,9 +105,7 @@ function InstructorHome() {
             <section>
               <h1 className="text-3xl font-bold text-dm-foreground md:text-4xl">My Subjects</h1>
               <p className="mt-2 text-dm-muted">
-                Manage your course materials and AI assistants for the active
-                semester. Subjects you co-teach show every instructor on the
-                team.
+                View and manage your assigned subjects for the active semester.
               </p>
             </section>
             <button
@@ -181,7 +130,8 @@ function InstructorHome() {
             >
               <AnimatePresence mode="popLayout">
                 {instructorSubjects.map((subject) => {
-                  const roster = resolveInstructors(subject)
+                  const instructorRole =
+                    subject.superInstructorId === userId ? 'super' : 'viewer'
                   return (
                     <motion.div
                       key={subject.id}
@@ -196,8 +146,7 @@ function InstructorHome() {
                         status="ready"
                         href={`/instructor/subject/${subject.id}`}
                         className="h-full"
-                        instructors={roster}
-                        currentInstructorId={userId}
+                        instructorRole={instructorRole}
                       />
                     </motion.div>
                   )

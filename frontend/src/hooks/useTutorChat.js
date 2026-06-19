@@ -46,6 +46,7 @@ export default function useTutorChat({
   subjectId,
   conversationId,
   onConversationCreated,
+  onFeedbackMapLoaded,
 }) {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
@@ -56,10 +57,15 @@ export default function useTutorChat({
   const textareaRef = useRef(null)
   const creatingRef = useRef(false)
   const onCreatedRef = useRef(onConversationCreated)
+  const onFeedbackMapLoadedRef = useRef(onFeedbackMapLoaded)
 
   useEffect(() => {
     onCreatedRef.current = onConversationCreated
   }, [onConversationCreated])
+
+  useEffect(() => {
+    onFeedbackMapLoadedRef.current = onFeedbackMapLoaded
+  }, [onFeedbackMapLoaded])
 
   const { streamingId, streamReply, stopStreaming } = useStreamingText(setMessages)
 
@@ -71,6 +77,7 @@ export default function useTutorChat({
     setIsTyping(false)
     setErrorMessage('')
     setLastFailedText('')
+    onFeedbackMapLoadedRef.current?.({})
 
     if (!conversationId) {
       setMessages([])
@@ -84,14 +91,23 @@ export default function useTutorChat({
     getTutorMessages(conversationId)
       .then((items) => {
         if (cancelled) return
+        const fbMap = {}
         setMessages(
-          items.map((m) => ({
-            id: m.id,
-            role: m.role === 'user' ? 'user' : 'assistant',
-            text: m.text ?? '',
-            createdAt: m.createdAt,
-          })),
+          items.map((m) => {
+            if (m.role !== 'user' && m.feedback) {
+              fbMap[m.id] = m.feedback
+            }
+            return {
+              id: m.id,
+              role: m.role === 'user' ? 'user' : 'assistant',
+              text: m.text ?? '',
+              createdAt: m.createdAt,
+            }
+          }),
         )
+        if (Object.keys(fbMap).length > 0) {
+          onFeedbackMapLoadedRef.current?.(fbMap)
+        }
       })
       .catch((err) => {
         if (!cancelled) {

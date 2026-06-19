@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
-import { FileText, Loader2, Users } from 'lucide-react'
+import { FileText, Loader2, ShieldCheck, Eye } from 'lucide-react'
 import PrimaryButton from './PrimaryButton'
-import InstructorAvatarGroup from './InstructorAvatarGroup'
 import { primarySurfaceClass } from '../../constants/themeClasses'
 
 const cardClass =
@@ -50,12 +49,10 @@ function InstructorSubjectCard({
   image,
   href,
   className = '',
-  instructors = [],
-  currentInstructorId = null,
+  instructorRole = null,
 }) {
   const isUploading = status === 'uploading'
-  const coInstructors = instructors.filter((i) => i.id !== currentInstructorId)
-  const hasCoInstructors = coInstructors.length > 0
+  const isSuper = instructorRole === 'super'
 
   const content = (
     <>
@@ -80,37 +77,29 @@ function InstructorSubjectCard({
             <span>{pdfCount}</span>
           )}
         </div>
-        {instructors.length > 0 && (
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-xs text-dm-muted min-w-0">
-              <Users size={14} className="shrink-0" />
-              {hasCoInstructors ? (
-                <span className="truncate">
-                  Co-taught with{' '}
-                  <span className="text-dm-foreground">
-                    {coInstructors.map((i) => i.name).join(', ')}
-                  </span>
-                </span>
-              ) : (
-                <span className="truncate">You are the only instructor</span>
-              )}
-            </div>
-            <InstructorAvatarGroup
-              instructors={instructors}
-              highlightId={currentInstructorId}
-              max={3}
-              size="sm"
-            />
+        {instructorRole && (
+          <div className="mt-3">
+            {isSuper ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-dm-primary/15 px-2.5 py-1 text-xs font-medium text-dm-primary">
+                <ShieldCheck size={12} />
+                Super Instructor
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-dm-background border border-dm-border px-2.5 py-1 text-xs font-medium text-dm-muted">
+                <Eye size={12} />
+                Viewer
+              </span>
+            )}
           </div>
         )}
         <div className={buttonWrapClass}>
           {href ? (
             <Link to={href} className={buttonLinkClass}>
-              Manage Subject
+              {isSuper ? 'Manage Subject' : 'View Subject'}
             </Link>
           ) : (
             <PrimaryButton fullWidth={false} className="w-full">
-              Manage Subject
+              {isSuper ? 'Manage Subject' : 'View Subject'}
             </PrimaryButton>
           )}
         </div>

@@ -1,11 +1,14 @@
 import { useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { Brain, User, Copy, Check } from 'lucide-react'
+import { User, Copy, Check, ThumbsUp, ThumbsDown } from 'lucide-react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import { primarySurfaceClassBr } from '../../constants/themeClasses'
+import useTheme from '../../hooks/useTheme'
+import logoLight from '../../assets/docmind-logo.png'
+import logoDark from '../../assets/docmind_logo_dark.png'
 
 const bubbleUserAddClass = 'flex-row-reverse ml-auto'
 
@@ -50,6 +53,9 @@ function ChatMessageBubble({
   maxWidth = 'max-w-2xl',
   variant = 'default',
   streaming = false,
+  messageId,
+  feedbackValue,
+  onFeedback,
 }) {
   const isAssistant = role === 'assistant' || role === 'doc'
   const [copied, setCopied] = useState(false)
@@ -62,11 +68,24 @@ function ChatMessageBubble({
     })
   }, [text])
 
+  const handleThumbsUp = useCallback(() => {
+    if (!onFeedback || !messageId) return
+    onFeedback(messageId, feedbackValue === 'up' ? null : 'up')
+  }, [onFeedback, messageId, feedbackValue])
+
+  const handleThumbsDown = useCallback(() => {
+    if (!onFeedback || !messageId) return
+    onFeedback(messageId, feedbackValue === 'down' ? null : 'down')
+  }, [onFeedback, messageId, feedbackValue])
+
+  const { theme } = useTheme()
+  const logoSrc = theme === 'dark' ? logoLight : logoDark
+
   const innerClass = isAssistant
     ? VARIANT_INNER[variant] || assistantInnerDefaultClass
     : bubbleUserInnerClass
   const isTutor = variant === 'tutor'
-  const Icon = isAssistant ? Brain : User
+  const showFeedback = isAssistant && !streaming && onFeedback && messageId
 
   return (
     <motion.div
@@ -77,24 +96,24 @@ function ChatMessageBubble({
     >
       {isTutor ? (
         <div
-          className={`mt-0.5 shrink-0 flex h-8 w-8 items-center justify-center rounded-full ${
+          className={`mt-0.5 shrink-0 flex h-10 w-10 items-center justify-center rounded-full ${
             isAssistant
               ? 'bg-dm-primary/10 ring-2 ring-dm-primary/20'
               : 'bg-dm-primary/20 ring-2 ring-dm-primary/30'
           }`}
         >
-          <Icon
-            size={16}
-            className={
-              isAssistant ? 'text-dm-primary' : 'text-dm-primary'
-            }
-          />
+          {isAssistant ? (
+            <img src={logoSrc} alt="DocMind" className="h-10 w-10 object-contain" />
+          ) : (
+            <User size={18} className="text-dm-primary" />
+          )}
         </div>
       ) : (
-        <Icon
-          size={24}
-          className={`mt-1 shrink-0 ${isAssistant ? 'text-dm-primary' : 'text-dm-primary'}`}
-        />
+        isAssistant ? (
+          <img src={logoSrc} alt="DocMind" className="mt-1 shrink-0 h-8 w-8 object-contain" />
+        ) : (
+          <User size={24} className="mt-1 shrink-0 text-dm-primary" />
+        )
       )}
       <div className="flex flex-col gap-1 min-w-0">
         <div className={innerClass}>
@@ -124,6 +143,26 @@ function ChatMessageBubble({
             >
               {copied ? <Check size={14} /> : <Copy size={14} />}
             </button>
+            {showFeedback && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleThumbsUp}
+                  className={`${actionBtnBase} ${feedbackValue === 'up' ? 'text-emerald-400' : `${actionBtnHidden} text-dm-muted hover:text-emerald-400`}`}
+                  aria-label="Helpful"
+                >
+                  <ThumbsUp size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleThumbsDown}
+                  className={`${actionBtnBase} ${feedbackValue === 'down' ? 'text-red-400' : `${actionBtnHidden} text-dm-muted hover:text-red-400`}`}
+                  aria-label="Not helpful"
+                >
+                  <ThumbsDown size={14} />
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>

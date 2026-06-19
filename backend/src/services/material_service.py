@@ -12,7 +12,7 @@ import aiofiles
 from fastapi import UploadFile, status
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 
-from db.models import Material, MaterialStatus, User, UserRole
+from db.models import InstructorSubjectRole, Material, MaterialStatus, User, UserRole
 from helpers.config import get_settings
 from helpers.errors import APIError, ErrorCode
 from repositories.activity_repository import ActivityRepository
@@ -88,6 +88,34 @@ class MaterialService:
                 "You are not assigned to this subject.",
             )
 
+    async def _ensure_can_upload(self, user: User, subject_id: str) -> None:
+        """Only the super instructor (or admin) may upload, patch, or delete materials."""
+        if await self._subjects.get(subject_id) is None:
+            raise APIError(
+                ErrorCode.NOT_FOUND, status.HTTP_404_NOT_FOUND, "Subject not found."
+            )
+        if user.role == UserRole.ADMIN:
+            return
+        if user.role != UserRole.INSTRUCTOR:
+            raise APIError(
+                ErrorCode.FORBIDDEN,
+                status.HTTP_403_FORBIDDEN,
+                "Only instructors can manage materials.",
+            )
+        instructor_role = await self._subjects.get_instructor_role(subject_id, user.id)
+        if instructor_role is None:
+            raise APIError(
+                ErrorCode.FORBIDDEN,
+                status.HTTP_403_FORBIDDEN,
+                "You are not assigned to this subject.",
+            )
+        if instructor_role != InstructorSubjectRole.SUPER:
+            raise APIError(
+                ErrorCode.FORBIDDEN,
+                status.HTTP_403_FORBIDDEN,
+                "Only the super instructor can upload or modify materials.",
+            )
+
     # ---------- commands ----------
 
     async def list_for_subject(
@@ -112,13 +140,7 @@ class MaterialService:
         The ``job`` dict describes the background indexing work the route
         should schedule with ``BackgroundTasks.add_task``.
         """
-        await self._ensure_on_roster(caller, subject_id)
-        if caller.role != UserRole.INSTRUCTOR:
-            raise APIError(
-                ErrorCode.FORBIDDEN,
-                status.HTTP_403_FORBIDDEN,
-                "Only instructors can upload materials.",
-            )
+        await self._ensure_can_upload(caller, subject_id)
         validate_material_upload(upload)
 
         display_name = (name_override or upload.filename or "").strip() or "unnamed"
@@ -186,7 +208,7 @@ class MaterialService:
         name: Optional[str],
         status_value: Optional[Literal["indexing", "processed"]],
     ) -> MaterialResponse:
-        await self._ensure_on_roster(caller, subject_id)
+        await self._ensure_can_upload(caller, subject_id)
         material = await self._materials.get(material_id)
         if material is None or material.subject_id != subject_id:
             raise APIError(
@@ -210,7 +232,7 @@ class MaterialService:
     async def delete(
         self, caller: User, subject_id: str, material_id: str
     ) -> None:
-        await self._ensure_on_roster(caller, subject_id)
+        await self._ensure_can_upload(caller, subject_id)
         material = await self._materials.get(material_id)
         if material is None or material.subject_id != subject_id:
             raise APIError(

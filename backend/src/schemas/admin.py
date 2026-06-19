@@ -18,6 +18,7 @@ class SubjectStatsResponse(BaseModel):
     thumbsUp: int
     thumbsDown: int
     instructorIds: List[str] = Field(default_factory=list)
+    superInstructorId: Optional[str] = None
 
 
 class FeedbackRowResponse(BaseModel):

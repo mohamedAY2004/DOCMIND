@@ -52,7 +52,9 @@ export function normalizeInstructorRow(raw) {
     email,
     username,
   })
-  return { id, name, email, username }
+  const instructorRole =
+    raw.instructorRole ?? raw.instructor_role ?? 'viewer'
+  return { id, name, email, username, instructorRole }
 }
 
 /** Build a two-letter initials label for an instructor display name. */

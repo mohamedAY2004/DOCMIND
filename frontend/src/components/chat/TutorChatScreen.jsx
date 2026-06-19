@@ -1,5 +1,6 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
+import { toast } from 'sonner'
 import { GraduationCap, Loader2, Send } from 'lucide-react'
 import ChatMessageBubble from '../ui/ChatMessageBubble'
 import ErrorBanner from '../ui/ErrorBanner'
@@ -13,6 +14,8 @@ import {
   deleteTutorConversation,
   updateTutorConversation,
   listTutorConversations,
+  sendMessageFeedback,
+  clearMessageFeedback,
 } from '../../services/chatService'
 
 const MAX_MSG = 2000
@@ -30,6 +33,27 @@ const textareaClass =
 const sendBtnClass =
   'shrink-0 rounded-lg p-2 text-dm-primary transition-all duration-150 hover:bg-dm-primary/10 hover:opacity-90 active:scale-95 disabled:opacity-40 disabled:pointer-events-none'
 function TutorChatScreen({ subjectId, subjectName }) {
+  const [feedbackMap, setFeedbackMap] = useState({})
+
+  const handleFeedback = useCallback(async (messageId, value) => {
+    const prev = feedbackMap[messageId] ?? null
+    setFeedbackMap((m) => ({ ...m, [messageId]: value }))
+    try {
+      if (value === null) {
+        await clearMessageFeedback(messageId)
+      } else {
+        await sendMessageFeedback(messageId, value)
+      }
+    } catch {
+      setFeedbackMap((m) => ({ ...m, [messageId]: prev }))
+      toast.error('Could not save feedback.')
+    }
+  }, [feedbackMap])
+
+  const handleFeedbackMapLoaded = useCallback((loaded) => {
+    setFeedbackMap(loaded)
+  }, [])
+
   const fetcher = useCallback(
     () => listTutorConversations(subjectId),
     [subjectId],
@@ -83,6 +107,7 @@ function TutorChatScreen({ subjectId, subjectName }) {
     subjectId,
     conversationId: activeId,
     onConversationCreated: handleConversationCreated,
+    onFeedbackMapLoaded: handleFeedbackMapLoaded,
   })
 
   const messagesRef = useRef(null)
@@ -132,7 +157,11 @@ function TutorChatScreen({ subjectId, subjectName }) {
                     role={m.role}
                     text={m.text}
                     maxWidth="max-w-3xl"
+                    variant="tutor"
                     streaming={m.id === streamingId}
+                    messageId={m.role === 'assistant' ? m.id : undefined}
+                    feedbackValue={m.role === 'assistant' ? (feedbackMap[m.id] ?? null) : undefined}
+                    onFeedback={m.role === 'assistant' ? handleFeedback : undefined}
                   />
                 ))}
                 {isTyping && <TypingIndicator maxWidth="max-w-3xl" />}

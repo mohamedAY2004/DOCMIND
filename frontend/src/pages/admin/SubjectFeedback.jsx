@@ -15,7 +15,6 @@ import {
 } from 'lucide-react'
 import AdminLayout from '../../components/layout/AdminLayout'
 import { primaryButtonCompactClass, primaryChipActiveClass } from '../../constants/themeClasses'
-import InstructorAvatarGroup from '../../components/ui/InstructorAvatarGroup'
 import {
   getSubjectStats,
   getFeedback,
@@ -276,11 +275,6 @@ function SubjectFeedback() {
                       )}
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                      <InstructorAvatarGroup
-                        instructors={instructors}
-                        max={3}
-                        size="sm"
-                      />
                       {isExpanded ? (
                         <ChevronUp size={18} className="text-dm-primary" />
                       ) : (
@@ -292,18 +286,27 @@ function SubjectFeedback() {
                   {instructors.length > 0 && (
                     <div className="mb-3 flex flex-wrap items-center gap-1.5">
                       <span className="text-[10px] font-medium uppercase tracking-wider text-dm-muted">
-                        {instructors.length > 1
-                          ? `${instructors.length} co-instructors`
-                          : 'Instructor'}
+                        Instructors
                       </span>
-                      {instructors.map((i) => (
-                        <span
-                          key={i.id}
-                          className="rounded-full border border-dm-border bg-dm-background px-2 py-0.5 text-[11px] text-dm-muted"
-                        >
-                          {i.name}
-                        </span>
-                      ))}
+                      {instructors.map((i) => {
+                        const isSuper = i.id === s.superInstructorId
+                        return (
+                          <span
+                            key={i.id}
+                            className={[
+                              'rounded-full border px-2 py-0.5 text-[11px]',
+                              isSuper
+                                ? 'border-dm-primary/40 bg-dm-primary/10 text-dm-primary'
+                                : 'border-dm-border bg-dm-background text-dm-muted',
+                            ].join(' ')}
+                          >
+                            {i.name}
+                            {isSuper && (
+                              <span className="ml-1 font-medium">★</span>
+                            )}
+                          </span>
+                        )
+                      })}
                     </div>
                   )}
 

@@ -5,7 +5,14 @@ from typing import Optional, Sequence
 
 from sqlalchemy import delete, select
 
-from db.models import Subject, SubjectInstructor, SubjectStudent, User, UserRole
+from db.models import (
+    InstructorSubjectRole,
+    Subject,
+    SubjectInstructor,
+    SubjectStudent,
+    User,
+    UserRole,
+)
 
 from .base import BaseRepository
 
@@ -87,6 +94,44 @@ class SubjectRepository(BaseRepository[Subject]):
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
+    async def instructors_with_roles(
+        self, subject_id: str
+    ) -> Sequence[tuple[User, InstructorSubjectRole]]:
+        """Return each instructor alongside their per-subject role."""
+        stmt = (
+            select(User, SubjectInstructor.instructor_role)
+            .join(SubjectInstructor, SubjectInstructor.user_id == User.id)
+            .where(
+                SubjectInstructor.subject_id == subject_id,
+                User.role == UserRole.INSTRUCTOR,
+            )
+            .order_by(User.name)
+        )
+        result = await self.session.execute(stmt)
+        return [(row[0], row[1]) for row in result.all()]
+
+    async def get_super_instructor(self, subject_id: str) -> Optional[User]:
+        stmt = (
+            select(User)
+            .join(SubjectInstructor, SubjectInstructor.user_id == User.id)
+            .where(
+                SubjectInstructor.subject_id == subject_id,
+                SubjectInstructor.instructor_role == InstructorSubjectRole.SUPER,
+            )
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().first()
+
+    async def get_instructor_role(
+        self, subject_id: str, user_id: str
+    ) -> Optional[InstructorSubjectRole]:
+        stmt = select(SubjectInstructor.instructor_role).where(
+            SubjectInstructor.subject_id == subject_id,
+            SubjectInstructor.user_id == user_id,
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar()
+
     async def is_instructor_of(self, subject_id: str, user_id: str) -> bool:
         stmt = select(SubjectInstructor).where(
             SubjectInstructor.subject_id == subject_id,
@@ -101,14 +146,26 @@ class SubjectRepository(BaseRepository[Subject]):
         return subject
 
     async def replace_instructors(
-        self, subject_id: str, instructor_ids: Sequence[str]
+        self,
+        subject_id: str,
+        instructor_ids: Sequence[str],
+        super_instructor_id: str,
     ) -> None:
         await self.session.execute(
             delete(SubjectInstructor).where(SubjectInstructor.subject_id == subject_id)
         )
         for user_id in set(instructor_ids):
+            role = (
+                InstructorSubjectRole.SUPER
+                if user_id == super_instructor_id
+                else InstructorSubjectRole.VIEWER
+            )
             self.session.add(
-                SubjectInstructor(subject_id=subject_id, user_id=user_id)
+                SubjectInstructor(
+                    subject_id=subject_id,
+                    user_id=user_id,
+                    instructor_role=role,
+                )
             )
         await self.session.flush()
 

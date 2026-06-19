@@ -20,6 +20,7 @@ from helpers.config import get_settings
 from helpers.errors import APIError, ErrorCode
 from helpers.pagination import Page, PaginationParams
 from repositories.conversation_repository import ConversationRepository
+from repositories.feedback_repository import FeedbackRepository
 from repositories.material_repository import MaterialRepository
 from repositories.message_repository import MessageRepository
 from repositories.subject_repository import SubjectRepository
@@ -40,6 +41,7 @@ class TutorChatService:
         self._messages = MessageRepository(session)
         self._subjects = SubjectRepository(session)
         self._materials = MaterialRepository(session)
+        self._feedback = FeedbackRepository(session)
 
     async def _load_owned(self, owner: User, conv_id: str) -> Conversation:
         conv = await self._conversations.get(conv_id)
@@ -123,9 +125,16 @@ class TutorChatService:
         rows, total = await self._messages.list_for_conversation(
             conv.id, offset=params.offset, limit=params.page_size
         )
-        return Page.build(
-            items=[_message_response(m) for m in rows], total=total, params=params
-        )
+        ai_ids = [m.id for m in rows if m.role != MessageRole.USER]
+        fb_map = await self._feedback.map_for_messages(ai_ids)
+        items = []
+        for m in rows:
+            resp = _message_response(m)
+            fb = fb_map.get(m.id)
+            if fb is not None:
+                resp.feedback = fb.value if hasattr(fb, "value") else fb
+            items.append(resp)
+        return Page.build(items=items, total=total, params=params)
 
     async def delete_conversation(self, owner: User, conv_id: str) -> None:
         conv = await self._load_owned(owner, conv_id)

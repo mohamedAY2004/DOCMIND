@@ -46,6 +46,7 @@ function SubjectFormModal({
 }) {
   const [form, setForm] = useState(DEFAULT_FORM)
   const [instructorIds, setInstructorIds] = useState([])
+  const [superInstructorId, setSuperInstructorId] = useState('')
   const [studentIds, setStudentIds] = useState([])
   const [semesters, setSemesters] = useState([])
   const [instructors, setInstructors] = useState([])
@@ -68,10 +69,12 @@ function SubjectFormModal({
         semesterId: subject.semesterId || subject.semester || '',
       })
       setInstructorIds(subject.instructorIds || [])
+      setSuperInstructorId(subject.superInstructorId || subject.instructorIds?.[0] || '')
       setStudentIds(subject.studentIds || [])
     } else {
       setForm(DEFAULT_FORM)
       setInstructorIds([])
+      setSuperInstructorId('')
       setStudentIds([])
     }
   }, [open, isEdit, subject])
@@ -119,6 +122,16 @@ function SubjectFormModal({
     [students],
   )
 
+  const handleInstructorIdsChange = (ids) => {
+    setInstructorIds(ids)
+    // Keep superInstructorId in sync: if the current super is removed, default
+    // to the first remaining instructor.
+    setSuperInstructorId((prev) => {
+      if (ids.includes(prev)) return prev
+      return ids[0] || ''
+    })
+  }
+
   const validate = () => {
     const e = {}
     if (!isEdit) {
@@ -148,6 +161,8 @@ function SubjectFormModal({
     }
     if (instructorIds.length === 0) {
       e.instructors = 'At least one instructor must be assigned.'
+    } else if (!superInstructorId || !instructorIds.includes(superInstructorId)) {
+      e.superInstructor = 'You must designate a super instructor from the assigned list.'
     }
     setErrors(e)
     return Object.keys(e).length === 0
@@ -165,6 +180,7 @@ function SubjectFormModal({
           courseCode: form.courseCode.trim(),
           semesterId: form.semesterId || null,
           instructorIds,
+          superInstructorId,
           studentIds,
         }
         const updated = await updateSubject(subject.id, patch)
@@ -177,6 +193,7 @@ function SubjectFormModal({
           description: form.description.trim(),
           courseCode: form.courseCode.trim(),
           instructorIds,
+          superInstructorId,
           studentIds,
         }
         if (form.semesterId) body.semesterId = form.semesterId
@@ -296,12 +313,37 @@ function SubjectFormModal({
           <MultiSelect
             options={instructorOptions}
             value={instructorIds}
-            onChange={setInstructorIds}
+            onChange={handleInstructorIdsChange}
             placeholder="Pick instructors…"
             emptyLabel="No instructors available"
             disabled={loading}
           />
         </FormField>
+
+        {instructorIds.length > 0 && (
+          <FormField
+            label="Super instructor"
+            required
+            hint="This instructor can upload and delete materials"
+            error={errors.superInstructor}
+          >
+            <select
+              value={superInstructorId}
+              onChange={(e) => setSuperInstructorId(e.target.value)}
+              className={selectClass}
+            >
+              <option value="">— select super instructor —</option>
+              {instructorIds.map((id) => {
+                const ins = instructors.find((u) => u.id === id)
+                return (
+                  <option key={id} value={id}>
+                    {ins?.name || id}
+                  </option>
+                )
+              })}
+            </select>
+          </FormField>
+        )}
 
         <FormField
           label="Enrolled students"

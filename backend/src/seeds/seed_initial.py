@@ -36,7 +36,7 @@ from db.models.material import Material, MaterialStatus, _new_material_id
 from db.models.message import Message, MessageRole, _new_message_id
 from db.models.semester import Semester
 from db.models.subject import Subject
-from db.models.subject_instructor import SubjectInstructor
+from db.models.subject_instructor import InstructorSubjectRole, SubjectInstructor
 from db.models.subject_student import SubjectStudent
 from db.models.system_flag import StudentAccessFlag
 from db.models.user import User, UserRole, UserStatus, _new_user_id
@@ -217,15 +217,17 @@ async def _seed_subjects(session: AsyncSession, uid_map: dict[str, str]) -> None
             _log("insert", f"subject '{sid}'")
 
         # subject_instructors (composite PK — safe to re-insert)
-        for uname in spec["instructors"]:
+        # First instructor in the list is the super instructor.
+        for idx, uname in enumerate(spec["instructors"]):
             uid = uid_map.get(uname)
             if not uid:
                 continue
             existing = await session.get(SubjectInstructor, {"subject_id": sid, "user_id": uid})
             if existing:
                 continue
-            session.add(SubjectInstructor(subject_id=sid, user_id=uid))
-            _log("insert", f"  subject_instructor {sid} <- {uname}")
+            role = InstructorSubjectRole.SUPER if idx == 0 else InstructorSubjectRole.VIEWER
+            session.add(SubjectInstructor(subject_id=sid, user_id=uid, instructor_role=role))
+            _log("insert", f"  subject_instructor {sid} <- {uname} ({role.value})")
 
         # subject_students (composite PK — safe to re-insert)
         for uname in spec.get("students", []):

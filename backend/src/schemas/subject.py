@@ -17,6 +17,7 @@ class SubjectResponse(BaseModel):
     semesterId: Optional[str] = None
     pdfCount: str  # pre-formatted; spec §6.1 mandates string type
     instructorIds: List[str]
+    superInstructorId: Optional[str] = None
     studentIds: List[str] = Field(default_factory=list)
     studentCount: int = 0
 
@@ -30,6 +31,7 @@ class InstructorResponse(BaseModel):
     # dev domains such as ``@docmind.local`` and would turn a read-only
     # roster fetch into a 500.
     email: str
+    instructorRole: str  # 'super' | 'viewer'
 
 
 class StudentResponse(BaseModel):
@@ -45,6 +47,7 @@ class CreateSubjectRequest(BaseModel):
     courseCode: str = Field(..., min_length=1, max_length=80)
     semesterId: Optional[str] = Field(None, max_length=64)
     instructorIds: List[str] = Field(default_factory=list)
+    superInstructorId: Optional[str] = None
     studentIds: List[str] = Field(default_factory=list)
 
     @field_validator("id")
@@ -61,4 +64,5 @@ class UpdateSubjectRequest(BaseModel):
     courseCode: Optional[str] = Field(None, min_length=1, max_length=80)
     semesterId: Optional[str] = Field(None, max_length=64)
     instructorIds: Optional[List[str]] = None
+    superInstructorId: Optional[str] = None
     studentIds: Optional[List[str]] = None

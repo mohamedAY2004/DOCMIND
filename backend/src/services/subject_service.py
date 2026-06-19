@@ -35,6 +35,7 @@ class SubjectService:
         count = await self._materials.count_for_subject(subject.id)
         instructor_ids = await self._subjects.instructor_ids(subject.id)
         student_ids = await self._subjects.student_ids(subject.id)
+        super_instructor = await self._subjects.get_super_instructor(subject.id)
         return SubjectResponse(
             id=subject.id,
             title=subject.title,
@@ -43,6 +44,7 @@ class SubjectService:
             semesterId=subject.semester_id,
             pdfCount=_format_pdf_count(count),
             instructorIds=instructor_ids,
+            superInstructorId=super_instructor.id if super_instructor else None,
             studentIds=student_ids,
             studentCount=len(student_ids),
         )
@@ -99,12 +101,16 @@ class SubjectService:
 
     async def list_instructors(self, subject_id: str) -> List[InstructorResponse]:
         await self.get_or_404(subject_id)
-        rows = await self._subjects.instructors_detailed(subject_id)
+        rows = await self._subjects.instructors_with_roles(subject_id)
         return [
             InstructorResponse(
-                id=u.id, username=u.username, name=u.name, email=u.email
+                id=u.id,
+                username=u.username,
+                name=u.name,
+                email=u.email,
+                instructorRole=role.value,
             )
-            for u in rows
+            for u, role in rows
         ]
 
     async def list_students(self, subject_id: str) -> List[StudentResponse]:
@@ -131,6 +137,9 @@ class SubjectService:
             )
         await self._validate_instructor_ids(body.instructorIds)
         await self._validate_student_ids(body.studentIds)
+        super_id = await self._resolve_super_instructor_id(
+            body.instructorIds, body.superInstructorId
+        )
         subject = Subject(
             id=body.id,
             title=body.title,
@@ -139,7 +148,7 @@ class SubjectService:
             semester_id=body.semesterId,
         )
         await self._subjects.add(subject)
-        await self._subjects.replace_instructors(subject.id, body.instructorIds)
+        await self._subjects.replace_instructors(subject.id, body.instructorIds, super_id)
         await self._subjects.replace_students(subject.id, body.studentIds)
         await self._activity.record(
             action="Subject created", actor=actor, subject_label=subject.title
@@ -160,7 +169,16 @@ class SubjectService:
             subject.semester_id = body.semesterId
         if body.instructorIds is not None:
             await self._validate_instructor_ids(body.instructorIds)
-            await self._subjects.replace_instructors(subject.id, body.instructorIds)
+            # Determine super: use provided superInstructorId, or preserve the
+            # existing super if they are still in the new roster, else default
+            # to the first id in the list.
+            current_super = await self._subjects.get_super_instructor(subject_id)
+            current_super_id = current_super.id if current_super else None
+            super_id = await self._resolve_super_instructor_id(
+                body.instructorIds,
+                body.superInstructorId or current_super_id,
+            )
+            await self._subjects.replace_instructors(subject.id, body.instructorIds, super_id)
         if body.studentIds is not None:
             await self._validate_student_ids(body.studentIds)
             await self._subjects.replace_students(subject.id, body.studentIds)
@@ -182,6 +200,31 @@ class SubjectService:
         )
         # Rely on DB cascade for materials / subject_instructors.
         await self._subjects.delete(subject)
+
+    async def _resolve_super_instructor_id(
+        self, instructor_ids: List[str], preferred_super_id: Optional[str]
+    ) -> str:
+        """Return the user_id that should receive the SUPER role.
+
+        Rules:
+        - If ``preferred_super_id`` is provided and is in the roster → use it.
+        - If ``preferred_super_id`` is provided but NOT in the roster → raise.
+        - If ``preferred_super_id`` is None and the roster is non-empty → first id.
+        - If the roster is empty → raise (a subject must have a super if it has instructors).
+        """
+        if not instructor_ids:
+            # No instructors — nothing to validate; replace_instructors handles the empty case.
+            return ""
+        if preferred_super_id:
+            if preferred_super_id not in instructor_ids:
+                raise APIError(
+                    ErrorCode.VALIDATION_ERROR,
+                    status.HTTP_400_BAD_REQUEST,
+                    "superInstructorId must be one of the assigned instructors.",
+                )
+            return preferred_super_id
+        # Default: first entry in the list.
+        return instructor_ids[0]
 
     async def _validate_instructor_ids(self, ids: List[str]) -> None:
         if not ids:
