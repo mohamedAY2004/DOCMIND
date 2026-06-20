@@ -484,7 +484,7 @@ cd frontend && npm install && npm run dev
 | **Mohamed Younes** | https://github.com/mohamedAY2004 |
 | **Ahmed Abo El-Naga** | https://github.com/AhmedAboelnaga004 |
 
-### RAG
+### RAG Evaluation
 | Name | GitHub |
 |-----|------|
 | **Amr Mustafa** | https://github.com/AmrMustafa2 |
