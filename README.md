@@ -107,8 +107,9 @@ DocMind provides an AI-powered platform where:
 │  + Alembic)   │  └─────────────────┘  │  + Ollama local  │
 └───────────────┘                        └──────────────────┘
                     ┌──────────────────────────────────────────┐
-                    │         Agentic RAG Layer (optional)     │
-                    │      JSON-Planner Strategy Agent         │
+                    │     RAG Augmentation Layer (optional)    │
+                    │  JSON-Planner Agent · source scoping ·   │
+                    │       cross-encoder reranking            │
                     └──────────────────────────────────────────┘
 ```
 
@@ -125,7 +126,8 @@ DocMind provides an AI-powered platform where:
 | **Vector DB**    | pgvector (PostgreSQL extension) · Qdrant — swappable via `VECTOR_DB_BACKEND` env var               |
 | **Database**     | PostgreSQL 16 with pgvector extension                                                               |
 | **Agent**        | JSON-Planner Agentic RAG (optional, toggleable via `AGENT_ENABLED` env var)                         |
-| **Document Parsing** | PyMuPDF, python-pptx, pypdf                                                                    |
+| **Reranking**    | Local cross-encoder via sentence-transformers (optional, `RERANK_ENABLED`) — same factory pattern  |
+| **Document Parsing** | PyMuPDF, python-pptx, pypdf — structure-aware chunking (tables + headings)                     |
 | **DevOps**       | Docker Compose (Postgres + migration sidecar), Alembic migrations, database seeding                 |
 
 ---
@@ -208,6 +210,7 @@ DocMindFull/
 │       │   ├── system_access_router.py
 │       │   └── health.py
 │       ├── schemas/                 # Pydantic request/response schemas
+│       ├── scripts/                 # Maintenance scripts (e.g. reindex_materials)
 │       ├── seeds/                   # Initial data seeder
 │       ├── services/                # Business-logic service layer
 │       │   ├── auth_service.py
@@ -224,7 +227,8 @@ DocMindFull/
 │       └── stores/                  # Provider-agnostic integrations
 │           ├── llm/                 # Gemini · OpenAI · Cohere providers
 │           ├── vectordb/            # pgvector · Qdrant providers
-│           └── agent/               # JSON-Planner agentic RAG strategy
+│           ├── agent/               # JSON-Planner agentic RAG strategy
+│           └── rerank/              # Cross-encoder reranker (optional)
 │
 └── README.md
 ```
@@ -332,6 +336,13 @@ The frontend will be available at `http://localhost:5173`.
 | `VECTOR_DB_BACKEND` | Vector store: `PGVECTOR`, `QDRANT` | `PGVECTOR` |
 | `AGENT_ENABLED` | Enable agentic RAG (JSON-Planner) | `false` |
 | `AGENT_STRATEGY` | Agent strategy name | `JSON_PLANNER` |
+| `AGENT_SOURCE_FILTER_ENABLED` | Let the planner scope retrieval to named materials (re-index first) | `false` |
+| `RERANK_ENABLED` | Enable cross-encoder reranking of retrieved chunks | `false` |
+| `RERANK_BACKEND` | Reranker backend: `LOCAL_CROSS_ENCODER` | — |
+| `RERANK_MODEL_ID` | Cross-encoder model, e.g. `BAAI/bge-reranker-base` | — |
+| `RERANK_DEVICE` | Torch device: `cuda`, `cpu`, or unset (auto) | — |
+| `RERANK_OVERFETCH` | Candidate multiplier for over-fetch (`limit × N`) | `3` |
+| `RERANK_TOP_N` | Final cap on reranked chunks (defaults to caller `limit`) | — |
 | `JWT_SECRET` | JWT signing secret (32+ bytes) | — |
 | `JWT_EXPIRE_MINUTES` | Token lifetime | `720` |
 | `CORS_ORIGINS` | Allowed frontend origins | `["http://localhost:5173"]` |
@@ -381,29 +392,41 @@ DocMind implements a **Retrieval-Augmented Generation (RAG)** pipeline with the 
 Document Upload
       │
       ▼
- Ingestion Service
-  ├─ Parse PDF/PPTX → text chunks (PyMuPDF, python-pptx, pypdf)
-  └─ Embed chunks   → vector embeddings (Gemini / OpenAI / Cohere)
-                            │
-                            ▼
+ Ingestion Service  (structure-aware chunking)
+  ├─ Parse PDF/PPTX → text (PyMuPDF, python-pptx, pypdf)
+  ├─ Extract tables  → kept intact as atomic Markdown chunks
+  ├─ Detect headings → prepended as breadcrumbs + stored on each chunk
+  ├─ Split prose     → paragraph → line → sentence aware (with overlap)
+  └─ Embed chunks    → vector embeddings (Gemini / OpenAI / Cohere)
+                            │  (each chunk stamped with material_id,
+                            ▼   material_name, section, page/slide)
                     Vector Store (pgvector / Qdrant)
 
 User Question
       │
       ▼
- [Optional] JSON-Planner Agent  ─── decides whether to retrieve
-      │                              or answer from context
+ [Optional] JSON-Planner Agent  ─── decides whether to retrieve, and may
+      │                              scope the search to named materials
       ▼
  RAG Service
   ├─ Embed question
-  ├─ Similarity search in vector store
-  ├─ Build prompt with retrieved context
-  └─ Stream/return LLM response (Gemini / OpenAI / Cohere)
+  ├─ Similarity search in vector store (optionally scoped by material_id)
+  ├─ [Optional] Cross-encoder rerank — over-fetch by recall, keep best by precision
+  ├─ Build prompt with retrieved, source-attributed context
+  └─ Stream/return cited LLM response (Gemini / OpenAI / Cohere)
 ```
 
-**Provider Switching** — All LLM, embedding, and vector-store integrations follow the same factory pattern. Switching providers requires only changing an environment variable; no application code changes needed.
+**Structure-aware chunking** — Ingestion preserves document structure for better retrieval: tables are detected natively and emitted as intact Markdown chunks (never sliced into garbled text), section headings are detected by font size and prepended to each chunk as breadcrumbs, and prose is split on paragraph → line → sentence boundaries with overlap instead of hard character slicing. Every chunk is stamped with its owning `material_id`/`material_name`, `section`, and `page`/`slide`.
 
-**Agentic RAG (optional)** — When `AGENT_ENABLED=true`, the JSON-Planner agent evaluates each user turn and decides whether retrieval is necessary before calling the LLM, reducing unnecessary API calls and improving response quality.
+**Source-attributed answers** — Retrieved context is rendered with its source filename, section, and page, and the model is instructed to cite the source of each fact it states (e.g. `(Lecture03.pdf, Third Normal Form)`).
+
+**Provider Switching** — All LLM, embedding, vector-store, and reranker integrations follow the same factory pattern. Switching providers requires only changing an environment variable; no application code changes needed.
+
+**Agentic RAG (optional)** — When `AGENT_ENABLED=true`, the JSON-Planner agent evaluates each user turn and decides whether retrieval is necessary before calling the LLM, reducing unnecessary API calls and improving response quality. The planner is given a manifest of the subject's indexed materials.
+
+**Source-scoped retrieval (optional, off by default)** — When `AGENT_SOURCE_FILTER_ENABLED=true`, the planner may scope retrieval to the specific materials a question is about (validated against the subject's material allowlist), with a one-shot fallback to the whole subject if the scoped search finds nothing. Requires chunks stamped with `material_id` — re-index legacy materials first with `python -m scripts.reindex_materials`.
+
+**Cross-encoder reranking (optional, off by default)** — When `RERANK_ENABLED=true`, similarity search over-fetches `limit × RERANK_OVERFETCH` candidates (recall) and a cross-encoder truncates back to the best `limit` (precision), so the generation model gets fewer, cleaner chunks. The `LOCAL_CROSS_ENCODER` backend uses `sentence-transformers` (kept out of `requirements.txt`; install with `pip install sentence-transformers`). Reranker faults soft-degrade to vector order — they never error a chat turn.
 
 ---
 
