@@ -472,6 +472,11 @@ cd frontend && npm install && npm run dev
 |-----|------|
 | **Mohamed Younes** | https://github.com/mohamedAY2004 |
 
+### Mobile
+| Name | GitHub |
+|-----|------|
+| **Ahmed Abo El-Naga** | https://github.com/AhmedAboelnaga004 |
+
 ### AI
 | Name | GitHub |
 |-----|------|
@@ -479,18 +484,11 @@ cd frontend && npm install && npm run dev
 | **Mohamed Younes** | https://github.com/mohamedAY2004 |
 | **Ahmed Abo El-Naga** | https://github.com/AhmedAboelnaga004 |
 
-### AI Evaluation
+### RAG
 | Name | GitHub |
 |-----|------|
 | **Amr Mustafa** | https://github.com/AmrMustafa2 |
 | **Youssef Kamal** | https://github.com/MajikorX |
-
-
-### Mobile
-| Name | GitHub |
-|-----|------|
-| **Ahmed Abo El-Naga** | https://github.com/AhmedAboelnaga004 |
-
 ---
 
 ## Academic Supervision
