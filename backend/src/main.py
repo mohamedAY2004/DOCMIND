@@ -48,6 +48,7 @@ from routes.system_access_router import public_router as public_system_router
 from stores.agent import AgentProviderFactory
 from stores.llm import LLMProviderFactory
 from stores.llm.templates.TemplateParser import TemplateParser
+from stores.rerank import RerankProviderFactory
 from stores.vectordb import VectorDBProviderFactory
 
 logger = logging.getLogger("docmind")
@@ -137,6 +138,18 @@ async def _startup() -> None:
     else:
         app.agent_client = None
 
+    # ----- Reranking layer (optional; ``RERANK_ENABLED`` in .env) -----
+    if settings.RERANK_ENABLED and settings.RERANK_BACKEND:
+        rerank_factory = RerankProviderFactory(settings)
+        app.rerank_client = rerank_factory.create(settings.RERANK_BACKEND)
+        logger.info(
+            "Reranking enabled with backend=%s model=%s",
+            settings.RERANK_BACKEND,
+            settings.RERANK_MODEL_ID,
+        )
+    else:
+        app.rerank_client = None
+
     # Mirror onto ``app.state`` so the new routes (which use ``request.app.state``)
     # can access the same singletons.
     app.state.generation_client = app.generation_client
@@ -144,6 +157,7 @@ async def _startup() -> None:
     app.state.vectordb_client = app.vectordb_client
     app.state.template_parser = app.template_parser
     app.state.agent_client = app.agent_client
+    app.state.rerank_client = app.rerank_client
 
 
 @app.on_event("shutdown")

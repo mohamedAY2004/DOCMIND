@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Optional
 from models.db_schemes import RetrievedChunk
 class VectorDBInterface(ABC):
 
@@ -46,6 +46,10 @@ class VectorDBInterface(ABC):
         pass
 
     @abstractmethod
-    async def search_by_vector(self, collection_name: str, vector: list, limit: int,threshold: float)->List[RetrievedChunk]:
+    async def search_by_vector(self, collection_name: str, vector: list, limit: int,
+                               threshold: float,
+                               material_ids: Optional[List[str]] = None)->List[RetrievedChunk]:
+        """Similarity search, optionally scoped to chunks whose stamped
+        ``metadata.material_id`` is in ``material_ids`` (None = no scope)."""
         pass
     

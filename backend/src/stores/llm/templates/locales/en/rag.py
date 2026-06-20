@@ -6,6 +6,7 @@ from string import Template
 system_prompt=Template("\n".join([
     "You are an academic assistant for the subject: $subject_name.",
     "You help the student understand this subject's materials.",
+    "$subject_manifest",
     "You will be provided by a set of documents associated with the student's query.",
     "You have to generate a response based on the documents provided.",
     "Ignore the documents that aren't relevant to the user's query.",
@@ -19,7 +20,10 @@ system_prompt=Template("\n".join([
 
 ## DOCUMENT ##
 document_prompt =Template(
-    "\n".join(["## Document No: $doc_num","### Content: $chunk_text"])
+    "\n".join([
+        "## Document [$doc_num] - source: $source, section: $section, page: $page",
+        "### Content: $chunk_text",
+    ])
 )
 
 ## FOOTER ##
@@ -27,6 +31,8 @@ document_prompt =Template(
 footer_prompt = Template(
     "\n".join(
         [
-            "Based only in the above documents, answer the users question."
+            "Based only on the documents above, answer the student's question.",
+            "When you state a fact, cite the source filename (and section) it came",
+            "from, e.g. (Lecture03.pdf, Third Normal Form).",
         ])
 )

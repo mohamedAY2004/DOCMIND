@@ -4,7 +4,7 @@ import numpy as np
 from pgvector.asyncpg import register_vector
 from ..VectorDBInterface import VectorDBInterface
 from ..VectorDBEnums import DistanceMethodEnum
-from typing import List
+from typing import List, Optional
 import logging
 from models.db_schemes import RetrievedChunk
 
@@ -208,7 +208,8 @@ class PgVectorProvider(VectorDBInterface):
         return True
 
     async def search_by_vector(self, collection_name: str, vector: list,
-                               limit: int, threshold: float = 0.5) -> List[RetrievedChunk]:
+                               limit: int, threshold: float = 0.5,
+                               material_ids: Optional[List[str]] = None) -> List[RetrievedChunk]:
         if not await self.is_collection_exists(collection_name):
             self.logger.error(f"Collection {collection_name} does not exist to search records")
             return None
@@ -216,16 +217,26 @@ class PgVectorProvider(VectorDBInterface):
         embedding = np.array(vector, dtype=np.float32)
         op = self.distance_operator
 
+        # Optional scope to specific owning materials. Kept as a separate
+        # parameterised clause so the unscoped query path is byte-identical to
+        # before; the JSONB key is stamped at index time by RAGService.
+        params = [embedding, collection_name, threshold, limit]
+        source_clause = ""
+        if material_ids:
+            params.append(list(material_ids))
+            source_clause = f"AND metadata->>'material_id' = ANY(${len(params)})"
+
         query = f"""
             SELECT text, metadata,
                    1 - (embedding {op} $1::vector) AS score
             FROM vector_embeddings
             WHERE collection_name = $2
               AND 1 - (embedding {op} $1::vector) >= $3
+              {source_clause}
             ORDER BY embedding {op} $1::vector
             LIMIT $4
         """
-        rows = await self.pool.fetch(query, embedding, collection_name, threshold, limit)
+        rows = await self.pool.fetch(query, *params)
 
         if rows:
             return [

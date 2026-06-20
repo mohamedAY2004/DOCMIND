@@ -7,6 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import List, Optional
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # backend/src/.env — resolved absolutely so settings load regardless of the
@@ -72,6 +73,28 @@ class Settings(BaseSettings):
     AGENT_RETRIEVAL_THRESHOLD: float = 0.3
     # How many recent conversation messages to feed the planner as context.
     AGENT_HISTORY_TURNS: int = 6
+    # Phase 2: let the planner scope retrieval to specific materials it names.
+    # Requires chunks stamped with ``material_id`` (re-index legacy materials
+    # first), so it ships OFF — the planner still searches the whole subject.
+    AGENT_SOURCE_FILTER_ENABLED: bool = False
+
+    # ==================== Reranking (Phase 3) ====================
+    # Cross-encoder reranking of retrieved chunks before synthesis. Over-fetch
+    # by recall (vector search), then truncate by precision (reranker) so the
+    # small generation model gets fewer, cleaner context chunks. Ships OFF —
+    # when disabled the retrieval path is byte-identical to before.
+    RERANK_ENABLED: bool = False
+    # Pluggable backend; see stores/rerank/RerankEnums.RerankBackendEnum.
+    RERANK_BACKEND: Optional[str] = None  # LOCAL_CROSS_ENCODER
+    # Cross-encoder model id, e.g. "BAAI/bge-reranker-base".
+    RERANK_MODEL_ID: Optional[str] = None
+    # Torch device for the local cross-encoder: "cuda" | "cpu" | None (auto).
+    RERANK_DEVICE: Optional[str] = None
+    # Candidate multiplier: vector search fetches limit * RERANK_OVERFETCH rows,
+    # the reranker keeps the best `limit`.
+    RERANK_OVERFETCH: int = 3
+    # Final cap on reranked chunks; defaults to the caller's `limit` when unset.
+    RERANK_TOP_N: Optional[int] = None
 
     # ==================== Template ====================
     DEFAULT_LANGUAGE: str = "en"
@@ -93,6 +116,19 @@ class Settings(BaseSettings):
 
     # ==================== Misc ====================
     STUDENT_ACCESS_DEFAULT_ENABLED: bool = True
+
+    # A blank value in the .env (e.g. ``RERANK_TOP_N=``) arrives as an empty
+    # string; treat it as "unset" so the field falls back to its default
+    # instead of failing int/str parsing.
+    @field_validator(
+        "RERANK_BACKEND", "RERANK_MODEL_ID", "RERANK_DEVICE", "RERANK_TOP_N",
+        mode="before",
+    )
+    @classmethod
+    def _blank_to_none(cls, v):
+        if isinstance(v, str) and v.strip() == "":
+            return None
+        return v
 
     model_config = SettingsConfigDict(env_file=_ENV_FILE, extra="ignore")
 

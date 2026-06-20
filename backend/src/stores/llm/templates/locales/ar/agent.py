@@ -9,6 +9,7 @@ from string import Template
 planner_prompt = Template("\n".join([
     "You are the planner step of an agentic RAG system.",
     "The student is studying: $subject_name.",
+    "$subject_manifest",
     "Decide how to answer the student's latest question.",
     "",
     "You have ONE tool available:",
@@ -31,9 +32,16 @@ planner_prompt = Template("\n".join([
     "that depend on chat history). If you choose \"answer\", set query to",
     "an empty string.",
     "",
+    "OPTIONAL source scoping: if the question is clearly about one or more of",
+    "the specific materials listed above, put their EXACT names (copied from",
+    "the list) in a \"sources\" array to focus the search on them. If you are",
+    "unsure, or the question spans the whole subject, OMIT \"sources\" or use an",
+    "empty array - never invent a name that is not in the list.",
+    "",
     "Respond with a SINGLE JSON object and NOTHING ELSE. No prose, no code",
     "fences, no explanations. Exactly this schema:",
-    '  {"action": "retrieve" | "answer", "query": "<search query or empty>"}',
+    '  {"action": "retrieve" | "answer", "query": "<search query or empty>",',
+    '   "sources": ["<exact material name>", ...]}',
     "",
     "Recent conversation (oldest to newest):",
     "$history",
@@ -46,6 +54,7 @@ planner_prompt = Template("\n".join([
 ## DIRECT ANSWER (no retrieval) ##
 direct_answer_prompt = Template("\n".join([
     "أنت مساعد أكاديمي لمادة: $subject_name.",
+    "$subject_manifest",
     "يُسمح لك فقط بالإجابة على أسئلة متعلقة بهذه المادة.",
     "إذا كان السؤال خارج نطاق هذه المادة، ارفض بأدب وأخبر الطالب",
     "أنك تستطيع المساعدة فقط في مواضيع $subject_name.",
@@ -58,6 +67,7 @@ direct_answer_prompt = Template("\n".join([
 ## NO CONTEXT FALLBACK ##
 no_context_prompt = Template("\n".join([
     "أنت مساعد أكاديمي لمادة: $subject_name.",
+    "$subject_manifest",
     "تم البحث في الوثائق المرتبطة بهذا السؤال ولم يتم العثور على نتائج",
     "ذات صلة ضمن المواد المفهرسة.",
     "إذا كان بإمكانك الإجابة من معرفتك بمادة $subject_name تحديداً،",

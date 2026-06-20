@@ -75,6 +75,34 @@ class TutorChatService:
                 "This subject has no indexed materials yet.",
             )
 
+    # Cap the number of material names injected into the prompt so a subject
+    # with a huge corpus can't crowd out retrieved context on a small model.
+    _MANIFEST_MAX_ITEMS = 30
+
+    async def _build_corpus(
+        self, subject_id: str
+    ) -> tuple[str, list[tuple[str, str]]]:
+        """Return ``(manifest_text, [(material_id, name), ...])`` for a subject.
+
+        The text is injected into the prompts; the ``(id, name)`` list is the
+        allowlist the planner's source filter is validated/resolved against.
+        ``manifest_text`` is ``""`` when there are no processed materials so the
+        template's ``$subject_manifest`` slot collapses cleanly.
+        """
+        materials = await self._materials.processed_materials_for_subject(subject_id)
+        if not materials:
+            return "", []
+        shown = list(materials[: self._MANIFEST_MAX_ITEMS])
+        lines = ["The following materials are indexed for this subject:"]
+        lines.extend(f"  - {name}" for _id, name in shown)
+        if len(materials) > len(shown):
+            lines.append(f"  - ...and {len(materials) - len(shown)} more.")
+        lines.append(
+            "Only these materials are available to retrieve from. If a topic is "
+            "not covered by them, say so instead of inventing an answer."
+        )
+        return "\n".join(lines), list(materials)
+
     async def _ensure_student_enrolled(self, user: User, subject_id: str) -> None:
         """Students may only tutor on subjects they're enrolled in."""
         if user.role != UserRole.STUDENT:
@@ -173,6 +201,9 @@ class TutorChatService:
         subject_name = (
             f"{subject.course_code} \u2014 {subject.title}" if subject else "Unknown"
         )
+        subject_manifest, material_index = await self._build_corpus(
+            conv.subject_id or ""
+        )
 
         # Capture history BEFORE persisting the new user message so the
         # planner sees the conversation as it was before this turn.
@@ -195,16 +226,20 @@ class TutorChatService:
                 rag_service=rag,
                 history=history,
                 subject_name=subject_name,
+                subject_manifest=subject_manifest,
+                material_index=material_index,
+                source_filter_enabled=settings.AGENT_SOURCE_FILTER_ENABLED,
                 limit=settings.AGENT_RETRIEVAL_LIMIT,
                 threshold=settings.AGENT_RETRIEVAL_THRESHOLD,
             )
             answer = result.text
             logger.info(
-                "agent.tutor_chat conv=%s used_retrieval=%s planner_query=%r hits=%d",
+                "agent.tutor_chat conv=%s used_retrieval=%s planner_query=%r hits=%d sources=%s",
                 conv.id,
                 result.used_retrieval,
                 result.planner_query,
                 len(result.retrieved),
+                result.sources_filter,
             )
         else:
             answer = await rag.answer(
@@ -212,6 +247,8 @@ class TutorChatService:
                 text,
                 limit=5,
                 threshold=0.3,
+                subject_name=subject_name,
+                subject_manifest=subject_manifest,
             )
         reply = Message(
             conversation_id=conv.id, role=MessageRole.ASSISTANT, text=answer or ""
@@ -243,6 +280,7 @@ class TutorChatService:
         subject_name = (
             f"{subject.course_code} \u2014 {subject.title}" if subject else "Unknown"
         )
+        subject_manifest, material_index = await self._build_corpus(subject_id)
 
         if agent is not None:
             settings = get_settings()
@@ -252,12 +290,20 @@ class TutorChatService:
                 rag_service=rag,
                 history=None,
                 subject_name=subject_name,
+                subject_manifest=subject_manifest,
+                material_index=material_index,
+                source_filter_enabled=settings.AGENT_SOURCE_FILTER_ENABLED,
                 limit=settings.AGENT_RETRIEVAL_LIMIT,
                 threshold=settings.AGENT_RETRIEVAL_THRESHOLD,
             )
             return result.text or ""
         return await rag.answer(
-            collection, text, limit=5, threshold=0.3
+            collection,
+            text,
+            limit=5,
+            threshold=0.3,
+            subject_name=subject_name,
+            subject_manifest=subject_manifest,
         )
 
     async def _recent_history(

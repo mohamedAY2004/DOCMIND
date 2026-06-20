@@ -25,12 +25,15 @@ class AgentResult:
         planner_query: The query the planner decided to retrieve with
             (``None`` when ``used_retrieval`` is False).
         retrieved: The raw retrieved chunks, kept for logging / tracing.
+        sources_filter: The ``material_id``s retrieval was scoped to (empty
+            when the search covered the whole subject).
     """
 
     text: str
     used_retrieval: bool = False
     planner_query: Optional[str] = None
     retrieved: List = field(default_factory=list)
+    sources_filter: List[str] = field(default_factory=list)
 
 
 class AgentInterface(ABC):
@@ -45,6 +48,9 @@ class AgentInterface(ABC):
         rag_service,
         history: Optional[list[dict]] = None,
         subject_name: str = "",
+        subject_manifest: str = "",
+        material_index: Optional[list[tuple[str, str]]] = None,
+        source_filter_enabled: bool = False,
         limit: int = 5,
         threshold: float = 0.3,
     ) -> AgentResult:
@@ -61,5 +67,14 @@ class AgentInterface(ABC):
         ``subject_name`` is the human-readable name of the subject (e.g.
         "CS201 — Data Structures") used to scope the agent's answers so
         it refuses questions outside that subject.
+
+        ``subject_manifest`` is a short, pre-rendered list of the subject's
+        indexed materials so the planner/synthesis steps know which
+        documents are actually available to ground answers in.
+
+        ``material_index`` is the ``(material_id, name)`` allowlist used to
+        validate and resolve any material names the planner chooses to scope
+        retrieval to. ``source_filter_enabled`` gates that behaviour; when
+        false the agent always searches the whole subject collection.
         """
         raise NotImplementedError

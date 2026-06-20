@@ -68,17 +68,30 @@ class JsonPlannerAgent(AgentInterface):
         rag_service,
         history: Optional[list[dict]] = None,
         subject_name: str = "",
+        subject_manifest: str = "",
+        material_index: Optional[list[tuple[str, str]]] = None,
+        source_filter_enabled: bool = False,
         limit: int = 5,
         threshold: float = 0.3,
     ) -> AgentResult:
         # -------- 1. planner step --------
-        decision = await self._plan(query=query, history=history, subject_name=subject_name)
+        decision = await self._plan(
+            query=query,
+            history=history,
+            subject_name=subject_name,
+            subject_manifest=subject_manifest,
+        )
         action = decision["action"]
         planner_query = decision.get("query") or query
 
         # -------- 2a. answer-only branch --------
         if action == AgentActionEnum.ANSWER.value:
-            text = await self._generate_direct(query=query, history=history, subject_name=subject_name)
+            text = await self._generate_direct(
+                query=query,
+                history=history,
+                subject_name=subject_name,
+                subject_manifest=subject_manifest,
+            )
             return AgentResult(
                 text=text or "",
                 used_retrieval=False,
@@ -87,36 +100,99 @@ class JsonPlannerAgent(AgentInterface):
             )
 
         # -------- 2b. retrieval branch --------
+        # Resolve any planner-chosen source names to known material ids. Unknown
+        # names (hallucinations) are dropped; an empty result means no scope.
+        material_ids = self._resolve_sources(
+            decision.get("sources"),
+            material_index=material_index,
+            enabled=source_filter_enabled,
+        )
+
         retrieved = await rag_service.search(
             collection_name,
             planner_query,
             limit=limit,
             threshold=threshold,
+            material_ids=material_ids or None,
         )
 
+        # Bounded fallback: if scoping to specific materials found nothing (e.g.
+        # the planner picked the wrong doc), retry once over the whole subject
+        # before giving up. Caps the extra cost at one more vector query.
+        applied_filter = list(material_ids)
+        if not retrieved and material_ids:
+            logger.info(
+                "agent.source_filter empty for ids=%s; retrying unfiltered",
+                material_ids,
+            )
+            applied_filter = []
+            retrieved = await rag_service.search(
+                collection_name,
+                planner_query,
+                limit=limit,
+                threshold=threshold,
+                material_ids=None,
+            )
+
         if not retrieved:
-            text = await self._generate_no_context(query=query, history=history, subject_name=subject_name)
+            text = await self._generate_no_context(
+                query=query,
+                history=history,
+                subject_name=subject_name,
+                subject_manifest=subject_manifest,
+            )
             return AgentResult(
                 text=text or "",
                 used_retrieval=True,
                 planner_query=planner_query,
                 retrieved=[],
+                sources_filter=applied_filter,
             )
 
         text = await self._synthesize_with_context(
-            query=query, chunks=retrieved, history=history, subject_name=subject_name
+            query=query,
+            chunks=retrieved,
+            history=history,
+            subject_name=subject_name,
+            subject_manifest=subject_manifest,
+            rag_service=rag_service,
         )
         return AgentResult(
             text=text or "",
             used_retrieval=True,
             planner_query=planner_query,
             retrieved=list(retrieved),
+            sources_filter=applied_filter,
         )
+
+    @staticmethod
+    def _resolve_sources(
+        sources,
+        *,
+        material_index: Optional[list[tuple[str, str]]],
+        enabled: bool,
+    ) -> list[str]:
+        """Map planner-chosen material *names* to known material *ids*.
+
+        Returns ``[]`` (no scope) when the feature is off, nothing was chosen,
+        or none of the chosen names match the subject's allowlist.
+        """
+        if not enabled or not sources or not material_index:
+            return []
+        name_to_id = {name: mid for (mid, name) in material_index}
+        ids = [name_to_id[name] for name in sources if name in name_to_id]
+        # Preserve order, drop duplicates.
+        return list(dict.fromkeys(ids))
 
     # ---------------------- planner ----------------------
 
     async def _plan(
-        self, *, query: str, history: Optional[list[dict]], subject_name: str = ""
+        self,
+        *,
+        query: str,
+        history: Optional[list[dict]],
+        subject_name: str = "",
+        subject_manifest: str = "",
     ) -> dict:
         planner_prompt = self._templates.get(
             group="agent",
@@ -125,6 +201,7 @@ class JsonPlannerAgent(AgentInterface):
                 "query": query,
                 "history": _render_history(history),
                 "subject_name": subject_name,
+                "subject_manifest": subject_manifest,
             },
         )
         if not planner_prompt:
@@ -159,24 +236,13 @@ class JsonPlannerAgent(AgentInterface):
         chunks: List,
         history: Optional[list[dict]],
         subject_name: str = "",
+        subject_manifest: str = "",
+        rag_service,
     ) -> str:
-        # Reuse the existing 'rag' template group so the final reply
-        # has identical shape to the non-agentic path.
-        system_prompt = self._templates.get(
-            group="rag", key="system_prompt",
-            variables={"subject_name": subject_name},
-        )
-        docs_block = "\n".join(
-            self._templates.get(
-                group="rag",
-                key="document_prompt",
-                variables={
-                    "doc_num": i + 1,
-                    "chunk_text": getattr(c, "chunk_text", ""),
-                },
-            )
-            for i, c in enumerate(chunks)
-        )
+        # Reuse the RAGService prompt builders so the final reply has an
+        # identical, source-attributed shape to the non-agentic path.
+        system_prompt = rag_service.build_system_prompt(subject_name, subject_manifest)
+        docs_block = rag_service.build_docs_block(chunks)
         footer = self._templates.get(group="rag", key="footer_prompt")
 
         chat_history = self._build_chat_history(
@@ -190,12 +256,20 @@ class JsonPlannerAgent(AgentInterface):
         return reply or ""
 
     async def _generate_direct(
-        self, *, query: str, history: Optional[list[dict]], subject_name: str = ""
+        self,
+        *,
+        query: str,
+        history: Optional[list[dict]],
+        subject_name: str = "",
+        subject_manifest: str = "",
     ) -> str:
         system_prompt = (
             self._templates.get(
                 group="agent", key="direct_answer_prompt",
-                variables={"subject_name": subject_name},
+                variables={
+                    "subject_name": subject_name,
+                    "subject_manifest": subject_manifest,
+                },
             )
             or "You are a helpful academic assistant. Answer concisely."
         )
@@ -208,12 +282,20 @@ class JsonPlannerAgent(AgentInterface):
         return reply or ""
 
     async def _generate_no_context(
-        self, *, query: str, history: Optional[list[dict]], subject_name: str = ""
+        self,
+        *,
+        query: str,
+        history: Optional[list[dict]],
+        subject_name: str = "",
+        subject_manifest: str = "",
     ) -> str:
         system_prompt = (
             self._templates.get(
                 group="agent", key="no_context_prompt",
-                variables={"subject_name": subject_name},
+                variables={
+                    "subject_name": subject_name,
+                    "subject_manifest": subject_manifest,
+                },
             )
             or (
                 "No relevant documents were found. Answer from general "
@@ -315,8 +397,21 @@ def _content_of(msg: dict) -> str:
     return ""
 
 
+def _coerce_sources(value) -> list[str]:
+    """Normalise the optional planner ``sources`` field to a list of strings.
+
+    Tolerates a bare string (wrap), a list (filter to non-empty strings), or
+    anything else (ignore). Names are validated against the allowlist later.
+    """
+    if isinstance(value, str):
+        return [value.strip()] if value.strip() else []
+    if isinstance(value, list):
+        return [v.strip() for v in value if isinstance(v, str) and v.strip()]
+    return []
+
+
 def _parse_planner_json(raw: Optional[str], *, fallback_query: str) -> dict:
-    """Parse the planner output into ``{"action", "query"}``.
+    """Parse the planner output into ``{"action", "query", "sources"}``.
 
     Falls back to retrieval with the original user query on any failure -
     that's the safer default for a RAG app (better to retrieve
@@ -325,6 +420,7 @@ def _parse_planner_json(raw: Optional[str], *, fallback_query: str) -> dict:
     default = {
         "action": AgentActionEnum.RETRIEVE.value,
         "query": fallback_query,
+        "sources": [],
     }
     if not raw:
         logger.warning("Planner returned empty response; defaulting to retrieve")
@@ -353,4 +449,8 @@ def _parse_planner_json(raw: Optional[str], *, fallback_query: str) -> dict:
     query = data.get("query")
     if not isinstance(query, str) or not query.strip():
         query = fallback_query
-    return {"action": action, "query": query.strip()}
+    return {
+        "action": action,
+        "query": query.strip(),
+        "sources": _coerce_sources(data.get("sources")),
+    }

@@ -17,6 +17,25 @@ from services.ingestion_service import IngestedChunk
 logger = logging.getLogger("docmind.rag")
 
 
+def _citation_vars(chunk) -> dict:
+    """Pull citable provenance off a retrieved chunk for ``document_prompt``.
+
+    Chunks carry the metadata stamped at ingestion (``source``, ``section``,
+    ``page``/``slide``). We expose it to the model so it can attribute claims;
+    missing keys (e.g. ``page`` on a PPTX/txt chunk) degrade to a dash.
+    """
+    meta = getattr(chunk, "chunk_metadata", None) or {}
+    page = meta.get("page") or meta.get("slide")
+    # Prefer the human-readable material name (stamped at index time) over the
+    # randomised storage filename in ``source``.
+    return {
+        "chunk_text": getattr(chunk, "chunk_text", "") or "",
+        "source": meta.get("material_name") or meta.get("source") or "unknown",
+        "section": meta.get("section") or "-",
+        "page": page if page is not None else "-",
+    }
+
+
 def collection_for_subject(subject_id: str) -> str:
     """Stable collection name for a subject's tutor-chat corpus."""
     return f"tutor_{subject_id}".lower()
@@ -42,11 +61,19 @@ class RAGService:
         embedding_client,
         generation_client,
         template_parser,
+        rerank_client=None,
+        rerank_overfetch: int = 3,
+        rerank_top_n: Optional[int] = None,
     ) -> None:
         self._vectordb = vectordb_client
         self._embedding = embedding_client
         self._generation = generation_client
         self._templates = template_parser
+        # Optional cross-encoder reranker. When None the retrieval path is
+        # byte-identical to before (no over-fetch, no reorder).
+        self._rerank = rerank_client
+        self._rerank_overfetch = max(1, rerank_overfetch)
+        self._rerank_top_n = rerank_top_n
 
     async def index_chunks(
         self,
@@ -54,11 +81,21 @@ class RAGService:
         chunks: List[IngestedChunk],
         do_reset: bool = False,
         id_prefix: Optional[str] = None,
+        material_name: Optional[str] = None,
     ) -> int:
         if not chunks:
             return 0
         texts = [c.text for c in chunks]
-        metas = [c.metadata for c in chunks]
+        # Stamp a stable owning-material identity onto every chunk so retrieval
+        # can be scoped to specific materials later (Phase 2 source filtering)
+        # and citations can show the human-readable name. ``id_prefix`` is the
+        # material/file id the caller already passes for record-id uniqueness.
+        stamp: dict = {}
+        if id_prefix is not None:
+            stamp["material_id"] = id_prefix
+        if material_name is not None:
+            stamp["material_name"] = material_name
+        metas = [{**c.metadata, **stamp} for c in chunks]
         vectors = []
         for t in texts:
             result = await self._embedding.embed_text_async(
@@ -85,6 +122,31 @@ class RAGService:
         )
         return len(chunks)
 
+    # ------------------------------------------------------------------ #
+    # Prompt building (shared by the non-agent path and the agent's
+    # synthesis step so both produce identically-shaped, citable context).
+    # ------------------------------------------------------------------ #
+    def build_system_prompt(self, subject_name: str, subject_manifest: str = "") -> str:
+        return self._templates.get(
+            group="rag",
+            key="system_prompt",
+            variables={
+                "subject_name": subject_name,
+                "subject_manifest": subject_manifest,
+            },
+        )
+
+    def build_docs_block(self, retrieved: list) -> str:
+        """Render retrieved chunks into a numbered, source-attributed block."""
+        return "\n".join(
+            self._templates.get(
+                group="rag",
+                key="document_prompt",
+                variables={"doc_num": i + 1, **_citation_vars(chunk)},
+            )
+            for i, chunk in enumerate(retrieved)
+        )
+
     async def delete_collection(self, collection_name: str) -> None:
         await self._vectordb.delete_collection(collection_name=collection_name)
 
@@ -95,6 +157,7 @@ class RAGService:
         *,
         limit: int = 5,
         threshold: float = 0.5,
+        material_ids: Optional[List[str]] = None,
     ) -> list:
         vector = await self._embedding.embed_text_async(
             text=query, document_type=DocumentTypeEnum.QUERY.value
@@ -105,13 +168,40 @@ class RAGService:
             logger.error("Failed to embed query for collection %s", collection_name)
             return []
         vector = vector[0]
-        results = await self._vectordb.search_by_vector(
+
+        if self._rerank is None:
+            results = await self._vectordb.search_by_vector(
+                collection_name=collection_name,
+                vector=vector,
+                limit=limit,
+                threshold=threshold,
+                material_ids=material_ids or None,
+            )
+            return results or []
+
+        # Rerank path: over-fetch by recall, then truncate by precision so the
+        # generation model gets fewer, cleaner chunks within the same budget.
+        keep = self._rerank_top_n or limit
+        candidates = await self._vectordb.search_by_vector(
             collection_name=collection_name,
             vector=vector,
-            limit=limit,
+            limit=keep * self._rerank_overfetch,
             threshold=threshold,
+            material_ids=material_ids or None,
         )
-        return results or []
+        candidates = candidates or []
+        if not candidates:
+            return []
+        try:
+            reranked = await self._rerank.rerank(query, candidates, top_n=keep)
+        except Exception:  # noqa: BLE001 - never let a reranker fault 500 a turn
+            logger.exception(
+                "Reranker failed for collection %s; falling back to vector order",
+                collection_name,
+            )
+            return candidates[:keep]
+        # Empty rerank output also degrades to the vector ordering.
+        return reranked or candidates[:keep]
 
     async def answer(
         self,
@@ -122,6 +212,7 @@ class RAGService:
         threshold: float = 0.5,
         history: Optional[list[dict]] = None,
         subject_name: str = "",
+        subject_manifest: str = "",
     ) -> str:
         retrieved = await self.search(
             collection_name, query, limit=limit, threshold=threshold
@@ -132,18 +223,8 @@ class RAGService:
                 "to answer this question."
             )
 
-        system_prompt = self._templates.get(
-            group="rag", key="system_prompt",
-            variables={"subject_name": subject_name},
-        )
-        docs_block = "\n".join(
-            self._templates.get(
-                group="rag",
-                key="document_prompt",
-                variables={"doc_num": i + 1, "chunk_text": chunk.chunk_text},
-            )
-            for i, chunk in enumerate(retrieved)
-        )
+        system_prompt = self.build_system_prompt(subject_name, subject_manifest)
+        docs_block = self.build_docs_block(retrieved)
         footer = self._templates.get(group="rag", key="footer_prompt")
 
         chat_history = [

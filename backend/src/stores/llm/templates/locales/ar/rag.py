@@ -6,6 +6,7 @@ from string import Template
 system_prompt=Template("\n".join([
     "أنت مساعد أكاديمي لمادة: $subject_name.",
     "أنت تساعد الطالب على فهم محتوى هذه المادة.",
+    "$subject_manifest",
     "سيتم تزويدك بمجموعة من الوثائق المرتبطة باستفسار الطالب.",
     "يجب عليك إنشاء رد بناءً على الوثائق المقدمة.",
     "تجاهل الوثائق غير ذات الصلة باستفسار المستخدم.",
@@ -19,7 +20,10 @@ system_prompt=Template("\n".join([
 
 ## DOCUMENT ##
 document_prompt = Template(
-    "\n".join(["## رقم الوثيقة: $doc_num", "### المحتوى: $chunk_text"])
+    "\n".join([
+        "## الوثيقة [$doc_num] - المصدر: $source، القسم: $section، الصفحة: $page",
+        "### المحتوى: $chunk_text",
+    ])
 )
 
 ## FOOTER ##
@@ -27,6 +31,8 @@ document_prompt = Template(
 footer_prompt = Template(
     "\n".join(
         [
-            "بناءً على الوثائق أعلاه فقط، أجب على الطالب."
+            "بناءً على الوثائق أعلاه فقط، أجب على الطالب.",
+            "عند ذكر أي معلومة، اذكر اسم ملف المصدر (والقسم) الذي أتت منه،",
+            "مثال: (Lecture03.pdf, Third Normal Form).",
         ])
 )

@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import User, UserRole
+from helpers.config import get_settings
 from helpers.deps import get_session, require_role, require_student_access
 from helpers.pagination import Page, PaginationParams, pagination_query
 from schemas.chat import (
@@ -27,11 +28,15 @@ legacy_router = APIRouter(prefix="/chat", tags=["chat", "tutor"])
 
 
 def _rag(request: Request) -> RAGService:
+    settings = get_settings()
     return RAGService(
         vectordb_client=request.app.state.vectordb_client,
         embedding_client=request.app.state.embedding_client,
         generation_client=request.app.state.generation_client,
         template_parser=request.app.state.template_parser,
+        rerank_client=getattr(request.app.state, "rerank_client", None),
+        rerank_overfetch=settings.RERANK_OVERFETCH,
+        rerank_top_n=settings.RERANK_TOP_N,
     )
 
 

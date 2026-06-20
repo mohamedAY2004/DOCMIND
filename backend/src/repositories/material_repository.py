@@ -24,6 +24,40 @@ class MaterialRepository(BaseRepository[Material]):
         )
         return result.scalars().all()
 
+    async def processed_names_for_subject(self, subject_id: str) -> Sequence[str]:
+        """Names of a subject's PROCESSED (retrievable) materials, newest first.
+
+        Used to build the corpus manifest injected into tutor prompts so the
+        model knows which materials it can actually ground answers in.
+        """
+        result = await self.session.execute(
+            select(Material.name)
+            .where(
+                Material.subject_id == subject_id,
+                Material.status == MaterialStatus.PROCESSED,
+            )
+            .order_by(Material.created_at.desc())
+        )
+        return result.scalars().all()
+
+    async def processed_materials_for_subject(
+        self, subject_id: str
+    ) -> Sequence[tuple[str, str]]:
+        """``(id, name)`` for a subject's PROCESSED materials, newest first.
+
+        Used to build the corpus manifest *and* the name->id allowlist the
+        planner's source filter is validated against.
+        """
+        result = await self.session.execute(
+            select(Material.id, Material.name)
+            .where(
+                Material.subject_id == subject_id,
+                Material.status == MaterialStatus.PROCESSED,
+            )
+            .order_by(Material.created_at.desc())
+        )
+        return [(row[0], row[1]) for row in result.all()]
+
     async def count_for_subject(self, subject_id: str) -> int:
         from sqlalchemy import func
 

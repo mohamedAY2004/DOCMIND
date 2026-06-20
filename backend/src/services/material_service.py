@@ -315,11 +315,17 @@ async def index_material_job(
     try:
         chunks = await asyncio.to_thread(ingest_file, Path(path))
         if chunks:
+            # Look up the display name so it can be stamped onto every chunk
+            # (used for citations and Phase 2 source-scoped retrieval).
+            async with session_factory() as session:
+                material = await MaterialRepository(session).get(material_id)
+                material_name = material.name if material else None
             await rag_service.index_chunks(
                 collection_name=collection_for_subject(subject_id),
                 chunks=chunks,
                 do_reset=False,
                 id_prefix=material_id,
+                material_name=material_name,
             )
         async with session_factory() as session:
             async with session.begin():

@@ -12,6 +12,7 @@ from typing import List, Union
 
 from models.db_schemes import RetrievedChunk
 from stores.llm.LLMInterface import LLMInterface
+from stores.rerank.RerankInterface import RerankInterface
 from stores.vectordb.VectorDBInterface import VectorDBInterface
 
 # Small fixed embedding dimension — the fake vector store ignores the real
@@ -115,7 +116,8 @@ class FakeVectorDB(VectorDBInterface):
             self.collections[collection_name][rid] = (text, vec, meta or {})
 
     async def search_by_vector(
-        self, collection_name: str, vector: list, limit: int, threshold: float
+        self, collection_name: str, vector: list, limit: int, threshold: float,
+        material_ids: list | None = None,
     ) -> List[RetrievedChunk]:
         store = self.collections.get(collection_name)
         if not store:
@@ -125,7 +127,41 @@ class FakeVectorDB(VectorDBInterface):
         # strictly here — the fake always surfaces indexed chunks.
         scored = []
         for text, vec, meta in store.values():
+            if material_ids and (meta or {}).get("material_id") not in material_ids:
+                continue
             score = float(sum(a * b for a, b in zip(vector, vec)))
             scored.append(RetrievedChunk(chunk_text=text, score=score, chunk_metadata=meta or {}))
         scored.sort(key=lambda c: c.score, reverse=True)
         return scored[:limit]
+
+
+class FakeReranker(RerankInterface):
+    """Deterministic reranker for tests.
+
+    Scores candidates by an optional ``score_map`` keyed on ``chunk_text``
+    (higher = more relevant); unmapped chunks fall back to query-substring
+    overlap so ordering is assertable without a real model. Set ``raises=True``
+    to exercise the ``RAGService`` soft-degrade path. ``last_top_n`` records the
+    ``top_n`` it was last asked for.
+    """
+
+    def __init__(self, score_map: dict | None = None, raises: bool = False) -> None:
+        self.score_map = score_map or {}
+        self.raises = raises
+        self.last_top_n: int | None = None
+
+    async def rerank(self, query: str, candidates: list, *, top_n: int) -> list:
+        self.last_top_n = top_n
+        if self.raises:
+            raise RuntimeError("boom")
+        if not candidates:
+            return []
+
+        def _score(chunk) -> float:
+            text = getattr(chunk, "chunk_text", "") or ""
+            if text in self.score_map:
+                return float(self.score_map[text])
+            return float(1 if query and query.lower() in text.lower() else 0)
+
+        ranked = sorted(candidates, key=_score, reverse=True)
+        return ranked[:top_n]

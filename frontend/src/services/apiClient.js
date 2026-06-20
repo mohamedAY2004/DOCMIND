@@ -52,6 +52,6 @@ apiClient.interceptors.response.use(
  * into your axios config when calling long-running endpoints.
  */
 export const UPLOAD_TIMEOUT = { timeout: 5 * 60_000 } // 5 minutes — large PDFs
-export const LLM_TIMEOUT = { timeout: 3 * 60_000 }    // 3 minutes — LLM generation can be slow
+export const LLM_TIMEOUT = { timeout: 6 * 60_000 }    // 6 minutes — LLM generation + reranking can be slow
 
 export default apiClient

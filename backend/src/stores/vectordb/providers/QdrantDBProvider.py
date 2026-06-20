@@ -1,7 +1,7 @@
 from qdrant_client import models, AsyncQdrantClient
 from ..VectorDBInterface import VectorDBInterface
 from ..VectorDBEnums import DistanceMethodEnum
-from typing import List
+from typing import List, Optional
 import logging
 import uuid
 from models.db_schemes import RetrievedChunk
@@ -98,11 +98,22 @@ class QdrantDBProvider(VectorDBInterface):
         return True
 
 
-    async def search_by_vector(self, collection_name: str, vector: list, limit: int,threshold: float = 0.5)->List[RetrievedChunk]:
+    async def search_by_vector(self, collection_name: str, vector: list, limit: int,threshold: float = 0.5,
+                               material_ids: Optional[List[str]] = None)->List[RetrievedChunk]:
         if not await self.is_collection_exists(collection_name):
-            self.logger.error(f"Collection {collection_name} does not exist to search records") 
+            self.logger.error(f"Collection {collection_name} does not exist to search records")
             return None
-        results = await self.client.query_points(collection_name=collection_name, query=vector, limit=limit, with_payload=True,score_threshold=threshold)
+        # Optionally scope to specific owning materials (None = no scope, so the
+        # unscoped path is unchanged). Keys off the metadata stamped at index time.
+        query_filter = None
+        if material_ids:
+            query_filter = models.Filter(must=[
+                models.FieldCondition(
+                    key="metadata.material_id",
+                    match=models.MatchAny(any=list(material_ids)),
+                )
+            ])
+        results = await self.client.query_points(collection_name=collection_name, query=vector, limit=limit, with_payload=True,score_threshold=threshold, query_filter=query_filter)
         if results:
             return [RetrievedChunk(chunk_text=result.payload["text"], score=result.score, chunk_metadata=result.payload["metadata"]) for result in results.points]
         else:
