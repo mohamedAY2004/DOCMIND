@@ -1161,6 +1161,8 @@ The DocMind system operates under several constraints that influence its design 
 
 Another constraint relates to data access. Retrieval does not fetch live web pages or third-party corpora at query time; it searches only the vector indexes built from the relevant uploaded materials. Combined with prompting, this narrows evidence to course documents, while acknowledging that the generative model may still introduce knowledge not present in those files.
 
+Subject-based chat is further constrained by the academic calendar. Each subject belongs to a semester whose lifecycle state (upcoming, active, or archived) is derived from its date window, and students may start new tutor conversations only while that semester is active; subjects in archived or not-yet-started semesters remain readable so that prior conversations can be reviewed, but they reject new chats. Semesters left without dates fail open to active, so content is never silently locked.
+
 Performance constraints also exist, particularly with respect to AI model inference time and resource usage. The system must balance response quality with acceptable response times, especially during periods of high usage.
 
 \section{Assumptions and Dependencies}
@@ -1320,6 +1322,7 @@ ID & Requirement Description \\
 FR-19 & The system shall provide administrators with access to activity records, aggregated analytics (for example daily message rollups), and chat message feedback associated with subjects. \\
 FR-20 & The system shall allow administrators to manage users (including instructors), subjects, semesters, and a global flag that enables or disables student access with a custom message. \\
 FR-21 & The system shall expose a health endpoint and structured admin APIs suitable for monitoring integration. \\
+FR-22 & The system shall derive each semester's lifecycle state (upcoming, active, or archived) from its optional start and end dates, and shall allow students to start new tutor-chat conversations only on active-semester subjects while keeping past-semester conversations readable. \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -1426,7 +1429,7 @@ The application layer is implemented in Python as FastAPI routers that depend on
 
 \begin{itemize}
   \item Authentication and authorization (AuthService, JWT helpers, role dependencies)
-  \item Subject, semester, and material management (SubjectService, MaterialService)
+  \item Subject, semester, and material management (SubjectService, SemesterService, MaterialService), where each semester's lifecycle state is derived from its date window at read time rather than stored, so terms roll over automatically as the calendar advances without a scheduler or manual toggle
   \item Document and tutor chat orchestration (DocumentChatService, TutorChatService) including ingestion hooks
   \item Administrative services (users, statistics, activity, feedback listing, and system flags)
 \end{itemize}
@@ -1449,7 +1452,7 @@ Key design considerations include chunking large documents into manageable segme
 
 The retrieval module searches the vector database to identify document segments most relevant to the user query. Semantic similarity measures are used to rank results.
 
-This module ensures that only the most contextually relevant information is passed to the language model, reducing noise and improving response quality.
+This module ensures that only the most contextually relevant information is passed to the language model, reducing noise and improving response quality. An optional cross-encoder reranking stage (disabled by default) can over-fetch candidates and re-order them for precision, and the optional agent layer can further restrict retrieval to specific instructor-named materials.
 
 \subsubsection{Response Generation Module}
 
@@ -1553,7 +1556,7 @@ The database design is represented using an Entity-Relationship Diagram (ERD), w
 
 \subsubsection{Entity-Level Design}
 
-Each entity in the ERD shown in Figure~\ref{fig:erd} corresponds to a logical system component. Primary and foreign keys enforce relationships between users, subjects, documents, sessions, and embeddings.
+Each entity in the ERD shown in Figure~\ref{fig:erd} corresponds to a logical system component. Primary and foreign keys enforce relationships between users, subjects, documents, sessions, and embeddings. Subjects optionally reference a semester through a nullable foreign key that is cleared rather than cascaded when a semester is removed; each semester stores an optional start and end date from which its lifecycle state is derived in application code, so the state itself is not persisted.
 
 \newpage
 
@@ -1590,7 +1593,7 @@ The DocMind system is implemented using the following technologies:
 
 \begin{itemize}
   \item \textbf{Backend}: Python 3.11+, FastAPI as described in [13], SQLAlchemy (async), Alembic for migrations, Pydantic for data validation.
-  \item \textbf{AI/ML}: LangChain as described in [14] for RAG orchestration, Google Gemini API (configurable to OpenAI), and \texttt{sentence-transformers} (all-MiniLM-L6-v2) for local embeddings.
+  \item \textbf{AI/ML}: an in-house Retrieval-Augmented Generation (RAG) orchestration layer (structure-aware chunking, prompt assembly, and retrieval), building on patterns popularized by libraries such as LangChain as described in [14], Google Gemini API (configurable to OpenAI), \texttt{sentence-transformers} (all-MiniLM-L6-v2) for local embeddings, and an optional \texttt{sentence-transformers} cross-encoder for reranking.
   \item \textbf{Vector Store}: pgvector as described in [16] (PostgreSQL extension) or Qdrant as described in [17], switchable by environment configuration.
   \item \textbf{Relational Database}: PostgreSQL 15+.
   \item \textbf{Frontend}: React 18 with Vite, Tailwind CSS, React Router, and Axios for API calls.
@@ -1625,7 +1628,7 @@ When a student uploads one or more PDF files to a document-based conversation, t
 \begin{enumerate}
   \item Validates the file type, MIME type, size, and per-conversation count against configured limits.
   \item Stores the file on disk and records metadata in the \texttt{documents} table.
-  \item Triggers an asynchronous ingestion task that reads the PDF, splits it into configurable-size chunks using LangChain text splitters, generates embeddings for each chunk, and upserts the vectors into the conversation-scoped collection in the vector store.
+  \item Triggers an asynchronous ingestion task that reads the PDF and splits it into structure-aware chunks: detected tables are emitted as atomic Markdown blocks, section headings (detected by relative font size) are prepended to each chunk as breadcrumbs, and prose is split recursively (paragraph, then line, then sentence) with a trailing-text overlap so that definitions and worked examples are not cut mid-thought. It then generates embeddings for each chunk and upserts the vectors into the conversation-scoped collection in the vector store.
   \item Updates the document's indexing status in the relational database so the frontend can display the current state (pending, indexed, or failed).
 \end{enumerate}
 
@@ -1635,16 +1638,16 @@ When a student uploads one or more PDF files to a document-based conversation, t
 
 When a student submits a message, the backend performs the following steps:
 \begin{enumerate}
-  \item The backend retrieves the top-$k$ most semantically similar chunks from the conversation or subject collection.
-  \item Chunk texts are assembled into a context string, which is inserted into a prompt template available in English and Arabic locales.
+  \item The backend retrieves the top-$k$ most semantically similar chunks from the conversation or subject collection. When cross-encoder reranking is enabled (disabled by default), it over-fetches a larger candidate set by recall and a cross-encoder truncates it back to the top-$k$ by precision, soft-degrading to the original vector order on any fault.
+  \item Each retrieved chunk carries its provenance (source filename, section heading, and page or slide); these are assembled into a context block, inserted into a prompt template available in English and Arabic locales, and the model is instructed to cite the sources it relied on. For subject chat, a short manifest of the subject's indexed materials is also supplied so the model knows what it can ground answers in.
   \item The prompt is sent to the configured LLM API (Gemini or OpenAI) for generation.
   \item The response is stored in the \texttt{messages} table, associated with the conversation, and returned to the client.
-  \item Optionally, if the agentic mode is enabled, a planner model first decides whether retrieval is needed and with what reformulated query before the generator runs.
+  \item Optionally, if the agentic mode is enabled, a planner model first decides whether retrieval is needed and with what reformulated query before the generator runs; it may additionally scope retrieval to specific instructor materials the student names (disabled by default).
 \end{enumerate}
 
 \subsection{Administrative APIs}
 
-The admin router exposes endpoints for user Create, Read, Update, and Delete (CRUD) operations (create instructor accounts, activate or deactivate users, reset passwords), subject and semester management, aggregated statistics (daily message counts, subject-level activity, per-user usage), feedback records collected from student thumbs-up/down interactions, a global student-access flag that gates all student-facing routes with a configurable maintenance message, and a structured activity log recording every administrative action for audit review.
+The admin router exposes endpoints for user Create, Read, Update, and Delete (CRUD) operations (create instructor accounts, activate or deactivate users, reset passwords), subject management, semester management (creating, updating, and deleting semesters with optional date windows, where subjects of a deleted semester are left unassigned rather than removed), aggregated statistics (daily message counts, subject-level activity, per-user usage), feedback records collected from student thumbs-up/down interactions, a global student-access flag that gates all student-facing routes with a configurable maintenance message, and a structured activity log recording every administrative action for audit review.
 
 \newpage
 
@@ -1657,7 +1660,7 @@ The React frontend is structured as a Single-Page Application (SPA) with protect
 \begin{itemize}
   \item \textbf{Student}: Home dashboard, document-based chat, subject selection, and tutor chat.
   \item \textbf{Instructor}: Subject management dashboard with material upload, status tracking, and file management.
-  \item \textbf{Administrator}: User management, subject management, analytics, feedback viewer, activity log, and system settings.
+  \item \textbf{Administrator}: User management, subject management, semester management, analytics, feedback viewer, activity log, and system settings.
 \end{itemize}
 
 \subsection{State Management}
@@ -1687,7 +1690,7 @@ Figure~\ref{fig:student_doc} shows the student interface for document-based chat
 
 \subsection{Subject-Based Chat Interface}
 
-The tutor (subject-based) chat interface allows students to select a course or subject for which they are enrolled and for which instructors have uploaded materials. Retrieval is limited to indexed content for that subject. The interface surfaces the active subject and instructor context so that answers remain visually tied to the chosen course.
+The tutor (subject-based) chat interface allows students to select a course or subject for which they are enrolled and for which instructors have uploaded materials. Subjects are presented with the most recent semester first, so the current term surfaces above older ones. Retrieval is limited to indexed content for that subject. The interface surfaces the active subject and instructor context so that answers remain visually tied to the chosen course. Subjects belonging to an archived semester are shown in a read-only state: their past conversations remain reviewable, but starting a new chat is disabled.
 
 Figure~\ref{fig:student_subject} shows the student interface for subject-based chat.
 
@@ -1765,6 +1768,7 @@ TC-09 & Admin disables student access & Students see maintenance message & Pass 
 TC-10 & Admin views analytics dashboard & Aggregated stats displayed correctly & Pass \\
 TC-11 & Student submits thumbs-up feedback & Feedback stored, retrievable by admin & Pass \\
 TC-12 & Logout and reuse token & 401 Unauthorized (token blocklisted) & Pass \\
+TC-13 & Student starts tutor chat in an archived-semester subject & 403 Forbidden; past conversations remain readable & Pass \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -1820,7 +1824,7 @@ A natural extension of the subject-based chat is the ability for instructors to 
 
 \subsection{Enhanced Retrieval Strategies}
 
-The current RAG pipeline uses a single-stage dense retrieval approach. Future improvements, informed by best-practice findings in [4], include hybrid retrieval combining dense vector search with keyword-based (BM25) sparse retrieval, re-ranking models (cross-encoders) to improve precision of the top-$k$ retrieved chunks, and query expansion using lightweight models to improve recall for short or ambiguous student queries.
+The RAG pipeline already supports optional cross-encoder reranking to improve the precision of the top-$k$ retrieved chunks, and optional source-scoped retrieval that restricts a query to specific instructor materials; both are disabled by default and can be enabled per deployment. Future improvements, informed by best-practice findings in [4], include hybrid retrieval combining dense vector search with keyword-based (BM25) sparse retrieval, and query expansion using lightweight models to improve recall for short or ambiguous student queries.
 
 \subsection{Analytics and Learning Insights}
 
