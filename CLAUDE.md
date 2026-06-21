@@ -100,4 +100,6 @@ Clean Architecture per feature under `lib/features/<feature>/` with `data/` (dat
 
 ## RAG pipeline
 
-Ingestion: parse PDF/PPTX (PyMuPDF, python-pptx, pypdf) → chunk → embed → vector store. Query: (optional JSON-Planner agent decides whether to retrieve) → embed question → similarity search → build prompt with context → LLM response. Entry services: `ingestion_service.py`, `rag_service.py`, `document_chat_service.py`, `tutor_chat_service.py`.
+Ingestion: parse PDF/PPTX (PyMuPDF, python-pptx, pypdf) → chunk → embed → vector store. Query: (optional JSON-Planner agent decides whether to retrieve) → embed question → similarity search → (optional cross-encoder rerank) → build prompt with context → LLM response. Entry services: `ingestion_service.py`, `rag_service.py`, `document_chat_service.py`, `tutor_chat_service.py`.
+
+**Optional reranking** (`stores/rerank/`, same factory pattern, `RERANK_*` env vars, OFF by default): when `RERANK_ENABLED=true`, `RAGService.search` over-fetches `limit * RERANK_OVERFETCH` candidates and a cross-encoder truncates back to `limit`. The `LOCAL_CROSS_ENCODER` backend needs the optional dep `pip install sentence-transformers` (kept out of `requirements.txt` to keep the image lean); it lazy-imports so the off-path never loads torch. Reranker faults soft-degrade to vector order — they never error a chat turn.

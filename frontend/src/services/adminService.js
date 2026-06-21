@@ -128,3 +128,17 @@ export async function getSemesters() {
   const { data } = await apiClient.get('/semesters')
   return data
 }
+
+export async function createSemester(body) {
+  const { data } = await apiClient.post('/admin/semesters', body)
+  return data
+}
+
+export async function updateSemester(semesterId, patch) {
+  const { data } = await apiClient.patch(`/admin/semesters/${semesterId}`, patch)
+  return data
+}
+
+export async function deleteSemester(semesterId) {
+  await apiClient.delete(`/admin/semesters/${semesterId}`)
+}

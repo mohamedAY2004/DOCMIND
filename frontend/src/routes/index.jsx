@@ -12,6 +12,7 @@ import AdminDashboard from '../pages/admin/AdminDashboard'
 import ManageUsers from '../pages/admin/ManageUsers'
 import ManageInstructors from '../pages/admin/ManageInstructors'
 import ManageSubjects from '../pages/admin/ManageSubjects'
+import ManageSemesters from '../pages/admin/ManageSemesters'
 import SubjectFeedback from '../pages/admin/SubjectFeedback'
 import Analytics from '../pages/admin/Analytics'
 import SystemAccess from '../pages/admin/SystemAccess'
@@ -61,6 +62,7 @@ export function AppRoutes() {
         <Route path="/admin/users" element={<ManageUsers />} />
         <Route path="/admin/instructors" element={<ManageInstructors />} />
         <Route path="/admin/subjects" element={<ManageSubjects />} />
+        <Route path="/admin/semesters" element={<ManageSemesters />} />
         <Route path="/admin/feedback" element={<SubjectFeedback />} />
         <Route path="/admin/analytics" element={<Analytics />} />
         <Route path="/admin/system-access" element={<SystemAccess />} />

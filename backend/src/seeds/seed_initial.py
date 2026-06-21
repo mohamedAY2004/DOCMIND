@@ -37,7 +37,7 @@ import asyncio
 import os
 import random
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 _here = os.path.dirname(os.path.abspath(__file__))
 _src = os.path.abspath(os.path.join(_here, os.pardir))
@@ -207,6 +207,20 @@ def _semester_start(sem_id: str) -> datetime:
     return datetime(int(year), month, 1, tzinfo=timezone.utc)
 
 
+def _semester_end(sem_id: str) -> date:
+    """End date = the day before the next term starts (contiguous, no gaps).
+
+    Contiguity guarantees the term containing ``_NOW`` always resolves to
+    ``active`` under ``derive_semester_state`` — there is no inter-term gap for a
+    seed run to fall into, so a fresh dataset always has a current semester.
+    """
+    term, year = sem_id.split("-")
+    y = int(year)
+    if term == "fall":
+        return date(y + 1, 2, 1) - timedelta(days=1)  # → Jan 31 next year
+    return date(y, 9, 1) - timedelta(days=1)  # spring → Aug 31
+
+
 def _semester_anchor_days_ago(sem_id: str) -> int:
     """Approx days-ago for the *start* of a semester, used to age its content."""
     return max((_NOW - _semester_start(sem_id)).days, 1)
@@ -221,7 +235,13 @@ def _build_semesters() -> list[dict]:
             # Keep everything in the past relative to _NOW (skip future terms).
             if _semester_start(sem_id) >= _NOW:
                 continue
-            sems.append({"id": sem_id, "label": f"{term.capitalize()} {year}", "sort_order": order})
+            sems.append({
+                "id": sem_id,
+                "label": f"{term.capitalize()} {year}",
+                "sort_order": order,
+                "start_date": _semester_start(sem_id).date(),
+                "end_date": _semester_end(sem_id),
+            })
             order += 1
     return sems
 

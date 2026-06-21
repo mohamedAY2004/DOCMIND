@@ -16,8 +16,11 @@ from helpers.deps import (
     require_subject_access,
 )
 from helpers.pagination import Page, PaginationParams, admin_pagination_query
-from repositories.semester_repository import SemesterRepository
-from schemas.semester import SemesterResponse
+from schemas.semester import (
+    CreateSemesterRequest,
+    SemesterResponse,
+    UpdateSemesterRequest,
+)
 from schemas.subject import (
     CreateSubjectRequest,
     InstructorResponse,
@@ -25,11 +28,15 @@ from schemas.subject import (
     SubjectResponse,
     UpdateSubjectRequest,
 )
+from services.semester_service import SemesterService
 from services.subject_service import SubjectService
 
 subjects_router = APIRouter(prefix="/subjects", tags=["subjects"])
 admin_subjects_router = APIRouter(prefix="/admin/subjects", tags=["admin", "subjects"])
 semesters_router = APIRouter(prefix="/semesters", tags=["subjects"])
+admin_semesters_router = APIRouter(
+    prefix="/admin/semesters", tags=["admin", "subjects"]
+)
 
 
 @subjects_router.get("/student", response_model=List[SubjectResponse])
@@ -98,8 +105,15 @@ async def list_semesters(
     session: AsyncSession = Depends(get_session),
     _user: User = Depends(get_current_user),
 ) -> List[SemesterResponse]:
-    rows = await SemesterRepository(session).list_all()
-    return [SemesterResponse(id=r.id, label=r.label) for r in rows]
+    return await SemesterService(session).list_all()
+
+
+@semesters_router.get("/current", response_model=List[SemesterResponse])
+async def list_current_semesters(
+    session: AsyncSession = Depends(get_session),
+    _user: User = Depends(get_current_user),
+) -> List[SemesterResponse]:
+    return await SemesterService(session).get_current()
 
 
 # ------------------ admin writes (spec §6.7) ------------------
@@ -149,3 +163,36 @@ async def delete_subject(
     admin: User = Depends(require_role(UserRole.ADMIN)),
 ) -> None:
     await SubjectService(session).delete(admin, subject_id)
+
+
+# ------------------ admin semester writes (spec §6.6) ------------------
+
+
+@admin_semesters_router.post("", response_model=SemesterResponse, status_code=201)
+async def create_semester(
+    body: CreateSemesterRequest,
+    session: AsyncSession = Depends(get_session),
+    admin: User = Depends(require_role(UserRole.ADMIN)),
+) -> SemesterResponse:
+    return await SemesterService(session).create(admin, body)
+
+
+@admin_semesters_router.patch("/{semester_id}", response_model=SemesterResponse)
+async def update_semester(
+    semester_id: str,
+    body: UpdateSemesterRequest,
+    session: AsyncSession = Depends(get_session),
+    admin: User = Depends(require_role(UserRole.ADMIN)),
+) -> SemesterResponse:
+    return await SemesterService(session).update(admin, semester_id, body)
+
+
+@admin_semesters_router.delete(
+    "/{semester_id}", status_code=204, response_model=None
+)
+async def delete_semester(
+    semester_id: str,
+    session: AsyncSession = Depends(get_session),
+    admin: User = Depends(require_role(UserRole.ADMIN)),
+) -> None:
+    await SemesterService(session).delete(admin, semester_id)

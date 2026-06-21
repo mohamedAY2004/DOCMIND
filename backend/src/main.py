@@ -39,6 +39,7 @@ from routes.health import router as health_router
 from routes.legacy_router import legacy_router as legacy_api_v1_router
 from routes.materials_router import router as materials_router
 from routes.subjects_router import (
+    admin_semesters_router,
     admin_subjects_router,
     semesters_router,
     subjects_router,
@@ -183,6 +184,7 @@ app.include_router(admin_system_router, prefix="/api")
 app.include_router(subjects_router, prefix="/api")
 app.include_router(admin_subjects_router, prefix="/api")
 app.include_router(semesters_router, prefix="/api")
+app.include_router(admin_semesters_router, prefix="/api")
 app.include_router(materials_router, prefix="/api")
 app.include_router(chat_doc_router, prefix="/api")
 app.include_router(chat_doc_compat_router, prefix="/api")

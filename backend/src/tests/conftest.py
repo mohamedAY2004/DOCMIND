@@ -197,9 +197,15 @@ class Seeder:
         from db.models import UserRole
         return await self.user(UserRole.STUDENT, **kw)
 
-    async def semester(self, *, id="sem-test", label="Test Semester", sort_order=0):
+    async def semester(
+        self, *, id="sem-test", label="Test Semester", sort_order=0,
+        start_date=None, end_date=None,
+    ):
         from db.models import Semester
-        sem = Semester(id=id, label=label, sort_order=sort_order)
+        sem = Semester(
+            id=id, label=label, sort_order=sort_order,
+            start_date=start_date, end_date=end_date,
+        )
         self.s.add(sem)
         await self.s.commit()
         return sem

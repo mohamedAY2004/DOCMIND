@@ -91,7 +91,12 @@ function ChatWithTutors() {
                   <SubjectCard
                     title={subject.title}
                     description={subject.description}
-                    buttonText="Start Chatting →"
+                    semesterState={subject.semesterState}
+                    buttonText={
+                      subject.semesterState === 'archived'
+                        ? 'Review past chats →'
+                        : 'Start Chatting →'
+                    }
                     href={`/tutors/chat?subject=${subject.id}`}
                     className="h-full"
                   />

@@ -1,0 +1,18 @@
+# Keep the build context small and avoid leaking local secrets/state.
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+
+# Local env files — pass secrets at runtime via --env-file instead.
+src/.env
+src/.env.save
+docker/.env
+
+# Local upload/index state should not be baked into the image.
+src/assets/files/*
+src/assets/database/*
+
+# Misc
+.git/
+*.md

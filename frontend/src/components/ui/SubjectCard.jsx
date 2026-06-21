@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { primarySurfaceClass } from '../../constants/themeClasses'
 
@@ -9,8 +10,19 @@ const cardClass = [
 ].join(' ')
 
 const titleClass = 'text-lg font-bold text-dm-foreground'
-const descClass = 'mt-2 flex-1 text-sm leading-relaxed text-dm-muted'
-const buttonWrapClass = 'mt-6'
+const badgeBaseClass =
+  'shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 whitespace-nowrap'
+
+// Visual treatment per derived semester state. 'active' shows no badge.
+const STATE_BADGE = {
+  archived: { label: 'Archived', cls: 'bg-amber-500/15 text-amber-400 ring-amber-500/30' },
+  upcoming: { label: 'Upcoming', cls: 'bg-sky-500/15 text-sky-400 ring-sky-500/30' },
+}
+const descClass = 'mt-2 text-sm leading-relaxed text-dm-muted'
+const descClampClass = 'line-clamp-3'
+const toggleClass =
+  'mt-1 self-start text-xs font-semibold text-dm-primary transition-colors hover:text-dm-primary/80 focus:outline-none focus-visible:underline'
+const buttonWrapClass = 'mt-auto pt-6'
 
 const buttonStyleClass = [
   primarySurfaceClass,
@@ -28,7 +40,25 @@ function SubjectCard({
   buttonText = 'Start Chatting →',
   href,
   className = '',
+  semesterState = 'active',
 }) {
+  const badge = STATE_BADGE[semesterState]
+  const descRef = useRef(null)
+  const [expanded, setExpanded] = useState(false)
+  const [isOverflowing, setIsOverflowing] = useState(false)
+
+  // Detect whether the clamped description is actually truncated so the
+  // "Show more" toggle only appears for genuinely long descriptions.
+  useLayoutEffect(() => {
+    if (expanded) return
+    const el = descRef.current
+    if (!el) return
+    const check = () => setIsOverflowing(el.scrollHeight > el.clientHeight + 1)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [description, expanded])
+
   const hasArrow = buttonText.includes('→')
   const cleanText = hasArrow ? buttonText.replace('→', '').trim() : buttonText
 
@@ -41,8 +71,33 @@ function SubjectCard({
 
   return (
     <div className={[cardClass, className].filter(Boolean).join(' ')}>
-      <h3 className={titleClass}>{title}</h3>
-      <p className={descClass}>{description}</p>
+      <div className="flex items-start justify-between gap-3">
+        <h3 className={titleClass}>{title}</h3>
+        {badge && (
+          <span className={`${badgeBaseClass} ${badge.cls}`}>{badge.label}</span>
+        )}
+      </div>
+      {description && (
+        <>
+          <p
+            ref={descRef}
+            title={description}
+            className={`${descClass} ${expanded ? '' : descClampClass}`}
+          >
+            {description}
+          </p>
+          {(isOverflowing || expanded) && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className={toggleClass}
+              aria-expanded={expanded}
+            >
+              {expanded ? 'Show less' : 'Show more'}
+            </button>
+          )}
+        </>
+      )}
       <div className={buttonWrapClass}>
         {href ? (
           <Link to={href} className={buttonStyleClass}>

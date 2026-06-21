@@ -18,6 +18,14 @@ function friendlyError(err) {
     return 'You appear to be offline. Please check your connection and try again.'
   }
   const code = err?.response?.data?.code
+  // Archived/upcoming semester: the backend blocks new turns with FORBIDDEN +
+  // a semesterState detail. Surface its message rather than a generic failure.
+  if (code === 'FORBIDDEN' && err?.response?.data?.details?.semesterState) {
+    return (
+      err?.response?.data?.message ||
+      'This semester is archived; you can review past conversations but cannot start new chats.'
+    )
+  }
   if (code === 'SUBJECT_NOT_READY') {
     return err?.response?.data?.message || 'This subject has no indexed materials yet. Please check back later.'
   }
@@ -56,6 +64,7 @@ export default function useTutorChat({
   const [lastFailedText, setLastFailedText] = useState('')
   const textareaRef = useRef(null)
   const creatingRef = useRef(false)
+  const justCreatedIdRef = useRef(null)
   const onCreatedRef = useRef(onConversationCreated)
   const onFeedbackMapLoadedRef = useRef(onFeedbackMapLoaded)
 
@@ -72,6 +81,17 @@ export default function useTutorChat({
   // Load history when the active conversation changes. A `null` conversation
   // id means the user wants a fresh chat, so we just clear local state.
   useEffect(() => {
+    // First send of a "new chat": this hook just created the conversation, so
+    // the parent flips `conversationId` from null → the new id. The optimistic
+    // user message + in-flight typing indicator already on screen are the
+    // source of truth — adopt them instead of clearing + refetching an (empty)
+    // server history. Mirrors ChatGPT/Claude: the message you just sent stays
+    // put while the new conversation id is adopted into state.
+    if (conversationId && conversationId === justCreatedIdRef.current) {
+      justCreatedIdRef.current = null
+      return
+    }
+
     stopStreaming()
     setInput('')
     setIsTyping(false)
@@ -148,13 +168,21 @@ export default function useTutorChat({
     try {
       const conv = await createTutorConversation(subjectId)
       const newId = conv?.id ?? null
-      if (newId) onCreatedRef.current?.(conv)
+      if (newId) {
+        justCreatedIdRef.current = newId
+        onCreatedRef.current?.(conv)
+      }
       return newId
     } catch (err) {
       const code = err?.response?.data?.code
       if (code === 'SUBJECT_NOT_READY') {
         toast.error(
           'This subject has no indexed materials yet. Please check back later.',
+        )
+      } else if (code === 'FORBIDDEN' && err?.response?.data?.details?.semesterState) {
+        toast.error(
+          err?.response?.data?.message ||
+            'This semester is archived; new chats are disabled.',
         )
       } else if (code !== 'STUDENT_ACCESS_DISABLED') {
         if (err?.code === 'ECONNABORTED') {

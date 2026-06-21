@@ -4,7 +4,9 @@ import { toast } from 'sonner'
 import { User, Copy, Check, ThumbsUp, ThumbsDown } from 'lucide-react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
 import rehypeHighlight from 'rehype-highlight'
+import rehypeKatex from 'rehype-katex'
 import { primarySurfaceClassBr } from '../../constants/themeClasses'
 import useTheme from '../../hooks/useTheme'
 import logoLight from '../../assets/docmind-logo.png'
@@ -25,8 +27,8 @@ const actionBtnBase =
   'flex h-7 w-7 items-center justify-center rounded-md transition-all duration-150 hover:bg-dm-background'
 const actionBtnHidden = 'opacity-0 group-hover:opacity-100'
 
-const remarkPlugins = [remarkGfm]
-const rehypePlugins = [rehypeHighlight]
+const remarkPlugins = [remarkGfm, remarkMath]
+const rehypePlugins = [rehypeHighlight, rehypeKatex]
 
 const VARIANT_INNER = {
   default: assistantInnerDefaultClass,

@@ -36,6 +36,7 @@ class SubjectService:
         instructor_ids = await self._subjects.instructor_ids(subject.id)
         student_ids = await self._subjects.student_ids(subject.id)
         super_instructor = await self._subjects.get_super_instructor(subject.id)
+        semester_state = await self._subjects.semester_state_for_subject(subject.id)
         return SubjectResponse(
             id=subject.id,
             title=subject.title,
@@ -47,6 +48,7 @@ class SubjectService:
             superInstructorId=super_instructor.id if super_instructor else None,
             studentIds=student_ids,
             studentCount=len(student_ids),
+            semesterState=semester_state.value,
         )
 
     async def list_all(self) -> List[SubjectResponse]:

@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { GraduationCap, Loader2, Send } from 'lucide-react'
+import { GraduationCap, Loader2, Lock, Send } from 'lucide-react'
 import ChatMessageBubble from '../ui/ChatMessageBubble'
 import ErrorBanner from '../ui/ErrorBanner'
 import TypingIndicator from './TypingIndicator'
@@ -32,8 +32,16 @@ const textareaClass =
   'flex-1 resize-none rounded-xl border border-dm-border bg-dm-background py-3 px-4 text-dm-foreground placeholder:text-dm-muted transition-shadow duration-200 focus:outline-none focus:ring-2 focus:ring-dm-primary focus:shadow-md focus:shadow-dm-primary/10 disabled:opacity-50'
 const sendBtnClass =
   'shrink-0 rounded-lg p-2 text-dm-primary transition-all duration-150 hover:bg-dm-primary/10 hover:opacity-90 active:scale-95 disabled:opacity-40 disabled:pointer-events-none'
-function TutorChatScreen({ subjectId, subjectName }) {
+function TutorChatScreen({ subjectId, subjectName, semesterState = 'active' }) {
   const [feedbackMap, setFeedbackMap] = useState({})
+
+  // Past/future terms are read-only: students can browse and re-read history
+  // (the GET paths gate on ownership, not semester) but cannot start new turns.
+  const readOnly = semesterState !== 'active'
+  const readOnlyReason =
+    semesterState === 'archived'
+      ? 'This semester is archived — you can review past conversations, but starting new chats is disabled.'
+      : 'This semester hasn’t started yet — the tutor will open once it begins.'
 
   const handleFeedback = useCallback(async (messageId, value) => {
     const prev = feedbackMap[messageId] ?? null
@@ -136,6 +144,7 @@ function TutorChatScreen({ subjectId, subjectName }) {
           onRenameChat={renameConversation}
           loading={conversationsLoading}
           emptyLabel="No past conversations yet."
+          disableNewChat={readOnly}
         />
 
         <main className={mainClass}>
@@ -178,6 +187,13 @@ function TutorChatScreen({ subjectId, subjectName }) {
           )}
 
           <div className="shrink-0 border-t border-dm-border bg-dm-card">
+            {readOnly ? (
+              <div className="flex items-center gap-2.5 px-4 py-4 text-sm text-dm-muted md:px-6">
+                <Lock size={16} className="shrink-0 text-amber-400" />
+                <span>{readOnlyReason}</span>
+              </div>
+            ) : (
+              <>
             {msgTooLong && (
               <p className="px-4 pt-2 text-xs text-red-400">
                 Message is too long. Please shorten it to under {MAX_MSG} characters.
@@ -220,6 +236,8 @@ function TutorChatScreen({ subjectId, subjectName }) {
                 )}
               </button>
             </form>
+              </>
+            )}
           </div>
         </main>
       </div>

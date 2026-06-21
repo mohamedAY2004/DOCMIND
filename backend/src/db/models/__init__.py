@@ -9,7 +9,7 @@ from .document_file import DocumentFile, DocumentFileStatus
 from .feedback import Feedback, FeedbackValue
 from .material import Material, MaterialStatus
 from .message import Message, MessageRole
-from .semester import Semester
+from .semester import Semester, SemesterState, derive_semester_state
 from .subject import Subject
 from .subject_instructor import InstructorSubjectRole, SubjectInstructor
 from .subject_student import SubjectStudent
@@ -30,6 +30,8 @@ __all__ = [
     "Message",
     "MessageRole",
     "Semester",
+    "SemesterState",
+    "derive_semester_state",
     "Subject",
     "InstructorSubjectRole",
     "SubjectInstructor",

@@ -20,6 +20,10 @@ class SubjectResponse(BaseModel):
     superInstructorId: Optional[str] = None
     studentIds: List[str] = Field(default_factory=list)
     studentCount: int = 0
+    # Derived lifecycle state of the subject's semester (Tier 2A). Drives the
+    # student UI's read-only treatment of past terms. 'active' when the subject
+    # has no semester (fail-open), matching the backend gate.
+    semesterState: str = "active"  # 'upcoming' | 'active' | 'archived'
 
 
 class InstructorResponse(BaseModel):

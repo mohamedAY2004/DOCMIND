@@ -43,6 +43,7 @@ function ChatSidebar({
   onRenameChat,
   loading = false,
   emptyLabel = 'No conversations yet.',
+  disableNewChat = false,
 }) {
   const [collapsed, setCollapsed] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
@@ -247,19 +248,21 @@ function ChatSidebar({
         )}
       </nav>
 
-      {/* New chat button */}
-      <div className="shrink-0 border-t border-dm-border/50 p-2">
-        <button
-          type="button"
-          onClick={onNewChat}
-          className={`${primarySurfaceClass} flex w-full items-center justify-center gap-2 rounded-xl py-2.5 px-4 font-medium transition-opacity hover:opacity-90 active:scale-[0.98] ${
-            collapsed ? 'px-0' : ''
-          }`}
-        >
-          <Plus size={18} className="shrink-0" />
-          {!collapsed && <span className="whitespace-nowrap">New Chat</span>}
-        </button>
-      </div>
+      {/* New chat button — hidden when the term is read-only (no new turns). */}
+      {!disableNewChat && (
+        <div className="shrink-0 border-t border-dm-border/50 p-2">
+          <button
+            type="button"
+            onClick={onNewChat}
+            className={`${primarySurfaceClass} flex w-full items-center justify-center gap-2 rounded-xl py-2.5 px-4 font-medium transition-opacity hover:opacity-90 active:scale-[0.98] ${
+              collapsed ? 'px-0' : ''
+            }`}
+          >
+            <Plus size={18} className="shrink-0" />
+            {!collapsed && <span className="whitespace-nowrap">New Chat</span>}
+          </button>
+        </div>
+      )}
     </aside>
   )
 }

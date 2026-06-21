@@ -3,15 +3,18 @@ from __future__ import annotations
 
 from typing import Optional, Sequence
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, nulls_last, select
 
 from db.models import (
     InstructorSubjectRole,
+    Semester,
+    SemesterState,
     Subject,
     SubjectInstructor,
     SubjectStudent,
     User,
     UserRole,
+    derive_semester_state,
 )
 
 from .base import BaseRepository
@@ -164,11 +167,23 @@ class SubjectRepository(BaseRepository[Subject]):
     # ---------------- student roster ----------------
 
     async def list_for_student(self, user_id: str) -> Sequence[Subject]:
+        # Latest semester first: the student's most recent term surfaces on top
+        # of "Chat with Tutors", older (archived) terms below. ``sort_order`` and
+        # ``start_date`` agree by construction (the seeder increments sort_order
+        # chronologically), so either alone orders correctly; start_date is the
+        # primary key for true chronology and sort_order the admin-set tiebreaker.
+        # An outer join keeps subjects with no semester (NULL dates) — they sort
+        # last via ``nulls_last`` and fall back to alphabetical by title.
         stmt = (
             select(Subject)
             .join(SubjectStudent, SubjectStudent.subject_id == Subject.id)
+            .outerjoin(Semester, Semester.id == Subject.semester_id)
             .where(SubjectStudent.user_id == user_id)
-            .order_by(Subject.title)
+            .order_by(
+                nulls_last(Semester.start_date.desc()),
+                nulls_last(Semester.sort_order.desc()),
+                Subject.title.asc(),
+            )
         )
         result = await self.session.execute(stmt)
         return result.scalars().all()
@@ -246,3 +261,21 @@ class SubjectRepository(BaseRepository[Subject]):
         stmt = select(Conversation.id).where(Conversation.subject_id == subject_id)
         result = await self.session.execute(stmt.limit(1))
         return result.first() is not None
+
+    async def semester_state_for_subject(self, subject_id: str) -> SemesterState:
+        """Derived lifecycle state of the subject's semester (Tier 2A gate).
+
+        A subject with no semester (``semester_id IS NULL``), a dangling
+        semester, or a semester with no date window resolves to ``ACTIVE`` —
+        the fail-open rule from :func:`derive_semester_state` — so only a
+        genuinely past/future term ever restricts new tutor turns.
+        """
+        stmt = (
+            select(Semester.start_date, Semester.end_date)
+            .join(Subject, Subject.semester_id == Semester.id)
+            .where(Subject.id == subject_id)
+        )
+        row = (await self.session.execute(stmt)).first()
+        if row is None:
+            return SemesterState.ACTIVE
+        return derive_semester_state(row[0], row[1])

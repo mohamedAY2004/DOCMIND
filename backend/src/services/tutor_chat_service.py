@@ -13,6 +13,7 @@ from db.models import (
     ConversationKind,
     Message,
     MessageRole,
+    SemesterState,
     User,
     UserRole,
 )
@@ -114,9 +115,37 @@ class TutorChatService:
                 "You are not enrolled in this subject.",
             )
 
+    async def _ensure_subject_interactive(self, user: User, subject_id: str) -> None:
+        """Students may only start *new* tutor turns on a currently-active semester.
+
+        Past-/future-semester subjects stay readable — ``_load_owned`` gates
+        reads on conversation ownership, not enrollment or semester — but reject
+        new conversations and messages, so a student can review history without
+        resurrecting an archived course. Non-students (e.g. staff previewing the
+        tutor) pass, mirroring ``_ensure_student_enrolled``.
+        """
+        if user.role != UserRole.STUDENT:
+            return
+        state = await self._subjects.semester_state_for_subject(subject_id)
+        if state is SemesterState.ACTIVE:
+            return
+        message = (
+            "This semester is archived; you can review past conversations "
+            "but cannot start new chats."
+            if state is SemesterState.ARCHIVED
+            else "This semester has not started yet."
+        )
+        raise APIError(
+            ErrorCode.FORBIDDEN,
+            status.HTTP_403_FORBIDDEN,
+            message,
+            details={"semesterState": state.value},
+        )
+
     async def create(self, owner: User, subject_id: str) -> ConversationResponse:
         await self._ensure_subject_ready(subject_id)
         await self._ensure_student_enrolled(owner, subject_id)
+        await self._ensure_subject_interactive(owner, subject_id)
         count = await self._conversations.count_for_owner(
             owner_id=owner.id,
             kind=ConversationKind.TUTOR,
@@ -195,6 +224,7 @@ class TutorChatService:
             )
         await self._ensure_subject_ready(conv.subject_id or "")
         await self._ensure_student_enrolled(owner, conv.subject_id or "")
+        await self._ensure_subject_interactive(owner, conv.subject_id or "")
 
         # Build a human-readable subject label for prompt scoping.
         subject = await self._subjects.get(conv.subject_id or "")
@@ -273,6 +303,7 @@ class TutorChatService:
         """Back-compat: ``POST /chat/tutor/:subjectId`` with no conversation."""
         await self._ensure_subject_ready(subject_id)
         await self._ensure_student_enrolled(owner, subject_id)
+        await self._ensure_subject_interactive(owner, subject_id)
         collection = collection_for_subject(subject_id)
 
         # Build a human-readable subject label for prompt scoping.

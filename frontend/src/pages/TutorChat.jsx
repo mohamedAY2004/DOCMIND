@@ -10,13 +10,16 @@ function TutorChat() {
   const [searchParams] = useSearchParams()
   const subjectId = searchParams.get('subject') || ''
   const [subjectName, setSubjectName] = useState(() => titleCaseSlug(subjectId))
+  const [semesterState, setSemesterState] = useState('active')
 
   useEffect(() => {
     if (!subjectId) return
     let cancelled = false
     getSubjectById(subjectId)
       .then((subject) => {
-        if (!cancelled && subject?.title) setSubjectName(subject.title)
+        if (cancelled) return
+        if (subject?.title) setSubjectName(subject.title)
+        if (subject?.semesterState) setSemesterState(subject.semesterState)
       })
       .catch(() => {
         /* keep slug-derived fallback */
@@ -44,7 +47,13 @@ function TutorChat() {
     )
   }
 
-  return <TutorChatScreen subjectId={subjectId} subjectName={subjectName} />
+  return (
+    <TutorChatScreen
+      subjectId={subjectId}
+      subjectName={subjectName}
+      semesterState={semesterState}
+    />
+  )
 }
 
 export default TutorChat
