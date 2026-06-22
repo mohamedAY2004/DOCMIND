@@ -303,7 +303,7 @@ We hereby certify that this material, which we now submit for assessment on the 
 
 DocMind is an AI (Artificial Intelligence)-powered academic learning assistant designed to enhance the learning experience of university students by enabling reliable, document-grounded conversational interactions. The system addresses common challenges faced by students when dealing with large volumes of academic materials by allowing them to query trusted content using natural language. Unlike general-purpose AI chat systems, DocMind employs Retrieval-Augmented Generation (RAG) so that answers are grounded in an explicit corpus: instructor-uploaded materials for subject-based chat, and student-uploaded Portable Document Format (PDF) files for document-based chat.
 
-The implemented system provides role-based access control (RBAC) for students, instructors, and administrators enforced in the Application Programming Interface (API) and web client, JSON Web Token (JWT)-based authentication with configurable token lifetime, administrator-controlled student-access gating, and validated document uploads with per-conversation limits. The backend is built on FastAPI with a PostgreSQL relational database, while semantic retrieval is powered by a pluggable vector store supporting both pgvector and Qdrant. The React-based frontend delivers a responsive Single-Page Application (SPA) accessible across desktop and mobile browsers. This document presents a comprehensive overview of the system, covering the literature review, system analysis and design, and implementation details, demonstrating the feasibility of integrating trustworthy AI-driven assistance into formal academic environments.
+The implemented system provides role-based access control (RBAC) for students, instructors, and administrators enforced in the Application Programming Interface (API) and web client, JSON Web Token (JWT)-based authentication with configurable token lifetime, administrator-controlled student-access gating, and validated document uploads with per-conversation limits. The backend is built on FastAPI with a PostgreSQL relational database, while semantic retrieval is powered by a pluggable vector store supporting both pgvector and Qdrant. The React-based web frontend delivers a responsive Single-Page Application (SPA) accessible across desktop and mobile browsers, complemented by a native Flutter mobile application for iOS and Android that consumes the same API. This document presents a comprehensive overview of the system, covering the literature review, system analysis and design, and implementation details, demonstrating the feasibility of integrating trustworthy AI-driven assistance into formal academic environments.
 
 \clearpage
 
@@ -1129,7 +1129,7 @@ DocMind supports multiple modes of interaction, including document-based chat an
 
 \section{System Operating Environment}
 
-The DocMind system operates as a web application reachable from desktop and mobile browsers: the user interface is a responsive Single-Page Application (SPA) built with React, Vite, and Tailwind CSS, without a separate native mobile application in the current codebase.
+The DocMind system is delivered through two client surfaces backed by a single API: a responsive web Single-Page Application (SPA) built with React, Vite, and Tailwind CSS, reachable from desktop and mobile browsers, and a native mobile application for iOS and Android built with Flutter. Both clients consume the same backend HTTP API, so feature parity is maintained at the service layer rather than duplicated per platform.
 
 On the backend, a FastAPI service exposes a versioned HTTP Application Programming Interface (API) at \texttt{/api/v1/...} and coordinates authentication, subject and material management, document and tutor chat, feedback, and administrative operations. Deployments typically use PostgreSQL for relational data together with a vector store for embeddings; the reference implementation supports pgvector or Qdrant, selected by configuration. Authentication is implemented with username and password verification, bcrypt-hashed credentials stored for application users, and signed JSON Web Token (JWT) access tokens with logout via token blocklist, rather than direct Single Sign-On (SSO) with an external university identity provider in the current prototype.
 
@@ -1183,7 +1183,7 @@ To further evaluate the strategic position of the DocMind system, a Strengths, W
 
 DocMind's primary strength lies in its academic-first design philosophy. The system employs Retrieval-Augmented Generation (RAG) to ensure that all responses are grounded in verified, instructor-approved documents. This approach enhances reliability and minimizes the risk of hallucinating or misleading information.
 
-Another key strength is a clear separation into API, services, and data layers with role-based access control (RBAC) suitable for institutional deployment. The responsive web client increases accessibility across devices without maintaining separate native application codebases.
+Another key strength is a clear separation into API, services, and data layers with role-based access control (RBAC) suitable for institutional deployment. Because the React web client and the Flutter mobile client consume this same API, the system reaches students across browsers and native iOS and Android devices without duplicating business logic per platform.
 
 \subsection{Weaknesses}
 
@@ -1596,7 +1596,8 @@ The DocMind system is implemented using the following technologies:
   \item \textbf{AI/ML}: an in-house Retrieval-Augmented Generation (RAG) orchestration layer (structure-aware chunking, prompt assembly, and retrieval), building on patterns popularized by libraries such as LangChain as described in [14], Google Gemini API (configurable to OpenAI), \texttt{sentence-transformers} (all-MiniLM-L6-v2) for local embeddings, and an optional \texttt{sentence-transformers} cross-encoder for reranking.
   \item \textbf{Vector Store}: pgvector as described in [16] (PostgreSQL extension) or Qdrant as described in [17], switchable by environment configuration.
   \item \textbf{Relational Database}: PostgreSQL 15+.
-  \item \textbf{Frontend}: React 18 with Vite, Tailwind CSS, React Router, and Axios for API calls.
+  \item \textbf{Web Frontend}: React 18 with Vite, Tailwind CSS, React Router, and Axios for API calls.
+  \item \textbf{Mobile}: Flutter and Dart, with GetX for state management and dependency injection and Dio for HTTP, organized in Clean Architecture (data, domain, and presentation layers per feature).
   \item \textbf{Authentication}: JSON Web Tokens (JWT), bcrypt password hashing, and token blocklist for logout.
   \item \textbf{Containerization}: Docker and Docker Compose for local development and deployment.
   \item \textbf{Version Control}: Git with GitHub, using a submodule-based monorepo structure.
@@ -1829,10 +1830,6 @@ The RAG pipeline already supports optional cross-encoder reranking to improve th
 \subsection{Analytics and Learning Insights}
 
 The administrator analytics dashboard currently provides usage-level metrics. Future work will introduce learning-oriented analytics, such as frequently asked concept clusters per subject, knowledge gap detection based on question patterns, and per-student engagement trends. These insights would assist instructors in adapting their course materials to student needs.
-
-\subsection{Mobile Application}
-
-The current codebase targets responsive web browsers. A dedicated mobile application for iOS and Android would improve student accessibility, particularly for reviewing materials on the go. The existing FastAPI backend is already designed as a platform-agnostic API, making a mobile client straightforward to develop.
 
 \subsection{Production Hardening}
 
