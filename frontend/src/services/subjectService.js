@@ -26,6 +26,17 @@ export async function getInstructorSubjects(instructorId) {
   return data
 }
 
+/**
+ * Semesters list — used by the student/instructor subject pages to label and
+ * order the per-semester sections. Endpoint is open to any authenticated user
+ * (not admin-only), so it is exposed here rather than via the admin service.
+ * GET /semesters → [{ id, label, sortOrder, state, isCurrent, ... }] (newest first)
+ */
+export async function getSemesters() {
+  const { data } = await apiClient.get('/semesters')
+  return data
+}
+
 export async function getSubjectById(subjectId) {
   const { data } = await apiClient.get(`/subjects/${subjectId}`)
   return data

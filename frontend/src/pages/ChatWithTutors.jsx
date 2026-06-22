@@ -1,26 +1,32 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Loader2 } from 'lucide-react'
 import { AppLayout, AppTopBar } from '../components/layout'
 import SubjectCard from '../components/ui/SubjectCard'
+import CollapsibleSubjectSection from '../components/ui/CollapsibleSubjectSection'
 import GradientBackdrop from '../components/ui/GradientBackdrop'
 import PageFooter from '../components/ui/PageFooter'
 import ThemeToggle from '../components/ui/ThemeToggle'
-import { getStudentSubjects } from '../services/subjectService'
+import { getStudentSubjects, getSemesters } from '../services/subjectService'
+import { groupSubjectsBySemester } from '../utils/groupSubjectsBySemester'
 
 import { stagger, fadeUp } from '../utils/motion'
 
 function ChatWithTutors() {
   const [subjects, setSubjects] = useState([])
+  const [semesters, setSemesters] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    getStudentSubjects()
-      .then((data) => {
+    // Semesters fail soft: without them the grouping degrades to per-semesterId
+    // sections, so a failed /semesters call must not break the subjects list.
+    Promise.all([getStudentSubjects(), getSemesters().catch(() => [])])
+      .then(([data, sems]) => {
         if (cancelled) return
         setSubjects(Array.isArray(data) ? data : data?.items || [])
+        setSemesters(Array.isArray(sems) ? sems : sems?.items || [])
       })
       .catch(() => {
         if (!cancelled) setError(true)
@@ -32,6 +38,13 @@ function ChatWithTutors() {
       cancelled = true
     }
   }, [])
+
+  const groups = useMemo(
+    () => groupSubjectsBySemester(subjects, semesters),
+    [subjects, semesters],
+  )
+  // Open the live term by default; if none is active, open the newest (first).
+  const hasActive = groups.some((g) => g.semester?.state === 'active')
 
   return (
     <AppLayout
@@ -80,29 +93,42 @@ function ChatWithTutors() {
               No subjects are available yet.
             </p>
           ) : (
-            <motion.section
-              className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
-              variants={stagger()}
-              initial="hidden"
-              animate="visible"
-            >
-              {subjects.map((subject) => (
-                <motion.div key={subject.id} variants={fadeUp}>
-                  <SubjectCard
-                    title={subject.title}
-                    description={subject.description}
-                    semesterState={subject.semesterState}
-                    buttonText={
-                      subject.semesterState === 'archived'
-                        ? 'Review past chats →'
-                        : 'Start Chatting →'
-                    }
-                    href={`/tutors/chat?subject=${subject.id}`}
-                    className="h-full"
-                  />
-                </motion.div>
-              ))}
-            </motion.section>
+            groups.map((group, idx) => {
+              const sem = group.semester
+              return (
+                <CollapsibleSubjectSection
+                  key={sem?.id ?? '__other__'}
+                  title={sem?.label ?? 'Other'}
+                  state={sem?.state}
+                  count={group.subjects.length}
+                  defaultOpen={hasActive ? sem?.state === 'active' : idx === 0}
+                >
+                  <motion.div
+                    className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+                    variants={stagger()}
+                    initial="hidden"
+                    animate="visible"
+                  >
+                    {group.subjects.map((subject) => (
+                      <motion.div key={subject.id} variants={fadeUp}>
+                        <SubjectCard
+                          title={subject.title}
+                          description={subject.description}
+                          semesterState={subject.semesterState}
+                          buttonText={
+                            subject.semesterState === 'archived'
+                              ? 'Review past chats →'
+                              : 'Start Chatting →'
+                          }
+                          href={`/tutors/chat?subject=${subject.id}`}
+                          className="h-full"
+                        />
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                </CollapsibleSubjectSection>
+              )
+            })
           )}
         </div>
 
