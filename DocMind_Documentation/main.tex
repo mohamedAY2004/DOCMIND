@@ -351,7 +351,7 @@ We also extend our thanks to the faculty and staff of the College of Computing a
 
 Special appreciation goes to our families and friends for their patience, encouragement, and moral support during the many hours invested in this project.
 
-Finally, we acknowledge the open-source communities behind FastAPI, React, PostgreSQL, LangChain, and ChromaDB, whose contributions to the software ecosystem made the technical realization of DocMind possible.
+Finally, we acknowledge the open-source communities behind FastAPI, React, PostgreSQL, LangChain, pgvector, and Qdrant, whose contributions to the software ecosystem made the technical realization of DocMind possible.
 
 \clearpage
 
@@ -359,16 +359,16 @@ Finally, we acknowledge the open-source communities behind FastAPI, React, Postg
 \tableofcontents
 \clearpage
 
-% ─── List of Figures ─────────────────────────────────────────────────────────
-\clearpage
-\listoffigures
-\addcontentsline{toc}{chapter}{List of Figures}
-\clearpage
-
 % ─── List of Tables ──────────────────────────────────────────────────────────
 \clearpage
 \listoftables
 \addcontentsline{toc}{chapter}{List of Tables}
+\clearpage
+
+% ─── List of Figures ─────────────────────────────────────────────────────────
+\clearpage
+\listoffigures
+\addcontentsline{toc}{chapter}{List of Figures}
 \clearpage
 
 % ─── List of Acronyms ────────────────────────────────────────────────────────
@@ -1131,7 +1131,7 @@ DocMind supports multiple modes of interaction, including document-based chat an
 
 The DocMind system is delivered through two client surfaces backed by a single API: a responsive web Single-Page Application (SPA) built with React, Vite, and Tailwind CSS, reachable from desktop and mobile browsers, and a native mobile application for iOS and Android built with Flutter. Both clients consume the same backend HTTP API, so feature parity is maintained at the service layer rather than duplicated per platform.
 
-On the backend, a FastAPI service exposes a versioned HTTP Application Programming Interface (API) at \texttt{/api/v1/...} and coordinates authentication, subject and material management, document and tutor chat, feedback, and administrative operations. Deployments typically use PostgreSQL for relational data together with a vector store for embeddings; the reference implementation supports pgvector or Qdrant, selected by configuration. Authentication is implemented with username and password verification, bcrypt-hashed credentials stored for application users, and signed JSON Web Token (JWT) access tokens with logout via token blocklist, rather than direct Single Sign-On (SSO) with an external university identity provider in the current prototype.
+On the backend, a FastAPI service exposes an HTTP Application Programming Interface (API) under the \texttt{/api/...} prefix and coordinates authentication, subject and material management, document and tutor chat, feedback, and administrative operations. Deployments typically use PostgreSQL for relational data together with a vector store for embeddings; the reference implementation supports pgvector or Qdrant, selected by configuration. Authentication is implemented with username and password verification, bcrypt-hashed credentials stored for application users, and signed JSON Web Token (JWT) access tokens with logout via token blocklist, rather than direct Single Sign-On (SSO) with an external university identity provider in the current prototype.
 
 The AI components of the system, including embedding generation and language model inference, may be hosted on dedicated servers or accessed through managed AI services. All system communications occur over secure network protocols to protect user data and institutional resources.
 
@@ -1169,7 +1169,7 @@ Performance constraints also exist, particularly with respect to AI model infere
 
 The design of DocMind is based on several assumptions. It is assumed that users have access to stable internet connectivity and compatible devices. It is also assumed that instructors upload accurate and relevant course materials, as the quality of system responses depends directly on the quality of the document corpus.
 
-The system depends on several external components and services, including embedding and text generation APIs. The codebase supports configurable providers such as OpenAI and Google Gemini, selected via environment settings. Additional dependencies include PostgreSQL and a vector index (pgvector or Qdrant). An optional agent layer, disabled by default, can route each user turn through a planner that decides whether to retrieve from the vector store before generation.
+The system depends on several external components and services, including embedding and text generation APIs. The codebase supports configurable providers such as Google Gemini (the default), OpenAI, and Cohere, selected via environment settings. Additional dependencies include PostgreSQL and a vector index (pgvector or Qdrant). An optional agent layer, disabled by default, can route each user turn through a planner that decides whether to retrieve from the vector store before generation.
 
 Additionally, the system assumes compliance with institutional policies related to data privacy, academic integrity, and ethical AI usage.
 
@@ -1413,7 +1413,7 @@ The presentation layer is implemented as a React Single-Page Application (SPA) s
 \begin{itemize}
   \item User authentication (login form, JWT storage, and protected routes)
   \item Document upload and subject selection
-  \item Chat interface for question submission, streaming or polled assistant replies, and optional thumbs-up/down feedback
+  \item Chat interface for question submission, assistant replies, and optional thumbs-up/down feedback on tutor-chat responses
   \item Error and status message visualization (including student-access gate when disabled by an administrator)
 \end{itemize}
 
@@ -1456,7 +1456,7 @@ This module ensures that only the most contextually relevant information is pass
 
 \subsubsection{Response Generation Module}
 
-The response generation module calls a configurable remote Large Language Model (LLM) --- for example OpenAI or Google Gemini Application Programming Interfaces (APIs) --- to produce answers from retrieved chunks and prompt templates, with English and Arabic template locales in the codebase. By default, each chat turn follows a single-shot retrieve-then-generate path; when the agent feature flag is enabled, a planner model may decide whether retrieval runs and with which query before generation.
+The response generation module calls a configurable remote Large Language Model (LLM) --- for example Google Gemini, OpenAI, or Cohere Application Programming Interfaces (APIs) --- to produce answers from retrieved chunks and prompt templates, with English and Arabic template locales in the codebase. By default, each chat turn follows a single-shot retrieve-then-generate path; when the agent feature flag is enabled, a planner model may decide whether retrieval runs and with which query before generation.
 
 \newpage
 
@@ -1592,15 +1592,15 @@ The implementation covers the primary user journeys for students, instructors, a
 The DocMind system is implemented using the following technologies:
 
 \begin{itemize}
-  \item \textbf{Backend}: Python 3.11+, FastAPI as described in [13], SQLAlchemy (async), Alembic for migrations, Pydantic for data validation.
-  \item \textbf{AI/ML}: an in-house Retrieval-Augmented Generation (RAG) orchestration layer (structure-aware chunking, prompt assembly, and retrieval), building on patterns popularized by libraries such as LangChain as described in [14], Google Gemini API (configurable to OpenAI), \texttt{sentence-transformers} (all-MiniLM-L6-v2) for local embeddings, and an optional \texttt{sentence-transformers} cross-encoder for reranking.
+  \item \textbf{Backend}: Python 3.10, FastAPI as described in [13], SQLAlchemy (async), Alembic for migrations, Pydantic for data validation.
+  \item \textbf{AI/ML}: an in-house Retrieval-Augmented Generation (RAG) orchestration layer (structure-aware chunking, prompt assembly, and retrieval) that uses LangChain text-splitting utilities as described in [14]; embedding generation and text generation are served by configurable remote providers --- Google Gemini by default, switchable to OpenAI or Cohere --- and an optional \texttt{sentence-transformers} cross-encoder is available for reranking.
   \item \textbf{Vector Store}: pgvector as described in [16] (PostgreSQL extension) or Qdrant as described in [17], switchable by environment configuration.
-  \item \textbf{Relational Database}: PostgreSQL 15+.
-  \item \textbf{Web Frontend}: React 18 with Vite, Tailwind CSS, React Router, and Axios for API calls.
+  \item \textbf{Relational Database}: PostgreSQL 16 with the pgvector extension.
+  \item \textbf{Web Frontend}: React 19 with Vite, Tailwind CSS, React Router, and Axios for API calls.
   \item \textbf{Mobile}: Flutter and Dart, with GetX for state management and dependency injection and Dio for HTTP, organized in Clean Architecture (data, domain, and presentation layers per feature).
   \item \textbf{Authentication}: JSON Web Tokens (JWT), bcrypt password hashing, and token blocklist for logout.
   \item \textbf{Containerization}: Docker and Docker Compose for local development and deployment.
-  \item \textbf{Version Control}: Git with GitHub, using a submodule-based monorepo structure.
+  \item \textbf{Version Control}: Git with GitHub, using a monorepo structure with separate backend, frontend, and mobile directories.
 \end{itemize}
 
 \newpage
@@ -1612,7 +1612,7 @@ The DocMind system is implemented using the following technologies:
 The backend follows a layered architecture:
 
 \begin{itemize}
-  \item \textbf{Routers} (\texttt{/api/v1/...}): Handle HTTP request routing and response serialization.
+  \item \textbf{Routers} (\texttt{/api/...}): Handle HTTP request routing and response serialization.
   \item \textbf{Services}: Contain business logic, orchestrate RAG operations, and enforce authorization constraints.
   \item \textbf{Repositories}: Abstract database access using SQLAlchemy async sessions.
   \item \textbf{Models}: Define SQLAlchemy ORM models and Pydantic schemas.
@@ -1641,7 +1641,7 @@ When a student submits a message, the backend performs the following steps:
 \begin{enumerate}
   \item The backend retrieves the top-$k$ most semantically similar chunks from the conversation or subject collection. When cross-encoder reranking is enabled (disabled by default), it over-fetches a larger candidate set by recall and a cross-encoder truncates it back to the top-$k$ by precision, soft-degrading to the original vector order on any fault.
   \item Each retrieved chunk carries its provenance (source filename, section heading, and page or slide); these are assembled into a context block, inserted into a prompt template available in English and Arabic locales, and the model is instructed to cite the sources it relied on. For subject chat, a short manifest of the subject's indexed materials is also supplied so the model knows what it can ground answers in.
-  \item The prompt is sent to the configured LLM API (Gemini or OpenAI) for generation.
+  \item The prompt is sent to the configured LLM API (Gemini, OpenAI, or Cohere) for generation.
   \item The response is stored in the \texttt{messages} table, associated with the conversation, and returned to the client.
   \item Optionally, if the agentic mode is enabled, a planner model first decides whether retrieval is needed and with what reformulated query before the generator runs; it may additionally scope retrieval to specific instructor materials the student names (disabled by default).
 \end{enumerate}
@@ -1733,7 +1733,7 @@ The DocMind system employs a multi-level testing strategy to validate correctnes
 
 \begin{itemize}
   \item \textbf{Unit Testing}: Individual service functions and repository methods are tested in isolation using pytest with async support. Mock objects are used to substitute external dependencies such as the vector store and LLM API.
-  \item \textbf{Integration Testing}: API endpoints are tested end-to-end using FastAPI's TestClient, exercising the full request-response cycle including authentication, authorization, and database interaction against a test database instance.
+  \item \textbf{Integration Testing}: API endpoints are tested end-to-end using an asynchronous HTTP client (\texttt{httpx.AsyncClient}) that drives the application in-process, exercising the full request-response cycle --- including authentication, authorization, and database interaction --- against a dedicated PostgreSQL with pgvector test database, while the language model and vector store are substituted with test doubles.
   \item \textbf{RAG Pipeline Testing}: The embedding and retrieval pipeline is validated by ingesting known documents and verifying that expected chunks are retrieved for representative queries.
   \item \textbf{Security Testing}: Role-Based Access Control (RBAC) is validated by asserting that requests made with student-role tokens are rejected by instructor and administrator endpoints, and vice versa.
   \item \textbf{User Acceptance Testing (UAT)}: Manual walkthroughs of the primary student, instructor, and administrator user journeys are performed against the running application with seeded data.
