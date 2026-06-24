@@ -396,7 +396,8 @@ def _build_materials(subjects: list[dict]) -> list[dict]:
     for subj in subjects:
         sid = subj["id"]
         anchor = _semester_anchor_days_ago(subj["semester_id"])
-        uploaders = [u for u, _role in subj["instructors"]]
+        # Only the super instructor may upload — match MaterialService policy.
+        super_instructor = next(u for u, role in subj["instructors"] if role == _S)
         count = _RND.randint(*_MATERIALS_PER_SUBJECT)
         for n in range(1, count + 1):
             ext, mime = _RND.choice(_FILE_TYPES)
@@ -416,7 +417,7 @@ def _build_materials(subjects: list[dict]) -> list[dict]:
                 "mime": mime,
                 "storage_path": f"materials/{sid}/{n:02d}-{topic.lower().replace(' ', '_')}{ext}",
                 "status": status,
-                "uploaded_by": _RND.choice(uploaders),
+                "uploaded_by": super_instructor,
                 "created_at": _rand_dt(max(anchor - count, 1), anchor + 10),
             })
     return materials
