@@ -66,6 +66,27 @@ export async function deleteSubjectMaterial(subjectId, materialId) {
 }
 
 /**
+ * Download a previously uploaded material file. Allowed for any instructor on
+ * the roster (super or viewer) and admins, including on archived semesters —
+ * on archived terms it is the only material action that stays available.
+ * GET /subjects/:subjectId/materials/:materialId/download → file blob
+ */
+export async function downloadSubjectMaterial(subjectId, materialId, filename) {
+  const { data } = await apiClient.get(
+    `/subjects/${subjectId}/materials/${materialId}/download`,
+    { responseType: 'blob' },
+  )
+  const url = window.URL.createObjectURL(data)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename || 'material'
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
+}
+
+/**
  * Instructor test-bot — stateless preview of what students will see.
  * POST /subjects/:subjectId/test-bot  { message } → { reply }
  */

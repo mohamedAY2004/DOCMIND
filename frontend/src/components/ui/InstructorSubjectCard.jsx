@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { FileText, Loader2, ShieldCheck, Eye } from 'lucide-react'
+import { FileText, Loader2, ShieldCheck, Eye, Archive } from 'lucide-react'
 import PrimaryButton from './PrimaryButton'
 import { primarySurfaceClass } from '../../constants/themeClasses'
 
@@ -13,6 +13,8 @@ const statusBadgeReadyClass =
   'absolute right-3 top-3 flex items-center gap-1.5 rounded-full bg-dm-statusProcessed/90 px-2.5 py-1 text-xs font-medium text-dm-foreground'
 const statusBadgeProcessingClass =
   'absolute right-3 top-3 flex items-center gap-1.5 rounded-full bg-dm-statusIndexing/90 px-2.5 py-1 text-xs font-medium text-dm-foreground'
+const statusBadgeArchivedClass =
+  'absolute right-3 top-3 flex items-center gap-1.5 rounded-full bg-amber-500/15 px-2.5 py-1 text-xs font-medium text-amber-400 ring-1 ring-inset ring-amber-500/30'
 const bodyClass = 'flex flex-col p-5'
 const titleClass = 'text-lg font-bold text-dm-foreground'
 const courseInfoClass = 'mt-1 text-sm text-dm-muted'
@@ -22,6 +24,14 @@ const buttonLinkClass =
   `${primarySurfaceClass} block w-full rounded-xl py-3 px-4 text-center font-medium transition-opacity hover:opacity-95`
 
 function StatusBadge({ status }) {
+  if (status === 'archived') {
+    return (
+      <span className={statusBadgeArchivedClass}>
+        <Archive size={12} className="shrink-0" aria-hidden />
+        Bot offline
+      </span>
+    )
+  }
   if (status === 'ready') {
     return (
       <span className={statusBadgeReadyClass}>
@@ -50,9 +60,13 @@ function InstructorSubjectCard({
   href,
   className = '',
   instructorRole = null,
+  isArchived = false,
 }) {
   const isUploading = status === 'uploading'
   const isSuper = instructorRole === 'super'
+  // Archived subjects are read-only — even a super instructor can only view
+  // and download, so the CTA reflects that.
+  const buttonLabel = isArchived || !isSuper ? 'View Subject' : 'Manage Subject'
 
   const content = (
     <>
@@ -95,11 +109,11 @@ function InstructorSubjectCard({
         <div className={buttonWrapClass}>
           {href ? (
             <Link to={href} className={buttonLinkClass}>
-              {isSuper ? 'Manage Subject' : 'View Subject'}
+              {buttonLabel}
             </Link>
           ) : (
             <PrimaryButton fullWidth={false} className="w-full">
-              {isSuper ? 'Manage Subject' : 'View Subject'}
+              {buttonLabel}
             </PrimaryButton>
           )}
         </div>

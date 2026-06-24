@@ -12,7 +12,14 @@ import aiofiles
 from fastapi import UploadFile, status
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 
-from db.models import InstructorSubjectRole, Material, MaterialStatus, User, UserRole
+from db.models import (
+    InstructorSubjectRole,
+    Material,
+    MaterialStatus,
+    SemesterState,
+    User,
+    UserRole,
+)
 from helpers.config import get_settings
 from helpers.errors import APIError, ErrorCode
 from repositories.activity_repository import ActivityRepository
@@ -126,6 +133,24 @@ class MaterialService:
                 "Only the super instructor can upload or modify materials.",
             )
 
+    async def _ensure_not_archived(self, subject_id: str) -> None:
+        """Reject writes on subjects whose semester has ended (archived).
+
+        Archived terms are read-only for *every* instructor role (super and
+        viewer alike): existing materials can still be listed and downloaded,
+        but uploads, edits, and deletions are blocked. Mirrors the student
+        tutor-chat archive gate in ``TutorChatService``.
+        """
+        state = await self._subjects.semester_state_for_subject(subject_id)
+        if state is SemesterState.ARCHIVED:
+            raise APIError(
+                ErrorCode.FORBIDDEN,
+                status.HTTP_403_FORBIDDEN,
+                "This semester is archived; materials are read-only and can "
+                "only be downloaded, not changed.",
+                details={"semesterState": state.value},
+            )
+
     # ---------- commands ----------
 
     async def list_for_subject(
@@ -151,6 +176,7 @@ class MaterialService:
         should schedule with ``BackgroundTasks.add_task``.
         """
         await self._ensure_can_upload(caller, subject_id)
+        await self._ensure_not_archived(subject_id)
         validate_material_upload(upload)
 
         display_name = (name_override or upload.filename or "").strip() or "unnamed"
@@ -240,6 +266,7 @@ class MaterialService:
         status_value: Optional[Literal["indexing", "processed"]],
     ) -> MaterialResponse:
         await self._ensure_can_upload(caller, subject_id)
+        await self._ensure_not_archived(subject_id)
         material = await self._materials.get(material_id)
         if material is None or material.subject_id != subject_id:
             raise APIError(
@@ -264,6 +291,7 @@ class MaterialService:
         self, caller: User, subject_id: str, material_id: str
     ) -> None:
         await self._ensure_can_upload(caller, subject_id)
+        await self._ensure_not_archived(subject_id)
         material = await self._materials.get(material_id)
         if material is None or material.subject_id != subject_id:
             raise APIError(
@@ -283,6 +311,37 @@ class MaterialService:
                 os.unlink(material.storage_path)
         except OSError as exc:
             logger.warning("Failed to remove file %s: %s", material.storage_path, exc)
+
+    async def get_download(
+        self, caller: User, subject_id: str, material_id: str
+    ) -> tuple[str, str, str]:
+        """Resolve a material's on-disk file for download.
+
+        Returns ``(path, download_filename, media_type)``. Any instructor on
+        the roster (super *or* viewer) or an admin may download, regardless of
+        semester state — retrieving previously uploaded content is the one
+        action that stays available on archived terms.
+        """
+        await self._ensure_can_read(caller, subject_id)
+        material = await self._materials.get(material_id)
+        if material is None or material.subject_id != subject_id:
+            raise APIError(
+                ErrorCode.NOT_FOUND,
+                status.HTTP_404_NOT_FOUND,
+                "Material not found in this subject.",
+            )
+        if not material.storage_path or not os.path.exists(material.storage_path):
+            raise APIError(
+                ErrorCode.NOT_FOUND,
+                status.HTTP_404_NOT_FOUND,
+                "The file for this material is no longer available.",
+            )
+        ext = ext_of(material.storage_path)
+        download_name = material.name
+        if ext and not download_name.lower().endswith(ext):
+            download_name = f"{download_name}{ext}"
+        media_type = material.mime or "application/octet-stream"
+        return material.storage_path, download_name, media_type
 
     # ---------- formatting ----------
 

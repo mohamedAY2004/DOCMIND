@@ -145,16 +145,20 @@ function InstructorHome() {
                     {group.subjects.map((subject) => {
                       const instructorRole =
                         subject.superInstructorId === userId ? 'super' : 'viewer'
+                      const archived =
+                        sem?.state === 'archived' ||
+                        subject.semesterState === 'archived'
                       return (
                         <motion.div key={subject.id} variants={fadeUp}>
                           <InstructorSubjectCard
                             title={subject.title}
                             courseCode={subject.courseCode}
                             pdfCount={subject.pdfCount}
-                            status="ready"
+                            status={archived ? 'archived' : 'ready'}
                             href={`/instructor/subject/${subject.id}`}
                             className="h-full"
                             instructorRole={instructorRole}
+                            isArchived={archived}
                           />
                         </motion.div>
                       )

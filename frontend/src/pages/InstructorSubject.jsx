@@ -7,12 +7,15 @@ import {
   List,
   MessageCircle,
   Bot,
+  BotOff,
   FileText,
   LogOut,
   Trash2,
   ShieldCheck,
   Mail,
   Loader2,
+  Download,
+  Archive,
 } from 'lucide-react'
 import { AppLayout, AppTopBar } from '../components/layout'
 import TestStudentBotModal from '../components/chat/TestStudentBotModal'
@@ -26,6 +29,7 @@ import {
   getSubjectInstructors,
   getSubjectMaterials,
   deleteSubjectMaterial,
+  downloadSubjectMaterial,
 } from '../services/subjectService'
 import { uploadMaterial } from '../services/uploadService'
 import { getInstructorInitials, normalizeInstructorRow, titleCaseSlug } from '../utils/formatters'
@@ -104,6 +108,11 @@ function InstructorSubject() {
     () => (userId ? superInstructor?.id === userId : false),
     [superInstructor, userId],
   )
+
+  // Subjects in a past (archived) semester are read-only: no uploads, edits,
+  // deletes, or bot testing — only downloading the existing materials.
+  const isArchived = subject?.semesterState === 'archived'
+  const canManage = isSuper && !isArchived
 
   const refreshMaterials = useCallback(async () => {
     try {
@@ -208,6 +217,22 @@ function InstructorSubject() {
     [subjectId],
   )
 
+  const [downloadingId, setDownloadingId] = useState(null)
+
+  const handleDownload = useCallback(
+    async (item) => {
+      setDownloadingId(item.id)
+      try {
+        await downloadSubjectMaterial(subjectId, item.id, item.name)
+      } catch {
+        toast.error('Could not download this material.')
+      } finally {
+        setDownloadingId(null)
+      }
+    },
+    [subjectId],
+  )
+
   const handleDelete = useCallback(
     async (id) => {
       const target = materials.find((m) => m.id === id)
@@ -249,7 +274,7 @@ function InstructorSubject() {
       }
     >
       <div className="mx-auto px-6 py-10 md:px-10 lg:py-12">
-        {isSuper && (
+        {canManage && (
           <input
             ref={fileInputRef}
             type="file"
@@ -278,21 +303,53 @@ function InstructorSubject() {
                 Viewer
               </span>
             )}
+            {isArchived && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1 text-sm font-medium text-amber-400 ring-1 ring-inset ring-amber-500/30">
+                <Archive size={14} />
+                Archived
+              </span>
+            )}
           </div>
           <p className="mt-2 text-dm-muted">
-            {isSuper
-              ? 'Manage course materials, lecture notes, and configure the AI assistant for this subject.'
-              : 'View course materials and test the AI assistant for this subject.'}
+            {isArchived
+              ? 'This semester is archived. Materials are read-only — you can download existing files, but uploads and the AI assistant are disabled.'
+              : isSuper
+                ? 'Manage course materials, lecture notes, and configure the AI assistant for this subject.'
+                : 'View course materials and test the AI assistant for this subject.'}
           </p>
         </motion.section>
 
-        {!isSuper && superInstructor && (
+        {isArchived && (
+          <motion.section
+            className={`${cardClass} mb-8 !p-5 md:!p-6`}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35 }}
+          >
+            <div className="flex flex-wrap items-center gap-4">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-400">
+                <Archive size={18} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-dm-foreground">
+                  This subject is archived
+                </p>
+                <p className="mt-0.5 text-xs text-dm-muted">
+                  Its semester has ended. The assistant is offline and materials
+                  cannot be changed — you can still download previously uploaded files.
+                </p>
+              </div>
+            </div>
+          </motion.section>
+        )}
+
+        {!isSuper && superInstructor && !isArchived && (
           <SuperInstructorContactCard superInstructor={superInstructor} />
         )}
 
         <div className="flex flex-col gap-10">
           <div className="grid grid-cols-12 gap-10">
-            {isSuper && (
+            {canManage && (
               <motion.section
                 className={`${cardClass} col-span-12 lg:col-span-8`}
                 variants={fadeUp}
@@ -329,47 +386,71 @@ function InstructorSubject() {
               className={[
                 cardClass,
                 'col-span-12',
-                isSuper ? 'lg:col-span-4' : 'lg:col-span-12',
+                canManage ? 'lg:col-span-4' : 'lg:col-span-12',
               ].join(' ')}
-              initial={{ opacity: 0, x: isSuper ? 20 : 0, y: isSuper ? 0 : 12 }}
+              initial={{ opacity: 0, x: canManage ? 20 : 0, y: canManage ? 0 : 12 }}
               animate={{ opacity: 1, x: 0, y: 0 }}
               transition={{ delay: 0.15, duration: 0.4 }}
             >
               <div className={cardHeaderClass}>
                 <h2 className={cardTitleClass}>Bot Status</h2>
-                <span className={livePillClass}>
-                  <span className="h-2 w-2 rounded-full bg-dm-primary animate-pulse" aria-hidden />
-                  Live
-                </span>
+                {isArchived ? (
+                  <span className="flex items-center gap-1.5 text-sm font-medium text-amber-400">
+                    <span className="h-2 w-2 rounded-full bg-amber-400" aria-hidden />
+                    Offline
+                  </span>
+                ) : (
+                  <span className={livePillClass}>
+                    <span className="h-2 w-2 rounded-full bg-dm-primary animate-pulse" aria-hidden />
+                    Live
+                  </span>
+                )}
               </div>
-              <div className="mt-8 flex flex-col items-center">
-                <div className="relative flex h-36 w-36 items-center justify-center">
-                  <div
-                    className="absolute inset-0 rounded-full border-4 border-dm-border"
-                    aria-hidden
-                  />
-                  <motion.div
-                    className="absolute inset-0 rounded-full border-4 border-transparent border-t-dm-primary"
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 2, ease: 'linear', repeat: Infinity }}
-                    aria-hidden
-                  />
-                  <div
-                    className="absolute inset-4 rounded-full bg-dm-primary/5 shadow-[0_0_30px_rgb(var(--dm-primary)/0.25)]"
-                    aria-hidden
-                  />
-                  <Bot size={44} className="relative text-dm-primary drop-shadow-[0_0_8px_rgb(var(--dm-primary)/0.5)]" />
+              {isArchived ? (
+                <div className="mt-8 flex flex-col items-center">
+                  <div className="relative flex h-36 w-36 items-center justify-center">
+                    <div
+                      className="absolute inset-0 rounded-full border-4 border-dm-border"
+                      aria-hidden
+                    />
+                    <div className="absolute inset-4 rounded-full bg-dm-muted/5" aria-hidden />
+                    <BotOff size={44} className="relative text-dm-muted" />
+                  </div>
+                  <p className="mt-4 text-sm font-medium text-dm-foreground">Bot Offline</p>
+                  <p className="mt-1 text-center text-xs text-dm-muted">
+                    The assistant is disabled for archived semesters.
+                  </p>
                 </div>
-                <p className="mt-4 text-sm font-medium text-dm-foreground">Bot Ready</p>
-                <PrimaryButton
-                  type="button"
-                  className="mt-6 flex w-full items-center justify-center gap-2"
-                  onClick={() => setTestBotModalOpen(true)}
-                >
-                  <MessageCircle size={20} className="shrink-0" />
-                  Test Student Bot
-                </PrimaryButton>
-              </div>
+              ) : (
+                <div className="mt-8 flex flex-col items-center">
+                  <div className="relative flex h-36 w-36 items-center justify-center">
+                    <div
+                      className="absolute inset-0 rounded-full border-4 border-dm-border"
+                      aria-hidden
+                    />
+                    <motion.div
+                      className="absolute inset-0 rounded-full border-4 border-transparent border-t-dm-primary"
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 2, ease: 'linear', repeat: Infinity }}
+                      aria-hidden
+                    />
+                    <div
+                      className="absolute inset-4 rounded-full bg-dm-primary/5 shadow-[0_0_30px_rgb(var(--dm-primary)/0.25)]"
+                      aria-hidden
+                    />
+                    <Bot size={44} className="relative text-dm-primary drop-shadow-[0_0_8px_rgb(var(--dm-primary)/0.5)]" />
+                  </div>
+                  <p className="mt-4 text-sm font-medium text-dm-foreground">Bot Ready</p>
+                  <PrimaryButton
+                    type="button"
+                    className="mt-6 flex w-full items-center justify-center gap-2"
+                    onClick={() => setTestBotModalOpen(true)}
+                  >
+                    <MessageCircle size={20} className="shrink-0" />
+                    Test Student Bot
+                  </PrimaryButton>
+                </div>
+              )}
             </motion.section>
           </div>
 
@@ -390,7 +471,7 @@ function InstructorSubject() {
             </div>
             {materials.length === 0 ? (
               <p className="mt-6 rounded-xl border border-dashed border-dm-border bg-dm-background/40 px-4 py-8 text-center text-sm text-dm-muted">
-                {isSuper
+                {canManage
                   ? 'No materials uploaded yet. Upload a PDF to get started.'
                   : 'No materials have been uploaded for this subject yet.'}
               </p>
@@ -449,7 +530,20 @@ function InstructorSubject() {
                             </span>
                           )}
                         </span>
-                        {isSuper && (
+                        <button
+                          type="button"
+                          onClick={() => handleDownload(item)}
+                          disabled={downloadingId === item.id}
+                          className="shrink-0 rounded-lg p-2 text-dm-muted hover:bg-dm-border hover:text-dm-foreground transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                          aria-label={`Download ${item.name}`}
+                        >
+                          {downloadingId === item.id ? (
+                            <Loader2 size={20} className="animate-spin" />
+                          ) : (
+                            <Download size={20} />
+                          )}
+                        </button>
+                        {canManage && (
                           <button
                             type="button"
                             onClick={() => handleDelete(item.id)}

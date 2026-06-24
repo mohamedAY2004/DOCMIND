@@ -13,10 +13,11 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models import User, UserRole
+from db.models import SemesterState, User, UserRole
 from helpers.config import get_settings
 from helpers.deps import get_session, require_role
 from helpers.errors import APIError, ErrorCode
@@ -119,6 +120,25 @@ async def delete_material(
     await MaterialService(session).delete(user, subject_id, material_id)
 
 
+@router.get("/{subject_id}/materials/{material_id}/download")
+async def download_material(
+    subject_id: str,
+    material_id: str,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_role(UserRole.INSTRUCTOR, UserRole.ADMIN)),
+) -> FileResponse:
+    """Download a previously uploaded material file.
+
+    Allowed for any instructor on the roster (super or viewer) and admins,
+    including on archived semesters — downloading old content is the only
+    action that remains available once a term is archived.
+    """
+    path, filename, media_type = await MaterialService(session).get_download(
+        user, subject_id, material_id
+    )
+    return FileResponse(path, media_type=media_type, filename=filename)
+
+
 # -------------------- instructor test-bot --------------------
 
 
@@ -148,12 +168,23 @@ async def test_bot(
     use, but does NOT persist any conversation or messages.
     """
     # Verify the subject exists.
-    subject = await SubjectRepository(session).get(subject_id)
+    subjects = SubjectRepository(session)
+    subject = await subjects.get(subject_id)
     if subject is None:
         raise APIError(
             ErrorCode.NOT_FOUND,
             status.HTTP_404_NOT_FOUND,
             "Subject not found.",
+        )
+
+    # Archived semesters take the bot offline — no testing on past terms.
+    state = await subjects.semester_state_for_subject(subject_id)
+    if state is SemesterState.ARCHIVED:
+        raise APIError(
+            ErrorCode.FORBIDDEN,
+            status.HTTP_403_FORBIDDEN,
+            "This semester is archived; the assistant is offline and cannot be tested.",
+            details={"semesterState": state.value},
         )
 
     # Check for indexed materials.
