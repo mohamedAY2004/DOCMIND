@@ -1826,7 +1826,77 @@ Language models may still produce incorrect or out-of-context text despite RAG; 
 
 \section{Prototype Evaluation}
 
-Initial evaluation of the running system indicates that document-grounded and subject-grounded conversational learning paths function end-to-end with the stack described in this document. Stakeholder feedback and usage metrics, including optional per-message feedback stored for administrators, should inform further refinements to prompts, retrieval parameters, and User Experience (UX) design. This chapter documents the transition from system design to a concrete repository-backed implementation that can be demonstrated and extended toward production hardening.
+Initial evaluation of the running system indicates that document-grounded and subject-grounded conversational learning paths function end-to-end with the stack described in this document. Beyond this functional confirmation, the answer quality of the Retrieval-Augmented Generation (RAG) pipeline was measured quantitatively using the RAGAS evaluation framework, as described in the following subsections. Stakeholder feedback and usage metrics, including optional per-message feedback stored for administrators, should inform further refinements to prompts, retrieval parameters, and User Experience (UX) design. This chapter documents the transition from system design to a concrete repository-backed implementation that can be demonstrated and extended toward production hardening.
+
+\subsection{Automated RAG Evaluation with RAGAS}
+
+While the test cases in Table~\ref{tab:test_cases} confirm that each user journey behaves correctly, they do not measure how \emph{good} the generated answers are. To assess answer quality quantitatively, the RAG pipeline was evaluated with RAGAS, a reference-grounded, automated framework that uses a large language model as an independent judge to score retrieval-augmented answers along several complementary dimensions.
+
+The evaluation harness reproduces the production pipeline so that the measured behavior matches the deployed system: the document ingestion and structure-aware chunking logic is ported verbatim from the backend ingestion service, the prompt templates are copied verbatim from the backend RAG templates, and retrieval mirrors the production search path. It was run over a curated question bank of 180 questions spanning 9 university subjects (communication skills, computer and society, computer graphics, computer system security, digital image processing, embedded systems, human-computer interaction, operating systems, and theory of computation), each paired with an instructor-style ground-truth answer. Retrieval parameters mirror the backend configuration (top-$k$ retrieval limit of 5 and a similarity threshold of 0.3), and generation and embedding are served by the configured local backend --- the \texttt{gemma4:e4b} generation model and the \texttt{qwen3-embedding:4b} embedding model --- at a generation temperature of 0.2.
+
+To quantify the benefit of the optional reranking stage, two retrieval configurations were scored head-to-head over the same question bank: a baseline that takes the top five vector-similarity matches (\textit{no-rerank}), and the optional cross-encoder path that over-fetches a larger candidate set and rescores it with a \texttt{BAAI/bge-reranker-base} cross-encoder before truncating back to the top five (\textit{with-rerank}). All answers were scored by RAGAS using an independent OpenAI judge model, so that answer quality is assessed by a different model than the one that produced the answers.
+
+\newpage
+
+\subsection{Evaluation Metrics}
+
+Each answer was scored on five RAGAS metrics, all normalized to the range $[0, 1]$ where higher is better:
+
+\begin{itemize}
+  \item \textbf{Faithfulness}: the degree to which the claims in the answer are grounded in the retrieved context, directly measuring resistance to hallucination.
+  \item \textbf{Answer Relevancy}: how directly and completely the answer addresses the question that was asked.
+  \item \textbf{Context Precision}: the proportion of retrieved chunks that are actually relevant to the question, reflecting retrieval quality.
+  \item \textbf{Context Recall}: whether the retrieved context covers the information present in the ground-truth answer.
+  \item \textbf{Answer Correctness}: the overall agreement between the generated answer and the ground-truth answer.
+\end{itemize}
+
+\subsection{Evaluation Results}
+
+Table~\ref{tab:ragas_summary} reports the mean score for each metric across all 180 questions for both retrieval configurations, and Table~\ref{tab:ragas_subjects} breaks the overall score down by subject.
+
+\begin{table}[H]
+\centering
+\caption{Mean RAGAS Scores Across 180 Questions (No-Rerank vs.\ With-Rerank)}
+\label{tab:ragas_summary}
+\begin{tabular}{>{\bfseries}p{5cm} c c}
+\toprule
+Metric & No-Rerank & With-Rerank \\
+\midrule
+Faithfulness        & 0.942 & 0.959 \\
+Answer Relevancy    & 0.777 & 0.786 \\
+Context Precision   & 0.908 & 0.926 \\
+Context Recall      & 0.915 & 0.914 \\
+Answer Correctness  & 0.768 & 0.776 \\
+\midrule
+\textbf{Mean (5 metrics)} & \textbf{0.862} & \textbf{0.872} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Mean RAGAS Score per Subject (Averaged Across the Five Metrics)}
+\label{tab:ragas_subjects}
+\begin{tabular}{>{\bfseries}p{6cm} c c c}
+\toprule
+Subject & No-Rerank & With-Rerank & Delta \\
+\midrule
+Communication Skills       & 0.891 & 0.902 & $+0.011$ \\
+Computer and Society       & 0.864 & 0.922 & $+0.058$ \\
+Computer Graphics          & 0.854 & 0.853 & $-0.001$ \\
+Computer System Security   & 0.927 & 0.919 & $-0.008$ \\
+Digital Image Processing   & 0.761 & 0.740 & $-0.021$ \\
+Embedded Systems           & 0.837 & 0.845 & $+0.008$ \\
+Human-Computer Interaction & 0.924 & 0.928 & $+0.004$ \\
+Operating Systems          & 0.882 & 0.889 & $+0.007$ \\
+Theory of Computation      & 0.817 & 0.850 & $+0.033$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The results validate the core design premise of DocMind. High faithfulness (approximately 0.94--0.96) together with strong context precision and recall (approximately 0.91--0.93) confirm that the pipeline retrieves the right material and that generated answers remain anchored to it rather than to model priors --- the central mechanism by which RAG curbs hallucination in an academic setting. The comparatively lower answer relevancy and answer correctness scores (approximately 0.77) reflect differences in phrasing and completeness relative to the strict instructor-authored ground truth rather than failures of grounding, an outcome consistent with the use of a compact, locally hosted generation model.
+
+Enabling cross-encoder reranking produces a small but consistent improvement in the overall mean score (from 0.862 to 0.872), with the clearest gains in faithfulness and context precision. The per-subject breakdown in Table~\ref{tab:ragas_subjects} shows that this benefit is uneven: reranking helps markedly on subjects such as Computer and Society and Theory of Computation, while leaving others essentially unchanged or marginally lower (for example, Digital Image Processing). This mixed, modest effect at additional latency and dependency cost is precisely why reranking ships as an optional, off-by-default stage in the RAG query pipeline, and why hybrid and query-expansion retrieval are identified as future enhancements.
 
 % ════════════════════════════════════════════════════════════════════════════
 %  CHAPTER 5 — CONCLUSIONS AND FUTURE WORK
