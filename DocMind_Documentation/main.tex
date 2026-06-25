@@ -1,3 +1,4 @@
+% !TEX program = xelatex
 % ─── Compile with XeLaTeX for Arabic + Times New Roman support ──────────────
 \documentclass[12pt, a4paper, oneside]{report}
 
@@ -26,8 +27,11 @@
 \setotherlanguage{arabic}
 \setmainfont{Times New Roman}
 \newfontfamily\arabicfont[Script=Arabic]{Amiri}
-\usepackage{float}
 \usepackage{adjustbox}
+
+\ExplSyntaxOn
+\cs_if_exist:NF \tbl_save_outer_table_cols: { \cs_new:Npn \tbl_save_outer_table_cols: {} }
+\ExplSyntaxOff
 
 % ─── Line spacing ────────────────────────────────────────────────────────────
 \onehalfspacing
@@ -125,12 +129,13 @@
 
 % Heading 5: Underlined 12pt Title Case, left, before 12pt, after 12pt
 \titleformat{\paragraph}[hang]
-  {\fontsize{12}{14}\selectfont\underline}
-  {}{0em}{}
+  {\fontsize{12}{14}\selectfont}
+  {}{0em}{\underline}
 \titlespacing*{\paragraph}{0pt}{12pt}{12pt}
 
 % ─── Header / Footer ─────────────────────────────────────────────────────────
 \pagestyle{fancy}
+\setlength{\headheight}{14.5pt}
 \fancyhf{}
 \fancyhead[L]{\nouppercase{\leftmark}}
 \fancyhead[R]{DocMind}
@@ -138,6 +143,10 @@
 \renewcommand{\headrulewidth}{0.4pt}
 
 % ─── Hyperref ────────────────────────────────────────────────────────────────
+\emergencystretch=3em
+\hbadness=10000
+\hfuzz=18pt
+
 \hypersetup{
     colorlinks=true,
     linkcolor=black,
@@ -1109,7 +1118,8 @@ Table~\ref{tab:market_survey} summarizes the comparative analysis of the reviewe
 \centering
 \caption{Market Survey Comparison of Similar Systems}
 \label{tab:market_survey}
-\begin{tabular}{p{3cm} p{2.2cm} p{2.2cm} p{2.2cm} p{2.2cm} p{2.2cm}}
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{p{2.8cm} p{2.45cm} p{2.45cm} p{2.45cm} p{2.45cm} p{2.45cm}}
 \toprule
 \textbf{Feature} & \textbf{DocMind} & \textbf{NotebookLM} & \textbf{Humata} & \textbf{Mindgrasp} & \textbf{AskYourPDF} \\
 \midrule
@@ -1123,6 +1133,7 @@ Admin dashboard          & Yes & No  & No  & No  & No  \\
 Open infrastructure      & Yes & No  & No  & No  & No  \\
 \bottomrule
 \end{tabular}
+\end{adjustbox}
 \end{table}
 
 The survey confirms that while commercial tools offer polished interfaces and broad feature sets, none are designed for institutional deployment with multi-role access control and instructor-managed knowledge bases. DocMind fills this gap specifically for university environments.
