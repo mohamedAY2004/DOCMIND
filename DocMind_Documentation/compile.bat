@@ -12,5 +12,9 @@ echo ===== Pass 3 of 3 =====
 xelatex -interaction=nonstopmode -synctex=1 main.tex
 
 echo.
+echo ===== Cleaning up temporary files =====
+del /q main.aux main.lof main.log main.lot main.out main.toc main.synctex.gz 2>nul
+
+echo.
 echo ===== Done. Output: main.pdf =====
 pause

@@ -301,6 +301,9 @@
   {\fontsize{10}{12}\selectfont June 2026\par}
 \end{titlepage}
 
+% ─── Front-matter page numbering: roman numerals (i, ii, iii, …) ─────────────
+\pagenumbering{roman}
+
 % ─── Declaration ─────────────────────────────────────────────────────────────
 \chapter*{Declaration}
 \thispagestyle{empty}
@@ -481,6 +484,8 @@ UX    & User Experience \\
 % ════════════════════════════════════════════════════════════════════════════
 %  CHAPTER 1 — INTRODUCTION
 % ════════════════════════════════════════════════════════════════════════════
+% ─── Main-matter page numbering: arabic numerals (1, 2, 3, …) ────────────────
+\pagenumbering{arabic}
 \chapter{Introduction}
 
 \section{Background}
@@ -497,7 +502,7 @@ At the same time, recent advancements in Artificial Intelligence (AI), particula
 
 Despite the availability of extensive academic resources, students frequently encounter difficulties in extracting meaningful knowledge from them. Large documents such as lecture slides and textbooks often contain dense information, making it challenging for students to locate specific answers or clarify particular concepts efficiently. As a result, students may resort to external sources that are not aligned with course content, or may receive incomplete or misleading explanations.
 
-Generic AI chat systems have gained popularity as tools for answering questions and providing explanations. However, these systems are typically trained on broad datasets and are not restricted to verified academic sources. Consequently, they may generate responses that are factually incorrect, inconsistent with course materials, or entirely fabricated --- a phenomenon commonly referred to as AI hallucination in [7]. Such behavior poses significant risks in academic contexts, where accuracy and reliability are essential.
+Generic AI chat systems have gained popularity as tools for answering questions and providing explanations. However, these systems are typically trained on broad datasets and are not restricted to verified academic sources. Consequently, they may generate responses that are factually incorrect, inconsistent with course materials, or entirely fabricated, a phenomenon Known as AI hallucination in [7]. Such behavior poses significant risks in academic contexts, where accuracy and reliability are essential.
 
 Furthermore, instructors often face repetitive questions from students regarding course materials, which can increase workload and reduce time available for higher-level academic engagement. There is a clear need for a system that can provide consistent, accurate, and course-aligned assistance while reducing reliance on unreliable external tools.
 
@@ -602,7 +607,7 @@ This approach combines Parameter-Efficient Fine-Tuning (PEFT) and Retrieval-Augm
 
 \subsubsection{Comparison of Different Techniques}
 
-The following figure compares the methods described --- RAG, PEFT, and PEFT-RAG. As shown in Figure~\ref{fig:lamp_comparison}, the combination of both techniques consistently yields the highest personalization scores across the LaMP benchmark tasks.
+The following figure compares the methods described: RAG, PEFT, and PEFT-RAG. As shown in Figure~\ref{fig:lamp_comparison}, the combination of both techniques consistently yields the highest personalization scores across the LaMP benchmark tasks.
 
 \begin{figure}[H]
 \centering
@@ -917,7 +922,7 @@ This section surveys existing commercial and research-grade tools that are simil
 
 \subsubsection{Positioning and Primary Use Case}
 
-NotebookLM is Google's AI-powered research and learning tool as described in [18]. It is designed to help users organize and understand collections of sources --- such as Portable Document Format (PDF) files, Google Docs, web pages, and YouTube transcripts --- inside notebooks, then interact with those sources through chat and a range of generated learning artifacts.
+NotebookLM is Google's AI-powered research and learning tool as described in [18]. It is designed to help users organize and understand collections of sources, such as Portable Document Format (PDF) files, Google Docs, web pages, and YouTube transcripts, inside notebooks, then interact with those sources through chat and a range of generated learning artifacts.
 
 Google explicitly presents NotebookLM as a tool for students and researchers to generate study guides, summaries, mind maps, flashcards, quizzes, and overviews from their own materials.
 \newpage
@@ -1224,7 +1229,7 @@ One of the primary functions of the system is document ingestion and processing.
 
 Another essential function is conversational interaction. When a user submits a question, the system analyzes the query, retrieves the most relevant document segments, and passes them as context to a language model. The generated response is then presented to the user in a conversational format.
 
-The system persists conversations --- including document chat and tutor chat --- in the relational database, along with message history, until the user or retention policies delete them. Authenticated API sessions use JWTs with a configurable expiry (for example, twelve hours in the default configuration), after which the user must sign in again; logging out revokes the current token identifier.
+The system persists conversations, including document chat and tutor chat, in the relational database, along with message history, until the user or retention policies delete them. Authenticated API sessions use JWTs with a configurable expiry (for example, twelve hours in the default configuration), after which the user must sign in again; logging out revokes the current token identifier.
 
 \newpage
 
@@ -1527,7 +1532,7 @@ This module ensures that only the most contextually relevant information is pass
 
 \subsubsection{Response Generation Module}
 
-The response generation module calls a configurable remote Large Language Model (LLM) --- for example Google Gemini, OpenAI, or Cohere Application Programming Interfaces (APIs) --- to produce answers from retrieved chunks and prompt templates, with English and Arabic template locales in the codebase. By default, each chat turn follows a single-shot retrieve-then-generate path; when the agent feature flag is enabled, a planner model may decide whether retrieval runs and with which query before generation.
+The response generation module calls a configurable remote Large Language Model (LLM), for example Google Gemini, OpenAI, or Cohere Application Programming Interfaces (APIs), to produce answers from retrieved chunks and prompt templates, with English and Arabic template locales in the codebase. By default, each chat turn follows a single-shot retrieve-then-generate path; when the agent feature flag is enabled, a planner model may decide whether retrieval runs and with which query before generation.
 
 \newpage
 
@@ -1669,7 +1674,7 @@ The DocMind system is implemented using the following technologies:
 
 \begin{itemize}
   \item \textbf{Backend}: Python 3.10, FastAPI as described in [13], SQLAlchemy (async), Alembic for migrations, Pydantic for data validation.
-  \item \textbf{AI/ML}: an in-house Retrieval-Augmented Generation (RAG) orchestration layer (structure-aware chunking, prompt assembly, and retrieval) that uses LangChain text-splitting utilities as described in [14]; embedding generation and text generation are served by configurable remote providers --- Google Gemini by default, switchable to OpenAI or Cohere --- and an optional \texttt{sentence-transformers} cross-encoder is available for reranking.
+  \item \textbf{AI/ML}: an in-house Retrieval-Augmented Generation (RAG) orchestration layer (structure-aware chunking, prompt assembly, and retrieval) that uses LangChain text-splitting utilities as described in [14]; embedding generation and text generation are served by configurable remote providers (Google Gemini by default, switchable to OpenAI or Cohere), and an optional \texttt{sentence-transformers} cross-encoder is available for reranking.
   \item \textbf{Vector Store}: pgvector as described in [16] (PostgreSQL extension) or Qdrant as described in [17], switchable by environment configuration.
   \item \textbf{Relational Database}: PostgreSQL 16 with the pgvector extension.
   \item \textbf{Web Frontend}: React 19 with Vite, Tailwind CSS, React Router, and Axios for API calls.
@@ -1697,7 +1702,7 @@ The backend follows a layered architecture:
 
 \subsection{Authentication and Authorization}
 
-JSON Web Token (JWT)-based authentication is implemented in AuthService. On successful login, the service issues a signed access token embedding the user's identifier and role. Every protected route uses a FastAPI dependency that validates the token signature, checks expiry, and rejects token identifiers recorded in the blocklist. Role-specific dependencies --- \texttt{require\_student}, \texttt{require\_instructor}, and \texttt{require\_admin} --- are applied to route groups to enforce the principle of least privilege.
+JSON Web Token (JWT)-based authentication is implemented in AuthService. On successful login, the service issues a signed access token embedding the user's identifier and role. Every protected route uses a FastAPI dependency that validates the token signature, checks expiry, and rejects token identifiers recorded in the blocklist. Role-specific dependencies (\texttt{require\_student}, \texttt{require\_instructor}, and \texttt{require\_admin}) are applied to route groups to enforce the principle of least privilege.
 
 \newpage
 \subsection{Document Ingestion Pipeline}
@@ -1822,7 +1827,7 @@ The DocMind system employs a multi-level testing strategy to validate correctnes
 
 \begin{itemize}
   \item \textbf{Unit Testing}: Individual service functions and repository methods are tested in isolation using pytest with async support. Mock objects are used to substitute external dependencies such as the vector store and LLM API.
-  \item \textbf{Integration Testing}: API endpoints are tested end-to-end using an asynchronous HTTP client (\texttt{httpx.AsyncClient}) that drives the application in-process, exercising the full request-response cycle --- including authentication, authorization, and database interaction --- against a dedicated PostgreSQL with pgvector test database, while the language model and vector store are substituted with test doubles.
+  \item \textbf{Integration Testing}: API endpoints are tested end-to-end using an asynchronous HTTP client (\texttt{httpx.AsyncClient}) that drives the application in-process, exercising the full request-response cycle, including authentication, authorization, and database interaction, against a dedicated PostgreSQL with pgvector test database, while the language model and vector store are substituted with test doubles.
   \item \textbf{RAG Pipeline Testing}: The embedding and retrieval pipeline is validated by ingesting known documents and verifying that expected chunks are retrieved for representative queries.
   \item \textbf{Security Testing}: Role-Based Access Control (RBAC) is validated by asserting that requests made with student-role tokens are rejected by instructor and administrator endpoints, and vice versa.
   \item \textbf{User Acceptance Testing (UAT)}: Manual walkthroughs of the primary student, instructor, and administrator user journeys are performed against the running application with seeded data.
@@ -1879,7 +1884,7 @@ Initial evaluation of the running system indicates that document-grounded and su
 
 While the test cases in Table~\ref{tab:test_cases} confirm that each user journey behaves correctly, they do not measure how \emph{good} the generated answers are. To assess answer quality quantitatively, the RAG pipeline was evaluated with RAGAS, a reference-grounded, automated framework that uses a large language model as an independent judge to score retrieval-augmented answers along several complementary dimensions.
 
-The evaluation harness reproduces the production pipeline so that the measured behavior matches the deployed system: the document ingestion and structure-aware chunking logic is ported verbatim from the backend ingestion service, the prompt templates are copied verbatim from the backend RAG templates, and retrieval mirrors the production search path. It was run over a curated question bank of 180 questions spanning 9 university subjects (communication skills, computer and society, computer graphics, computer system security, digital image processing, embedded systems, human-computer interaction, operating systems, and theory of computation), each paired with an instructor-style ground-truth answer. Retrieval parameters mirror the backend configuration (top-$k$ retrieval limit of 5 and a similarity threshold of 0.3), and generation and embedding are served by the configured local backend --- the \texttt{gemma4:e4b} generation model and the \texttt{qwen3-embedding:4b} embedding model --- at a generation temperature of 0.2.
+The evaluation harness reproduces the production pipeline so that the measured behavior matches the deployed system: the document ingestion and structure-aware chunking logic is ported verbatim from the backend ingestion service, the prompt templates are copied verbatim from the backend RAG templates, and retrieval mirrors the production search path. It was run over a curated question bank of 180 questions spanning 9 university subjects (communication skills, computer and society, computer graphics, computer system security, digital image processing, embedded systems, human-computer interaction, operating systems, and theory of computation), each paired with an instructor-style ground-truth answer. Retrieval parameters mirror the backend configuration (top-$k$ retrieval limit of 5 and a similarity threshold of 0.3), and generation and embedding are served by the configured local backend, the \texttt{gemma4:e4b} generation model and the \texttt{qwen3-embedding:4b} embedding model, at a generation temperature of 0.2.
 
 To quantify the benefit of the optional reranking stage, two retrieval configurations were scored head-to-head over the same question bank: a baseline that takes the top five vector-similarity matches (\textit{no-rerank}), and the optional cross-encoder path that over-fetches a larger candidate set and rescores it with a \texttt{BAAI/bge-reranker-base} cross-encoder before truncating back to the top five (\textit{with-rerank}). All answers were scored by RAGAS using an independent OpenAI judge model, so that answer quality is assessed by a different model than the one that produced the answers.
 
@@ -1941,25 +1946,20 @@ Theory of Computation      & 0.817 & 0.850 & $+0.033$ \\
 \end{tabular}
 \end{table}
 
-The results validate the core design premise of DocMind. High faithfulness (approximately 0.94--0.96) together with strong context precision and recall (approximately 0.91--0.93) confirm that the pipeline retrieves the right material and that generated answers remain anchored to it rather than to model priors --- the central mechanism by which RAG curbs hallucination in an academic setting. The comparatively lower answer relevancy and answer correctness scores (approximately 0.77) reflect differences in phrasing and completeness relative to the strict instructor-authored ground truth rather than failures of grounding, an outcome consistent with the use of a compact, locally hosted generation model.
+The results validate the core design premise of DocMind. High faithfulness (approximately 0.94--0.96) together with strong context precision and recall (approximately 0.91--0.93) confirm that the pipeline retrieves the right material and that generated answers remain anchored to it rather than to model priors, the central mechanism by which RAG curbs hallucination in an academic setting. The comparatively lower answer relevancy and answer correctness scores (approximately 0.77) reflect differences in phrasing and completeness relative to the strict instructor-authored ground truth rather than failures of grounding, an outcome consistent with the use of a compact, locally hosted generation model.
 
 Enabling cross-encoder reranking produces a small but consistent improvement in the overall mean score (from 0.862 to 0.872), with the clearest gains in faithfulness and context precision. The per-subject breakdown in Table~\ref{tab:ragas_subjects} shows that this benefit is uneven: reranking helps markedly on subjects such as Computer and Society and Theory of Computation, while leaving others essentially unchanged or marginally lower (for example, Digital Image Processing). This mixed, modest effect at additional latency and dependency cost is precisely why reranking ships as an optional, off-by-default stage in the RAG query pipeline, and why hybrid and query-expansion retrieval are identified as future enhancements.
 
 % ════════════════════════════════════════════════════════════════════════════
 %  CHAPTER 5 — CONCLUSIONS AND FUTURE WORK
 % ════════════════════════════════════════════════════════════════════════════
-<<<<<<< HEAD
-
-=======
-\addtocontents{toc}{\protect\newpage}
->>>>>>> 2f0faf73c55636f4b8f0c5a3450bb52edba94a5f
 \chapter{Conclusions and Future Work}
 
 \section{Conclusions}
 
 The DocMind project successfully demonstrates the feasibility of integrating a trustworthy, document-grounded AI assistant into a university academic environment. By employing Retrieval-Augmented Generation (RAG) over explicitly managed document corpora, the system substantially reduces the risk of hallucination compared to unrestricted language model deployments, ensuring that student responses remain anchored to verified course materials.
 
-The implemented system achieves all primary objectives set out in Chapter 1. Role-Based Access Control (RBAC) effectively separates student, instructor, and administrator concerns. The dual interaction model --- encompassing both document-based chat and subject-based tutor chat --- addresses different student learning scenarios within a unified interface. JSON Web Token (JWT)-based authentication with configurable token lifetime and a blocklist-based logout mechanism provides session security appropriate for institutional deployment.
+The implemented system achieves all primary objectives set out in Chapter 1. Role-Based Access Control (RBAC) effectively separates student, instructor, and administrator concerns. The dual interaction model, encompassing both document-based chat and subject-based tutor chat, addresses different student learning scenarios within a unified interface. JSON Web Token (JWT)-based authentication with configurable token lifetime and a blocklist-based logout mechanism provides session security appropriate for institutional deployment.
 
 The literature review confirmed that plain RAG, without necessarily fine-tuning the underlying model, is a practical and cost-effective strategy for domain-specific question-and-answer applications as established in [5]. Paper findings from Barnett et al.\ as described in [3] reinforced this by demonstrating that fine-tuning may degrade RAG performance in specialized domains, while Li et al.\ as described in [4] showed that prompt engineering and retrieval quality have greater impact on answer accuracy than knowledge base size. These insights directly shaped the DocMind retrieval pipeline design.
 
