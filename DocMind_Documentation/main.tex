@@ -25,6 +25,11 @@
 \usepackage{polyglossia}
 \setmainlanguage{english}
 \setotherlanguage{arabic}
+
+\usepackage{bidi}
+
+\newcommand{\eng}[1]{\LR{#1}}
+\newcommand{\engp}[1]{\LR{(#1)}}
 \setmainfont{Times New Roman}
 \newfontfamily\arabicfont[Script=Arabic]{Amiri}
 \usepackage{adjustbox}
@@ -177,6 +182,46 @@
 \renewcommand{\listfigurename}{List of Figures}
 \renewcommand{\listtablename}{List of Tables}
 
+% ─── TOC main-heading (chapter) spacing ──────────────────────────────────────
+% Decrease only the vertical gap before each main (chapter) entry in the TOC.
+% Implemented by redefining \l@chapter directly (rather than patching the
+% class internals) so the result is identical across TeX distributions
+% (e.g. local MiKTeX and Overleaf's TeX Live). This is the stock report.cls
+% definition with two changes, both scoped to chapter (main-heading) entries
+% only: the leading \vskip is reduced from 1.0em to 0.4em, and \parskip is
+% zeroed so the document's 12pt paragraph gap is not added between entries.
+\makeatletter
+\renewcommand*\l@chapter[2]{%
+  \ifnum \c@tocdepth >\m@ne
+    \addpenalty{-\@highpenalty}%
+    \vskip 0.4em \@plus\p@
+    \setlength\@tempdima{1.5em}%
+    \begingroup
+      \parindent \z@ \parskip \z@ \rightskip \@pnumwidth
+      \parfillskip -\@pnumwidth
+      \leavevmode \bfseries
+      \advance\leftskip\@tempdima
+      \hskip -\leftskip
+      #1\nobreak\hfil
+      \nobreak\hb@xt@\@pnumwidth{\hss #2%
+                                \kern-\p@\kern\p@}\par
+      \penalty\@highpenalty
+    \endgroup
+  \fi}
+\makeatother
+
+% ─── List of Tables entry spacing ────────────────────────────────────────────
+% Tighten the line height between List of Tables entries only. The document's
+% 12pt \parskip is otherwise inserted between each entry; zeroing it here (scoped
+% to \l@table) leaves the List of Figures and TOC spacing unchanged. This is the
+% stock report.cls \l@table (= \l@figure) wrapped to suppress \parskip.
+\makeatletter
+\renewcommand*\l@table[2]{%
+  \begingroup\parskip\z@
+  \@dottedtocline{1}{1.5em}{2.3em}{#1}{#2}%
+  \endgroup}
+\makeatother
+
 % ════════════════════════════════════════════════════════════════════════════
 \begin{document}
 
@@ -247,7 +292,7 @@
   \vspace{6pt}
 
   % Supervisor name: Italic 14pt
-  {\fontsize{14}{18}\selectfont\itshape Dr.\ Ahmed Saied\par}
+  {\fontsize{14}{18}\selectfont\itshape Dr.\ Ahmed Said\par}
 
   % Push date to footer
   \vfill
@@ -318,22 +363,25 @@ We hereby certify that this material, which we now submit for assessment on the 
 
 DocMind is an AI (Artificial Intelligence)-powered academic learning assistant designed to enhance the learning experience of university students by enabling reliable, document-grounded conversational interactions. The system addresses common challenges faced by students when dealing with large volumes of academic materials by allowing them to query trusted content using natural language. Unlike general-purpose AI chat systems, DocMind employs Retrieval-Augmented Generation (RAG) so that answers are grounded in an explicit corpus: instructor-uploaded materials for subject-based chat, and student-uploaded Portable Document Format (PDF) files for document-based chat.
 
-The implemented system provides role-based access control (RBAC) for students, instructors, and administrators enforced in the Application Programming Interface (API) and web client, JSON Web Token (JWT)-based authentication with configurable token lifetime, administrator-controlled student-access gating, and validated document uploads with per-conversation limits. The backend is built on FastAPI with a PostgreSQL relational database, while semantic retrieval is powered by a pluggable vector store supporting both pgvector and Qdrant. The React-based web frontend delivers a responsive Single-Page Application (SPA) accessible across desktop and mobile browsers, complemented by a native Flutter mobile application for iOS and Android that consumes the same API. This document presents a comprehensive overview of the system, covering the literature review, system analysis and design, and implementation details, demonstrating the feasibility of integrating trustworthy AI-driven assistance into formal academic environments.
+The implemented system provides role-based access control (RBAC) for students, instructors, and administrators enforced in the Application Programming Interface (API) and web client, JSON Web Token (JWT)-based authentication with configurable token lifetime, administrator-controlled student-access gating, and validated document uploads with per-conversation limits. The backend is built on FastAPI with a PostgreSQL relational database, while semantic retrieval is powered by a pluggable vector store supporting both pgvector and Qdrant. The React-based web frontend delivers a responsive Single-Page Application (SPA) accessible across desktop and mobile browsers, complemented by a native Flutter mobile application for iOS and Android that consumes the same API. An empirical evaluation of the retrieval-augmented pipeline using the RAGAS framework over 180 questions spanning nine university subjects confirms the reliability of the document-grounded answers, achieving a faithfulness score of 0.959, context precision of 0.926, and context recall of 0.914. This document presents a comprehensive overview of the system, covering the literature review, system analysis and design, and implementation details, demonstrating the feasibility of integrating trustworthy AI-driven assistance into formal academic environments.
 
 \clearpage
 
 % ─── Abstract (Arabic) ───────────────────────────────────────────────────────
-\chapter*{الملخص}
-\addcontentsline{toc}{chapter}{الملخص (Arabic Abstract)}
+\chapter*{\textarabic{الملخص}}
+\addcontentsline{toc}{chapter}{\textarabic{الملخص} (Arabic Abstract)}
+
 \begin{Arabic}
 \setlength{\parindent}{1.5em}
 \setlength{\parskip}{6pt}
 
- DocMind هو مساعد تعليمي أكاديمي مدعوم بالذكاء الاصطناعي، صُمِّم لتعزيز تجربة التعلم لدى طلاب الجامعات من خلال توفير تفاعلات محادثية موثوقة ومرتكزة على المستندات. يعالج النظام التحديات الشائعة التي يواجهها الطلاب عند التعامل مع كميات كبيرة من المواد الأكاديمية، إذ يتيح لهم الاستعلام عن المحتوى الموثوق باستخدام اللغة الطبيعية.
+\eng{DocMind} هو مساعد تعليمي أكاديمي مدعوم بالذكاء الاصطناعي، صُمِّم لتعزيز تجربة التعلم لدى طلاب الجامعات من خلال توفير تفاعلات محادثية موثوقة ومرتكزة على المستندات. يعالج النظام التحديات الشائعة التي يواجهها الطلاب عند التعامل مع كميات كبيرة من المواد الأكاديمية، إذ يتيح لهم الاستعلام عن المحتوى الموثوق باستخدام اللغة الطبيعية.
 
-على خلاف أنظمة الدردشة بالذكاء الاصطناعي ذات الأغراض العامة، يعتمد دوك مايند على تقنية التوليد المعزز بالاسترجاع (RAG) بحيث ترتكز الإجابات أساساً على مجموعة محتوى محددة: المواد التي يرفعها أعضاء هيئة التدريس لمحادثات المساعد الافتراضي (الدردشة بالمادة)، والملفات التي يرفعها الطلاب أنفسهم في محادثات المستندات. يدعم النظام وضعَي تفاعل رئيسيَّين: الدردشة المرتكزة على المستندات، والدردشة المرتكزة على مواد المادة الدراسية.
+على خلاف أنظمة الدردشة بالذكاء الاصطناعي ذات الأغراض العامة، يعتمد دوك مايند على تقنية التوليد المعزز بالاسترجاع (\eng{RAG}) بحيث ترتكز الإجابات أساساً على مجموعة محتوى محددة: المواد التي يرفعها أعضاء هيئة التدريس لمحادثات المساعد الافتراضي (الدردشة بالمادة)، والملفات التي يرفعها الطلاب أنفسهم في محادثات المستندات. يدعم النظام وضعَي تفاعل رئيسيَّين: الدردشة المرتكزة على المستندات، والدردشة المرتكزة على مواد المادة الدراسية.
 
-يوفر النظام المُنفَّذ تحكماً في الوصول قائماً على الأدوار للطلاب والمدرسين والمسؤولين، ومصادقة مبنية على رموز JWT مع مدة صلاحية قابلة للضبط، وبوابة للتحكم في وصول الطلاب يديرها المسؤول، فضلاً عن رفع مستندات محقَّق منها مع حدود لكل محادثة. تم بناء الواجهة الخلفية باستخدام FastAPI مع قاعدة بيانات علائقية PostgreSQL، فيما يعتمد الاسترجاع الدلالي على مخزن متجهات قابل للتوصيل يدعم كلاً من pgvector وQdrant. تقدم الواجهة الأمامية المبنية بـReact تطبيقاً من صفحة واحدة يعمل على أجهزة سطح المكتب والهاتف المحمول.
+يوفر النظام المُنفَّذ تحكماً في الوصول قائماً على الأدوار للطلاب والمدرسين والمسؤولين، ومصادقة مبنية على رموز \eng{JWT} مع مدة صلاحية قابلة للضبط، وبوابة للتحكم في وصول الطلاب يديرها المسؤول، فضلاً عن رفع مستندات محقَّق منها مع حدود لكل محادثة. تم بناء الواجهة الخلفية باستخدام \eng{FastAPI} مع قاعدة بيانات علائقية \eng{PostgreSQL}، فيما يعتمد الاسترجاع الدلالي على مخزن متجهات قابل للتوصيل يدعم كلاً من \eng{pgvector} و\eng{Qdrant}. تقدم الواجهة الأمامية المبنية بـ\eng{React} تطبيقاً من صفحة واحدة يعمل على أجهزة سطح المكتب والهاتف المحمول.
+
+ويؤكد تقييم تجريبي لمسار التوليد المعزز بالاسترجاع باستخدام إطار \eng{RAGAS} على \eng{180} سؤالاً تغطي تسع مواد دراسية جامعية موثوقية الإجابات المرتكزة على المستندات، إذ حقق درجة إخلاص \engp{faithfulness} قدرها \eng{0.959}، ودقة سياق \engp{context precision} قدرها \eng{0.926}، واستدعاء سياق \engp{context recall} قدره \eng{0.914}.
 
 يقدم هذا المستند نظرة شاملة على النظام تغطي مراجعة الأدبيات، وتحليل النظام وتصميمه، وتفاصيل التنفيذ، مما يعكس التطبيق الفعلي للمستودع ويُثبت جدوى دمج المساعدة الموثوقة المدعومة بالذكاء الاصطناعي في البيئات الأكاديمية الرسمية.
 
@@ -349,7 +397,7 @@ The implemented system provides role-based access control (RBAC) for students, i
 \vspace*{\fill}
 \begin{center}
   \textit{To our families, whose patience and support made this journey possible.}\\[6pt]
-  \textit{To our supervisor, Dr.\ Ahmed Saied, for his invaluable guidance.}\\[6pt]
+  \textit{To our supervisor, Dr.\ Ahmed Said, for his invaluable guidance.}\\[6pt]
   \textit{And to every student who deserves a smarter, more accessible way to learn.}
 \end{center}
 \vspace*{\fill}
@@ -360,7 +408,7 @@ The implemented system provides role-based access control (RBAC) for students, i
 \chapter*{Acknowledgments}
 \addcontentsline{toc}{chapter}{Acknowledgments}
 
-We would like to express our sincere gratitude to Dr.\ Ahmed Saied for his continuous guidance, insightful feedback, and unwavering support throughout the development of this project. His expertise and encouragement were instrumental in shaping both the academic and technical aspects of DocMind.
+We would like to express our sincere gratitude to Dr.\ Ahmed Said for his continuous guidance, insightful feedback, and unwavering support throughout the development of this project. His expertise and encouragement were instrumental in shaping both the academic and technical aspects of DocMind.
 
 We also extend our thanks to the faculty and staff of the College of Computing and Information Technology at the Arab Academy for Science, Technology, and Maritime Transport, for providing an environment conducive to research and innovation.
 
@@ -1900,7 +1948,11 @@ Enabling cross-encoder reranking produces a small but consistent improvement in 
 % ════════════════════════════════════════════════════════════════════════════
 %  CHAPTER 5 — CONCLUSIONS AND FUTURE WORK
 % ════════════════════════════════════════════════════════════════════════════
+<<<<<<< HEAD
+
+=======
 \addtocontents{toc}{\protect\newpage}
+>>>>>>> 2f0faf73c55636f4b8f0c5a3450bb52edba94a5f
 \chapter{Conclusions and Future Work}
 
 \section{Conclusions}
