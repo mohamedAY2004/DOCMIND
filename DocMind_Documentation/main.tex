@@ -566,7 +566,6 @@ This chapter presents a review of relevant academic research related to artifici
 This section reviews four research papers that examine fine-tuning and Retrieval-Augmented Generation (RAG), highlighting their performance, limitations, and suitability for the DocMind application.
 
 % ─────────────────────────────────────────────────────────────────────────────
-\newpage
 \subsection{Paper 1: Comparing Retrieval-Augmentation and Parameter Efficient Fine-Tuning for Privacy-Preserving Personalization of Large Language Models [1]}
 
 \textbf{Authors}: Hamed Zamani, Alireza Salemi\\
@@ -575,7 +574,7 @@ This section reviews four research papers that examine fine-tuning and Retrieval
 
 \subsubsection{Overview}
 
-This paper compares retrieval-augmented generation (RAG) and parameter-efficient fine-tuning (PEFT) for privacy-preserving personalization of large language models (LLMs). Results show that RAG outperforms PEFT when user data is limited, while PEFT improves with larger user profiles. Combining RAG and PEFT achieves the best personalization performance without violating user privacy.
+This paper compares retrieval-augmented generation (RAG) and parameter-efficient fine-tuning (PEFT) for privacy-preserving personalization of large language models (LLMs). Results show that RAG outperforms PEFT when data is limited, while PEFT improves with larger profiles. Combining them achieves the best personalization performance without violating privacy.
 
 \subsubsection{The Dataset}
 
@@ -587,7 +586,6 @@ LaMP datasets with different personalized fields:
   \item LaMP-7 (Tweet Paraphrasing)
 \end{itemize}
 
-\newpage
 
 \subsubsection{Methodology}
 
@@ -604,7 +602,7 @@ This approach combines Parameter-Efficient Fine-Tuning (PEFT) and Retrieval-Augm
   \item[\textbf{PEFT:}] Fine-tunes a small set of additional parameters, reducing computational and memory overhead.
   \item[\textbf{RAG:}] Mitigates the limitations of PEFT by dynamically retrieving user-specific information during inference.
 \end{description}
-
+\newpage
 \subsubsection{Comparison of Different Techniques}
 
 The following figure compares the methods described: RAG, PEFT, and PEFT-RAG. As shown in Figure~\ref{fig:lamp_comparison}, the combination of both techniques consistently yields the highest personalization scores across the LaMP benchmark tasks.
