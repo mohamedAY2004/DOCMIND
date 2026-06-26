@@ -17,7 +17,6 @@
 \usepackage{enumitem}
 \usepackage{caption}
 \usepackage{float}
-\usepackage{placeins}
 \usepackage{xcolor}
 \usepackage{colortbl}
 \usepackage{rotating}
@@ -158,15 +157,21 @@
 % ─── Custom commands ─────────────────────────────────────────────────────────
 \newcommand{\sigline}{\rule{5cm}{0.4pt}}
 
-% ─── Body heading orphan prevention ──────────────────────────────────────────
-\let\bodysection\section
-\renewcommand{\section}{\FloatBarrier\Needspace{12\baselineskip}\bodysection}
-\let\bodysubsection\subsection
-\renewcommand{\subsection}{\Needspace{12\baselineskip}\bodysubsection}
-\let\bodysubsubsection\subsubsection
-\renewcommand{\subsubsection}{\Needspace{10\baselineskip}\bodysubsubsection}
-\let\bodyparagraph\paragraph
-\renewcommand{\paragraph}{\Needspace{8\baselineskip}\bodyparagraph}
+% ─── TOC orphan prevention ───────────────────────────────────────────────────
+% Inject \needspace into the .toc file before every \section and \subsection
+% entry so that a heading never appears alone at the bottom of a TOC page.
+% This works by wrapping \section/\subsection to also write a \needspace
+% command into the toc stream — it never executes in the body, only in the TOC.
+\let\oldsection\section
+\renewcommand{\section}{%
+  \addtocontents{toc}{\protect\needspace{4\baselineskip}}%
+  \oldsection
+}
+\let\oldsubsection\subsection
+\renewcommand{\subsection}{%
+  \addtocontents{toc}{\protect\needspace{3\baselineskip}}%
+  \oldsubsection
+}
 
 % ─── LOF/LOT title names ─────────────────────────────────────────────────────
 \renewcommand{\listfigurename}{List of Figures}
@@ -438,6 +443,7 @@ While this digital transformation has improved accessibility and flexibility, it
 
 At the same time, recent advancements in Artificial Intelligence (AI), particularly in Natural Language Processing (NLP), have enabled the development of conversational systems capable of interacting with users in human-like ways. These systems have demonstrated potential in education by providing personalized assistance, answering questions, and supporting self-directed learning in [6]. However, the integration of such technologies into formal academic environments requires careful consideration to ensure accuracy, reliability, and alignment with educational objectives.
 
+\newpage
 
 \section{Problem Statement}
 
@@ -455,6 +461,7 @@ DocMind is motivated by the concept of grounded intelligence, where AI-generated
 
 Another key motivation is to support self-directed learning. Students often learn at different paces and require varying levels of explanation. An interactive academic assistant allows students to ask questions freely, revisit concepts multiple times, and explore topics in greater depth without time constraints. This flexibility promotes independent learning while maintaining academic integrity.
 
+\newpage
 
 \section{Objectives}
 
@@ -479,6 +486,7 @@ The project focuses on system architecture, user interaction design, database de
 
 The project does not aim to replace instructors, tutors, or formal assessment methods. Instead, DocMind functions as a supplementary learning tool that enhances understanding and supports academic engagement. Features such as grading automation or autonomous decision-making are explicitly outside the scope of this project.
 
+\newpage
 
 \section{Organization of the Document}
 
@@ -495,6 +503,7 @@ This document is organized into five chapters to provide a comprehensive and str
 % ════════════════════════════════════════════════════════════════════════════
 %  CHAPTER 2 — LITERATURE REVIEW
 % ════════════════════════════════════════════════════════════════════════════
+\addtocontents{toc}{\protect\newpage}
 \chapter{Literature Review}
 
 This chapter presents a review of relevant academic research related to artificial intelligence in education, conversational learning systems, and document-grounded AI models. It also provides a market analysis and survey of similar systems currently available. The reviewed papers provide foundational insights that inform the design and implementation of the DocMind system. Rather than merely summarizing prior work, this chapter discusses the implications of each study for the DocMind approach, identifying strengths, limitations, and design decisions that arise from the literature.
@@ -504,6 +513,7 @@ This chapter presents a review of relevant academic research related to artifici
 This section reviews four research papers that examine fine-tuning and Retrieval-Augmented Generation (RAG), highlighting their performance, limitations, and suitability for the DocMind application.
 
 % ─────────────────────────────────────────────────────────────────────────────
+\newpage
 \subsection{Paper 1: Comparing Retrieval-Augmentation and Parameter Efficient Fine-Tuning for Privacy-Preserving Personalization of Large Language Models [1]}
 
 \textbf{Authors}: Hamed Zamani, Alireza Salemi\\
@@ -524,6 +534,7 @@ LaMP datasets with different personalized fields:
   \item LaMP-7 (Tweet Paraphrasing)
 \end{itemize}
 
+\newpage
 
 \subsubsection{Methodology}
 
@@ -545,7 +556,7 @@ This approach combines Parameter-Efficient Fine-Tuning (PEFT) and Retrieval-Augm
 
 The following figure compares the methods described --- RAG, PEFT, and PEFT-RAG. As shown in Figure~\ref{fig:lamp_comparison}, the combination of both techniques consistently yields the highest personalization scores across the LaMP benchmark tasks.
 
-\begin{figure}[!htbp]
+\begin{figure}[H]
 \centering
 \includegraphics[width=0.95\textwidth]{lamp_comparison.png}
 \caption{Comparison of Personalization Techniques Across LaMP Datasets}
@@ -573,6 +584,7 @@ The combination of PEFT-trained personalized LLMs and RAG retrieval models resul
 The findings from this paper reinforce the decision to use RAG as the primary retrieval strategy in DocMind. Given that DocMind operates on institutional document corpora with no per-student parametric fine-tuning, the RAG-only approach remains practical, cost-effective, and privacy-preserving. Fine-tuning could be explored in future work once sufficient interaction data is available.
 
 % ─────────────────────────────────────────────────────────────────────────────
+\newpage
 \subsection{Paper 2: A Comparison of Independent and Joint Fine-Tuning Strategies for Retrieval-Augmented Generation [2]}
 
 \textbf{Authors}: Neal Lawton, Alfy Samuel, Anoop Kumar, Daben Liu\\
@@ -601,30 +613,32 @@ The paper evaluates five techniques for applying RAG:
   \item Two-phase fine-tuning (fine-tuning the embedded vector alone, followed by fine-tuning the generator alone, then balancing between them).
 \end{enumerate}
 
+\newpage
 
 \paragraph{Diagram of Different Techniques:}\mbox{}\\
 
 
-\begin{figure}[!htbp]
+\begin{figure}[H]
   \centering
   \includegraphics[width=0.85\textwidth]{rag_techniques_diagram.png}
   \caption{Different fine-tuning techniques for RAG pipelines: (a) fine-tune embedding model using context labels; (b) freeze generator while fine-tuning the embedding model; (c) fine-tune embedding model jointly; (d) two-phase fine-tuning.}
   \label{fig:rag_techniques}
 \end{figure}
 
+\newpage
 
 \subsubsection{Models Evaluation}
 
 Table~\ref{tab:hotpot_eval} and Figure~\ref{fig:models_eval} present the evaluation results for each fine-tuning strategy across both datasets.
 
-\begin{figure}[!htbp]
+\begin{figure}[H]
   \centering
   \includegraphics[width=0.85\textwidth]{models_evaluation_chart.png}
   \caption{Model evaluation results comparing Exact Match (EM), F1, Recall@5, and Time (h) across fine-tuning strategies.}
   \label{fig:models_eval}
 \end{figure}
 
-\begin{table}[!htbp]
+\begin{table}[H]
 \centering
 \caption{Evaluation Results on HotPotQA and PopQA}
 \label{tab:hotpot_eval}
@@ -652,6 +666,7 @@ Fine-tuning the generator only is the most realistic option for DocMind as it is
 This paper confirms that generator fine-tuning offers a practical middle ground between raw RAG and computationally expensive joint strategies. For DocMind, where inference budget and operational simplicity are priorities, generator-only fine-tuning represents a viable future enhancement that does not require restructuring the retrieval pipeline.
 
 % ─────────────────────────────────────────────────────────────────────────────
+\newpage
 \subsection{Paper 3: Fine-Tuning or Fine-Failing? Debunking Performance Myths in Large Language Models [3]}
 
 \textbf{Authors}: Scott Barnett, Zac Brannelly, Stefanus, Sheng Wong\\
@@ -693,14 +708,14 @@ A large-scale open-ended question-and-answer dataset containing real Google sear
 
 Figure~\ref{fig:llama2_accuracy} and Figure~\ref{fig:mixtral_accuracy} show the accuracy of fine-tuned models across all three datasets, demonstrating that fine-tuning consistently failed to improve results over the baseline.
 
-\begin{figure}[!htbp]
+\begin{figure}[H]
   \centering
   \includegraphics[width=0.85\textwidth]{finetuned_llama2_chart.png}
   \caption{Accuracy of fine-tuned LLaMA-2 models across BioASQ, Natural Questions (NQ), and QASPER datasets.}
   \label{fig:llama2_accuracy}
 \end{figure}
 
-\begin{figure}[!htbp]
+\begin{figure}[H]
   \centering
   \includegraphics[width=0.85\textwidth]{finetuned_mixtral_chart.png}
   \caption{Accuracy of fine-tuned Mistral models across BioASQ, Natural Questions (NQ), and QASPER datasets.}
@@ -719,6 +734,7 @@ Figure~\ref{fig:llama2_accuracy} and Figure~\ref{fig:mixtral_accuracy} show the 
 The results in [3] directly validate the decision to avoid fine-tuning in the DocMind prototype. In specialized, document-grounded educational settings, the cost and risk of fine-tuning outweigh potential gains. Retrieval quality and prompt engineering are more reliable levers for improving answer quality, and these are the strategies adopted in the DocMind pipeline.
 
 % ─────────────────────────────────────────────────────────────────────────────
+\newpage
 \subsection{Paper 4: Enhancing Retrieval-Augmented Generation: A Study of Best Practices [4]}
 
 \textbf{Authors}: Siran Li, Linus Stenzel, Carsten Eickhoff, Seyed Ali\\
@@ -744,6 +760,7 @@ This paper systematically studies best practices for designing high-performance 
   \item Requires precise and specialized knowledge
 \end{itemize}
 
+\newpage
 \subsubsection{Methodology}
 
 \paragraph{Query Expansion Module:}
@@ -766,7 +783,7 @@ This paper systematically studies best practices for designing high-performance 
 
 Table~\ref{tab:ablation_comparison} summarizes the ablation study results across TruthfulQA and MMLU, comparing all RAG configurations evaluated in [4].
 
-\begin{table}[!htbp]
+\begin{table}[H]
 \centering
 \caption{Ablation Study Results on TruthfulQA and MMLU}
 \label{tab:ablation_comparison}
@@ -822,11 +839,13 @@ Table~\ref{tab:ablation_comparison} summarizes the ablation study results across
   \item Knowledge base size is less important than document relevance and quality.
 \end{enumerate}
 
+\newpage
 
 \subsubsection{Implications for DocMind}
 
 The findings in [4] directly shaped the DocMind retrieval pipeline design. The emphasis on retrieval quality and prompt engineering over knowledge base size validated the approach of using targeted, instructor-curated corpora with carefully constructed prompt templates. Future versions of DocMind may incorporate Focus Mode retrieval and contrastive in-context examples to further improve answer precision.
 
+\newpage
 % ════════════════════════════════════════════════════════════════════════════
 \section{Market Analysis}
 
@@ -838,6 +857,7 @@ The global Educational Technology (EdTech) market is projected to exceed hundred
 
 DocMind aligns strongly with this market direction by offering a controlled, academic-first AI solution that integrates seamlessly with existing university systems. Unlike general-purpose AI tools, DocMind is specifically designed for higher education environments, ensuring content reliability, institutional control, and compliance with academic standards.
 
+\newpage
 
 % ════════════════════════════════════════════════════════════════════════════
 \section{Related Projects and Similar Systems}
@@ -852,6 +872,7 @@ This section surveys existing commercial and research-grade tools that are simil
 NotebookLM is Google's AI-powered research and learning tool as described in [18]. It is designed to help users organize and understand collections of sources --- such as Portable Document Format (PDF) files, Google Docs, web pages, and YouTube transcripts --- inside notebooks, then interact with those sources through chat and a range of generated learning artifacts.
 
 Google explicitly presents NotebookLM as a tool for students and researchers to generate study guides, summaries, mind maps, flashcards, quizzes, and overviews from their own materials.
+\newpage
 
 \subsubsection{Sources, Formats, and Notebook Structure}
 
@@ -885,6 +906,7 @@ NotebookLM can generate study guides and briefing documents, as well as reports 
   \item AI podcast-style summaries of source material
   \item Available in over 50 languages
 \end{itemize}
+\newpage
 
 \paragraph{Video Overviews:}
 \begin{itemize}[noitemsep]
@@ -897,6 +919,7 @@ NotebookLM can generate study guides and briefing documents, as well as reports 
   \item Automatically generated visual representations of concept relationships
 \end{itemize}
 
+\newpage
 
 \paragraph{Flashcards and Quizzes:}
 \begin{itemize}[noitemsep]
@@ -935,6 +958,7 @@ NotebookLM can generate study guides and briefing documents, as well as reports 
 
 NotebookLM offers a rich feature set, but free usage is capped at 50 queries per day. Scaling beyond this requires a per-user subscription costing approximately 20 USD/month, making it expensive at institutional scale compared to a centralized system such as DocMind.
 
+\newpage
 
 % ─────────────────────────────────────────────────────────────────────────────
 \subsection{Humata}
@@ -990,6 +1014,7 @@ Humata is marketed as an AI assistant for long and complex documents, especially
 Humata's strict page-based pricing makes it unsuitable for large textbooks and multi-course usage at scale, increasing cost and administrative complexity compared to an institutionally deployed DocMind system.
 
 % ─────────────────────────────────────────────────────────────────────────────
+\newpage
 \subsection{Mindgrasp}
 
 \subsubsection{Positioning and Primary Use Case}
@@ -1034,6 +1059,7 @@ Mindgrasp positions itself as an AI learning and study platform, aimed at transf
 
 Mindgrasp's subscription-only model and strict per-file page limits make it costly and inconvenient for large-scale academic use. An institutionally deployed solution such as DocMind avoids per-user subscription fees entirely.
 
+\newpage
 
 % ─────────────────────────────────────────────────────────────────────────────
 \subsection{AskYourPDF}
@@ -1067,6 +1093,7 @@ AskYourPDF relies on third-party language models including GPT-4o Mini, GPT-4 an
   \item GPT-4o Mini only
 \end{itemize}
 
+\newpage
 
 \paragraph{Paid Plans:}
 \begin{itemize}[noitemsep]
@@ -1081,11 +1108,12 @@ AskYourPDF relies on third-party language models including GPT-4o Mini, GPT-4 an
 AskYourPDF offers strong integrations but suffers from strict free limits, reliance on third-party models, and unpredictable costs due to credit-based premium model access. A custom system such as DocMind enables predictable pricing and controlled performance at institutional scale.
 
 % ════════════════════════════════════════════════════════════════════════════
+\newpage
 \section{Market Survey Summary}
 
 Table~\ref{tab:market_survey} summarizes the comparative analysis of the reviewed systems against DocMind across key dimensions.
 
-\begin{table}[!htbp]
+\begin{table}[H]
 \centering
 \caption{Market Survey Comparison of Similar Systems}
 \label{tab:market_survey}
@@ -1122,6 +1150,7 @@ The system is intended for use in a university-style environment and can be embe
 
 DocMind supports multiple modes of interaction, including document-based chat and subject-based chat. These modes address different learning scenarios, such as revising lecture notes, clarifying specific topics, or preparing for examinations. The system emphasizes reliability, transparency, and ethical use of artificial intelligence in education.
 
+\newpage
 
 \section{System Operating Environment}
 
@@ -1136,6 +1165,7 @@ The AI components of the system, including embedding generation and language mod
 DocMind is designed to accommodate a diverse range of users within an academic institution. The primary users are students, who may differ significantly in academic level, learning style, and technical proficiency. Some students may be highly familiar with digital tools, while others may have limited experience with advanced educational technologies. As a result, the system interface is designed to be intuitive, minimalistic, and easy to navigate.
 
 Instructors represent another important user group. They are responsible for uploading course materials in PDF format, within configured size limits, managing subject-specific knowledge bases, and monitoring indexing status for materials attached to their subjects. Instructors are assumed to have basic computer literacy and familiarity with institutional learning platforms.
+\newpage
 Administrators form the third user group and are responsible for system monitoring, user management, and policy enforcement. These users typically have higher technical expertise and require access to system logs, usage analytics, and configuration settings. The system design ensures that each user group interacts only with features relevant to their role.
 
 \section{System Functions}
@@ -1148,6 +1178,7 @@ Another essential function is conversational interaction. When a user submits a 
 
 The system persists conversations --- including document chat and tutor chat --- in the relational database, along with message history, until the user or retention policies delete them. Authenticated API sessions use JWTs with a configurable expiry (for example, twelve hours in the default configuration), after which the user must sign in again; logging out revokes the current token identifier.
 
+\newpage
 
 \section{System Constraints}
 
@@ -1158,6 +1189,7 @@ Another constraint relates to data access. Retrieval does not fetch live web pag
 Subject-based chat is further constrained by the academic calendar. Each subject belongs to a semester whose lifecycle state (upcoming, active, or archived) is derived from its date window, and students may start new tutor conversations only while that semester is active; subjects in archived or not-yet-started semesters remain readable so that prior conversations can be reviewed, but they reject new chats. Semesters left without dates fail open to active, so content is never silently locked.
 
 Performance constraints also exist, particularly with respect to AI model inference time and resource usage. The system must balance response quality with acceptable response times, especially during periods of high usage.
+\newpage
 \section{Assumptions and Dependencies}
 
 The design of DocMind is based on several assumptions. It is assumed that users have access to stable internet connectivity and compatible devices. It is also assumed that instructors upload accurate and relevant course materials, as the quality of system responses depends directly on the quality of the document corpus.
@@ -1166,6 +1198,7 @@ The system depends on several external components and services, including embedd
 
 Additionally, the system assumes compliance with institutional policies related to data privacy, academic integrity, and ethical AI usage.
 
+\newpage
 
 \section{SWOT Analysis}
 
@@ -1195,6 +1228,7 @@ DocMind faces competition from general-purpose AI tools that offer broader capab
 
 Additionally, evolving data privacy regulations and ethical AI policies pose potential compliance challenges. Resistance to AI adoption within academic institutions may also impact system acceptance and deployment.
 
+\newpage
 
 \section{Functional Requirements}
 
@@ -1215,11 +1249,12 @@ Instructors are responsible for managing subject-specific content within the sys
 \subsubsection{Administrator}
 
 Administrators oversee system operation, user management, and policy enforcement. They monitor system usage, manage user roles, and ensure compliance with institutional and ethical guidelines.
+\newpage
 \subsection{Authentication and Authorization Requirements}
 
 Table~\ref{tab:fr_auth} presents the authentication and authorization requirements for the DocMind system.
 
-\begin{table}[!htbp]
+\begin{table}[H]
 \centering
 \caption{Authentication and Authorization Requirements}
 \label{tab:fr_auth}
@@ -1233,11 +1268,12 @@ FR-03 & The system shall restrict access to features based on the authenticated 
 \bottomrule
 \end{tabular}
 \end{table}
+\newpage
 \subsection{Document Management Requirements}
 
 Table~\ref{tab:fr_doc} presents the document management requirements for the DocMind system.
 
-\begin{table}[!htbp]
+\begin{table}[H]
 \centering
 \caption{Document Management Requirements}
 \label{tab:fr_doc}
@@ -1253,11 +1289,12 @@ FR-08 & The system shall store document metadata for management and retrieval pu
 \bottomrule
 \end{tabular}
 \end{table}
+\newpage
 \subsection{Chat and Interaction Requirements}
 
 Table~\ref{tab:fr_chat} presents the chat and interaction requirements for the DocMind system.
 
-\begin{table}[!htbp]
+\begin{table}[H]
 \centering
 \caption{Chat and Interaction Requirements}
 \label{tab:fr_chat}
@@ -1274,11 +1311,12 @@ FR-14 & The system shall display responses in a conversational format. \\
 \bottomrule
 \end{tabular}
 \end{table}
+\newpage
 \subsection{Session Management Requirements}
 
 Table~\ref{tab:fr_session} presents the session management requirements for the DocMind system.
 
-\begin{table}[!htbp]
+\begin{table}[H]
 \centering
 \caption{Session Management Requirements}
 \label{tab:fr_session}
@@ -1293,11 +1331,12 @@ FR-18 & The system shall allow users to delete conversations they own, including
 \bottomrule
 \end{tabular}
 \end{table}
+\newpage
 \subsection{Administrative and Monitoring Requirements}
 
 Table~\ref{tab:fr_admin} presents the administrative and monitoring requirements for the DocMind system.
 
-\begin{table}[!htbp]
+\begin{table}[H]
 \centering
 \caption{Administrative and Monitoring Requirements}
 \label{tab:fr_admin}
@@ -1313,6 +1352,7 @@ FR-22 & The system shall derive each semester's lifecycle state (upcoming, activ
 \end{tabular}
 \end{table}
 
+\newpage
 
 \section{Nonfunctional Requirements}
 
@@ -1365,6 +1405,8 @@ The system is also constrained by computational resources, particularly those re
 
 Additionally, the effectiveness of the system is limited by the quality and completeness of the uploaded academic materials. Incomplete or inaccurate documents may reduce response quality.
 
+\newpage
+\addtocontents{toc}{\protect\newpage}
 \section{System Design}
 
 This section presents the detailed technical design of the DocMind system. It translates the requirements defined above into concrete architectural, structural, and interaction-level design decisions.
@@ -1385,6 +1427,7 @@ The design of the DocMind system is guided by several key principles that ensure
 
 DocMind follows a layered, service-oriented architecture. The system architecture consists of the following main layers: the Presentation Layer, the Application Layer, the AI Services Layer, and the Data Storage Layer. Each layer has distinct responsibilities and communicates with adjacent layers through well-defined interfaces.
 
+\newpage
 
 \subsection{Presentation Layer Design}
 
@@ -1400,6 +1443,7 @@ The presentation layer is implemented as a React Single-Page Application (SPA) s
 \end{itemize}
 
 The presentation layer is designed to be lightweight and responsive. It does not perform heavy processing; instead, it delegates all core logic to the backend services.
+\newpage
 \subsection{Application Layer Design}
 
 The application layer is implemented in Python as FastAPI routers that depend on service classes and, in turn, repository classes over SQLAlchemy async sessions. It implements business logic, enforces system rules, and manages communication between the presentation layer and AI services.
@@ -1415,6 +1459,7 @@ The application layer is implemented in Python as FastAPI routers that depend on
 
 This layer validates user inputs, enforces constraints such as JWT validity, student-access flags, and upload limits, and ensures that only authorized actions are performed. Administrative mutations record a single structured activity entry per operation for audit-style review.
 
+\newpage
 
 \subsection{AI Services Layer Design}
 
@@ -1436,6 +1481,7 @@ This module ensures that only the most contextually relevant information is pass
 
 The response generation module calls a configurable remote Large Language Model (LLM) --- for example Google Gemini, OpenAI, or Cohere Application Programming Interfaces (APIs) --- to produce answers from retrieved chunks and prompt templates, with English and Arabic template locales in the codebase. By default, each chat turn follows a single-shot retrieve-then-generate path; when the agent feature flag is enabled, a planner model may decide whether retrieval runs and with which query before generation.
 
+\newpage
 
 \subsection{Data Storage Layer Design}
 
@@ -1451,12 +1497,13 @@ Embeddings and chunk metadata are stored in a pluggable vector backend: either P
 
 This design enables semantic search while keeping the relational model as the source of truth for ownership and permissions.
 
+\newpage
 
 \subsection{System Block Diagram}
 
 Figure~\ref{fig:block_diagram} presents the system block diagram, representing a multi-channel application architecture that supports both web and mobile clients, backed by a centralized API, authentication services, and a Retrieval-Augmented Generation (RAG) component.
 
-\begin{figure}[!htbp]
+\begin{figure}[H]
   \centering
   \setlength{\fboxsep}{6pt}
   \setlength{\fboxrule}{0.8pt}
@@ -1467,24 +1514,26 @@ Figure~\ref{fig:block_diagram} presents the system block diagram, representing a
   \label{fig:block_diagram}
 \end{figure}
 
+\newpage
 
 \subsection{Use Case Diagram}
 
 Figure~\ref{fig:use_case} presents the use case diagram, which illustrates the interactions between system actors and core functionalities. It defines how students, instructors, and administrators interact with DocMind at a high level.
 
-\begin{figure}[!htbp]
+\begin{figure}[H]
   \centering
   \includegraphics[width=1\textwidth]{use_case_diagram.png}
   \caption{DocMind Use Case Diagram.}
   \label{fig:use_case}
 \end{figure}
 
+\newpage
 
 \subsection{Activity Diagram}
 
 Figure~\ref{fig:activity} presents the activity diagram, which describes the flow of actions within the system, particularly for document-based chat interactions from the student's perspective. These diagrams clarify decision points, parallel actions, and system responses throughout the interaction process.
 
-\begin{figure}[!htbp]
+\begin{figure}[H]
   \centering
   \includegraphics[width=0.75\textwidth]{activity_diagram.png}
   \caption{DocMind Full System Activity Diagram (Student POV).}
@@ -1499,25 +1548,27 @@ Sequence diagrams illustrate the time-ordered interaction between system compone
 
 Figure~\ref{fig:seq_rag} presents the sequence diagram for the document-based chat flow, showing how file upload and vector checking are orchestrated between the frontend, backend, and vector store.
 
-\begin{figure}[!htbp]
+\begin{figure}[H]
   \centering
   \includegraphics[width=0.8\textwidth]{sequence_diagram_rag.png}
   \caption{Chat with Document (RAG) -- Upload and Vector Check Sequence Diagram.}
   \label{fig:seq_rag}
 \end{figure}
 
+\newpage
 
 \subsubsection{Subject-Based Chat}
 
 Figure~\ref{fig:seq_subject} presents the sequence diagram for the subject-based chat flow, illustrating how instructor-uploaded materials are retrieved and used to ground the AI response.
 
-\begin{figure}[!htbp]
+\begin{figure}[H]
   \centering
   \includegraphics[width=0.9\textwidth]{sequence_diagram_subject.png}
   \caption{Subject Chat (Instructor Material and RAG) -- Sequence Diagram.}
   \label{fig:seq_subject}
 \end{figure}
 
+\newpage
 
 \subsection{Database Design and ERD}
 
@@ -1534,6 +1585,7 @@ The database design is represented using an Entity-Relationship Diagram (ERD), w
 
 Each entity in the ERD shown in Figure~\ref{fig:erd} corresponds to a logical system component. Primary and foreign keys enforce relationships between users, subjects, documents, sessions, and embeddings. Subjects optionally reference a semester through a nullable foreign key that is cleared rather than cascaded when a semester is removed; each semester stores an optional start and end date from which its lifecycle state is derived in application code, so the state itself is not persisted.
 
+\newpage
 
 \subsection{Security Design}
 
@@ -1556,6 +1608,7 @@ This structured system design provides a solid foundation for implementation, te
 % ════════════════════════════════════════════════════════════════════════════
 %  CHAPTER 4 — IMPLEMENTATION AND TESTING
 % ════════════════════════════════════════════════════════════════════════════
+\addtocontents{toc}{\protect\newpage}
 \chapter{Implementation and Testing}
 
 This chapter describes the working implementation in the DocMind repository: a full-stack prototype comprising a FastAPI backend, PostgreSQL schema with Alembic migrations, optional pgvector or Qdrant for embeddings, and a React frontend. It demonstrates how the concepts, requirements, and design decisions from Chapter 3 are realized in code and in the running application.
@@ -1578,6 +1631,7 @@ The DocMind system is implemented using the following technologies:
   \item \textbf{Version Control}: Git with GitHub, using a monorepo structure with separate backend, frontend, and mobile directories.
 \end{itemize}
 
+\newpage
 
 \section{Backend Implementation}
 
@@ -1597,6 +1651,7 @@ The backend follows a layered architecture:
 
 JSON Web Token (JWT)-based authentication is implemented in AuthService. On successful login, the service issues a signed access token embedding the user's identifier and role. Every protected route uses a FastAPI dependency that validates the token signature, checks expiry, and rejects token identifiers recorded in the blocklist. Role-specific dependencies --- \texttt{require\_student}, \texttt{require\_instructor}, and \texttt{require\_admin} --- are applied to route groups to enforce the principle of least privilege.
 
+\newpage
 \subsection{Document Ingestion Pipeline}
 
 When a student uploads one or more PDF files to a document-based conversation, the backend performs the following steps:
@@ -1607,6 +1662,7 @@ When a student uploads one or more PDF files to a document-based conversation, t
   \item Updates the document's indexing status in the relational database so the frontend can display the current state (pending, indexed, or failed).
 \end{enumerate}
 
+\newpage
 
 \subsection{RAG Query Pipeline}
 
@@ -1623,6 +1679,7 @@ When a student submits a message, the backend performs the following steps:
 
 The admin router exposes endpoints for user Create, Read, Update, and Delete (CRUD) operations (create instructor accounts, activate or deactivate users, reset passwords), subject management, semester management (creating, updating, and deleting semesters with optional date windows, where subjects of a deleted semester are left unassigned rather than removed), aggregated statistics (daily message counts, subject-level activity, per-user usage), feedback records collected from student thumbs-up/down interactions, a global student-access flag that gates all student-facing routes with a configurable maintenance message, and a structured activity log recording every administrative action for audit review.
 
+\newpage
 
 \section{Frontend Implementation}
 
@@ -1640,6 +1697,7 @@ The React frontend is structured as a Single-Page Application (SPA) with protect
 
 Application state is managed via React Context for authentication (token storage, decoded role, and logout trigger) and component-level state for chat history, upload progress, and indexing status. The frontend polls or listens for indexing status updates so that students receive real-time feedback during document processing.
 
+\newpage
 
 \section{Student Interface}
 
@@ -1651,7 +1709,7 @@ The chat interface displays user questions and system responses in a chronologic
 
 Figure~\ref{fig:student_doc} shows the student interface for document-based chat.
 
-\begin{figure}[!htbp]
+\begin{figure}[H]
   \centering
   \setlength{\fboxsep}{6pt}
   \setlength{\fboxrule}{0.8pt}
@@ -1662,6 +1720,7 @@ Figure~\ref{fig:student_doc} shows the student interface for document-based chat
   \label{fig:student_doc}
 \end{figure}
 
+\newpage
 
 \subsection{Subject-Based Chat Interface}
 
@@ -1669,7 +1728,7 @@ The tutor (subject-based) chat interface allows students to select a course or s
 
 Figure~\ref{fig:student_subject} shows the student interface for subject-based chat.
 
-\begin{figure}[!htbp]
+\begin{figure}[H]
   \centering
   \setlength{\fboxsep}{6pt}
   \setlength{\fboxrule}{0.8pt}
@@ -1680,6 +1739,7 @@ Figure~\ref{fig:student_subject} shows the student interface for subject-based c
   \label{fig:student_subject}
 \end{figure}
 
+\newpage
 
 \section{Instructor Interface}
 
@@ -1693,7 +1753,7 @@ The interface provides feedback on upload status; the API rejects a new material
 
 Figure~\ref{fig:instructor_content} shows the instructor content management dashboard.
 
-\begin{figure}[!htbp]
+\begin{figure}[H]
   \centering
   \setlength{\fboxsep}{6pt}
   \setlength{\fboxrule}{0.8pt}
@@ -1704,6 +1764,7 @@ Figure~\ref{fig:instructor_content} shows the instructor content management dash
   \label{fig:instructor_content}
 \end{figure}
 
+\newpage
 
 \section{Testing}
 
@@ -1723,12 +1784,13 @@ The DocMind system employs a multi-level testing strategy to validate correctnes
 
 Testing is performed against a local Docker Compose environment that mirrors the production stack. Seeded users and subjects provide demo accounts and sample materials for repeatable test scenarios.
 
+\newpage
 
 \subsection{Test Cases}
 
 Table~\ref{tab:test_cases} summarizes representative test cases executed during system validation.
 
-\begin{table}[!htbp]
+\begin{table}[H]
 \centering
 \caption{Representative System Test Cases}
 \label{tab:test_cases}
@@ -1753,17 +1815,18 @@ TC-13 & Student starts tutor chat in an archived-semester subject & 403 Forbidde
 \end{tabular}
 \end{table}
 
+\newpage
 
 \subsection{Known Limitations and Remaining Gaps}
 
 Remaining gaps are mainly operational and product-level rather than missing core flows. There is no native Single Sign-On (SSO) integration with a campus identity provider yet; encryption at rest and formal retention policies depend on hosting choices; rate limiting and horizontal autoscaling are not described in code as fixed guarantees; and automated test coverage is still growing.
 
 Language models may still produce incorrect or out-of-context text despite RAG; the implementation mitigates this through retrieval, prompts, and optional agent routing, but does not eliminate model risk entirely.
-
+\addtocontents{toc}{\protect\newpage}
 \section{Prototype Evaluation}
 
 Initial evaluation of the running system indicates that document-grounded and subject-grounded conversational learning paths function end-to-end with the stack described in this document. Beyond this functional confirmation, the answer quality of the Retrieval-Augmented Generation (RAG) pipeline was measured quantitatively using the RAGAS evaluation framework, as described in the following subsections. Stakeholder feedback and usage metrics, including optional per-message feedback stored for administrators, should inform further refinements to prompts, retrieval parameters, and User Experience (UX) design. This chapter documents the transition from system design to a concrete repository-backed implementation that can be demonstrated and extended toward production hardening.
-
+\newpage
 \subsection{Automated RAG Evaluation with RAGAS}
 
 While the test cases in Table~\ref{tab:test_cases} confirm that each user journey behaves correctly, they do not measure how \emph{good} the generated answers are. To assess answer quality quantitatively, the RAG pipeline was evaluated with RAGAS, a reference-grounded, automated framework that uses a large language model as an independent judge to score retrieval-augmented answers along several complementary dimensions.
@@ -1772,6 +1835,7 @@ The evaluation harness reproduces the production pipeline so that the measured b
 
 To quantify the benefit of the optional reranking stage, two retrieval configurations were scored head-to-head over the same question bank: a baseline that takes the top five vector-similarity matches (\textit{no-rerank}), and the optional cross-encoder path that over-fetches a larger candidate set and rescores it with a \texttt{BAAI/bge-reranker-base} cross-encoder before truncating back to the top five (\textit{with-rerank}). All answers were scored by RAGAS using an independent OpenAI judge model, so that answer quality is assessed by a different model than the one that produced the answers.
 
+\newpage
 
 \subsection{Evaluation Metrics}
 
@@ -1789,7 +1853,7 @@ Each answer was scored on five RAGAS metrics, all normalized to the range $[0, 1
 
 Table~\ref{tab:ragas_summary} reports the mean score for each metric across all 180 questions for both retrieval configurations, and Table~\ref{tab:ragas_subjects} breaks the overall score down by subject.
 
-\begin{table}[!htbp]
+\begin{table}[H]
 \centering
 \caption{Mean RAGAS Scores Across 180 Questions (No-Rerank vs.\ With-Rerank)}
 \label{tab:ragas_summary}
@@ -1808,7 +1872,7 @@ Answer Correctness  & 0.768 & 0.776 \\
 \end{tabular}
 \end{table}
 
-\begin{table}[!htbp]
+\begin{table}[H]
 \centering
 \caption{Mean RAGAS Score per Subject (Averaged Across the Five Metrics)}
 \label{tab:ragas_subjects}
@@ -1836,6 +1900,7 @@ Enabling cross-encoder reranking produces a small but consistent improvement in 
 % ════════════════════════════════════════════════════════════════════════════
 %  CHAPTER 5 — CONCLUSIONS AND FUTURE WORK
 % ════════════════════════════════════════════════════════════════════════════
+\addtocontents{toc}{\protect\newpage}
 \chapter{Conclusions and Future Work}
 
 \section{Conclusions}
@@ -1848,9 +1913,11 @@ The literature review confirmed that plain RAG, without necessarily fine-tuning 
 
 The market survey revealed that while commercial tools such as NotebookLM as described in [18], Humata as described in [19], Mindgrasp as described in [20], and AskYourPDF as described in [21] offer overlapping document-chat features, none are designed for institutional multi-role deployment with instructor-controlled knowledge bases. DocMind fills this gap by providing an open, configurable system that institutions can deploy and operate without per-user subscription costs.
 
+\newpage
 
 In conclusion, DocMind demonstrates that it is possible to build an academically responsible AI assistant that is reliable, role-aware, and deployable within university infrastructure using accessible open-source technologies. The system represents a meaningful contribution to the intersection of artificial intelligence and higher education, providing a foundation that can be extended, hardened for production, and adopted by institutions seeking to improve student learning outcomes without compromising academic integrity.
 
+\newpage
 
 \section{Future Work}
 
@@ -1867,6 +1934,7 @@ Although the system includes English and Arabic prompt templates, the user inter
 \subsection{Automated Quiz and Assessment Generation}
 
 A natural extension of the subject-based chat is the ability for instructors to trigger AI-generated quiz questions from uploaded materials. These would be reviewed and published by the instructor before being made available to students, maintaining instructor control while automating a time-consuming task.
+\newpage
 \subsection{Enhanced Retrieval Strategies}
 
 The RAG pipeline already supports optional cross-encoder reranking to improve the precision of the top-$k$ retrieved chunks, and optional source-scoped retrieval that restricts a query to specific instructor materials; both are disabled by default and can be enabled per deployment. Future improvements, informed by best-practice findings in [4], include hybrid retrieval combining dense vector search with keyword-based (BM25) sparse retrieval, and query expansion using lightweight models to improve recall for short or ambiguous student queries.
