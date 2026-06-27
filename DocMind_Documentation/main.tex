@@ -566,9 +566,9 @@ This chapter presents a review of relevant academic research related to artifici
 This section reviews four research papers that examine fine-tuning and Retrieval-Augmented Generation (RAG), highlighting their performance, limitations, and suitability for the DocMind application.
 
 % ─────────────────────────────────────────────────────────────────────────────
-\subsection{Paper 1: Comparing Retrieval-Augmentation and Parameter Efficient Fine-Tuning for Privacy-Preserving Personalization of Large Language Models [1]}
+\subsection{Paper 1: Comparing Retrieval-Augmentation and Parameter Efficient Fine-Tuning for Privacy-Preserving Personalization of Large Language Models}
 
-\textbf{Authors}: Hamed Zamani, Alireza Salemi\\
+\textbf{Authors}: Hamed Zamani, Alireza Salemi [1]\\
 \textbf{Published at}: 26 Jun 2025, University of Massachusetts
 
 
@@ -598,21 +598,99 @@ LaMP datasets with different personalized fields:
 
 This approach combines Parameter-Efficient Fine-Tuning (PEFT) and Retrieval-Augmented Generation (RAG) to enhance the personalization of large language models by:
 
-\begin{description}
-  \item[\textbf{PEFT:}] Fine-tunes a small set of additional parameters, reducing computational and memory overhead.
-  \item[\textbf{RAG:}] Mitigates the limitations of PEFT by dynamically retrieving user-specific information during inference.
-\end{description}
+\begin{itemize}[noitemsep]
+    \item \textbf{PEFT:} Fine-tunes a small set of additional parameters, reducing computational and memory overhead.
+
+    \item \textbf{RAG:} Mitigates the limitations of PEFT by dynamically retrieving user-specific information during inference.
+\end{itemize}
 \newpage
 \subsubsection{Comparison of Different Techniques}
 
-The following figure compares the methods described: RAG, PEFT, and PEFT-RAG. As shown in Figure~\ref{fig:lamp_comparison}, the combination of both techniques consistently yields the highest personalization scores across the LaMP benchmark tasks.
+The following table compares the methods described: RAG, PEFT, and PEFT-RAG. As shown in Table~\ref{tab:lamp_comparison}, the combination of both techniques consistently yields the highest personalization scores across the LaMP benchmark tasks.
 
-\begin{figure}[H]
+\begin{table}[H]
 \centering
-\includegraphics[width=0.95\textwidth]{lamp_comparison.png}
 \caption{Comparison of Personalization Techniques Across LaMP Datasets}
-\label{fig:lamp_comparison}
-\end{figure}
+\label{tab:lamp_comparison}
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.2}
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{>{\raggedright\arraybackslash}p{3.2cm} l c cccc cccc cccc}
+\toprule
+\multirow{2}{=}{\textbf{Dataset}} & \multirow{2}{*}{\textbf{Metric}}
+  & \textbf{No}
+  & \multicolumn{4}{c}{\textbf{PEFT Personalization}}
+  & \multicolumn{4}{c}{\textbf{RAG Personalization}}
+  & \multicolumn{4}{c}{\textbf{PEFT-RAG Personalization}} \\
+\cmidrule(lr){4-7} \cmidrule(lr){8-11} \cmidrule(lr){12-15}
+ & & \textbf{Pers.}
+  & $r{=}8$ & $r{=}16$ & $r{=}32$ & $r{=}64$
+  & BM25 & Recency & Contriever & RSPG
+  & $r{=}8$ & $r{=}16$ & $r{=}32$ & $r{=}64$ \\
+\midrule
+LaMP-1: Personalized Citation Identification & Accuracy $\uparrow$
+  & 0.502 & 0.502 & 0.502 & 0.504 & 0.506
+  & 0.626 & 0.622 & 0.636 & \textbf{0.672}
+  & 0.670 & 0.668 & 0.671 & 0.671 \\
+\midrule
+\multirow{2}{=}{LaMP-2: Personalized Movie Tagging} & Accuracy $\uparrow$
+  & 0.359 & 0.360 & 0.360 & 0.360 & 0.359
+  & 0.387 & 0.377 & 0.396 & 0.430
+  & 0.430 & \textbf{0.431} & 0.430 & 0.430 \\
+ & F1 $\uparrow$
+  & 0.276 & 0.278 & 0.278 & 0.278 & 0.277
+  & 0.306 & 0.295 & 0.304 & 0.339
+  & 0.341 & \textbf{0.342} & 0.341 & 0.341 \\
+\midrule
+\multirow{2}{=}{LaMP-3: Personalized Product Rating} & MAE $\downarrow$
+  & 0.308 & 0.308 & 0.307 & 0.306 & 0.301
+  & 0.298 & 0.296 & 0.299 & 0.264
+  & 0.264 & 0.265 & 0.264 & \textbf{0.259} \\
+ & RMSE $\downarrow$
+  & 0.611 & 0.607 & 0.607 & 0.602 & 0.600
+  & 0.611 & 0.605 & 0.616 & 0.568
+  & 0.568 & 0.570 & 0.564 & \textbf{0.562} \\
+\midrule
+\multirow{2}{=}{LaMP-4: Personalized News Headline Generation} & ROUGE-1 $\uparrow$
+  & 0.176 & 0.178 & 0.177 & 0.178 & 0.178
+  & 0.186 & 0.189 & 0.183 & 0.203
+  & 0.203 & \textbf{0.204} & \textbf{0.204} & 0.203 \\
+ & ROUGE-L $\uparrow$
+  & 0.160 & 0.162 & 0.162 & 0.163 & 0.163
+  & 0.171 & 0.173 & 0.169 & 0.186
+  & 0.186 & 0.186 & \textbf{0.187} & 0.186 \\
+\midrule
+\multirow{2}{=}{LaMP-5: Personalized Scholarly Title Generation} & ROUGE-1 $\uparrow$
+  & 0.478 & 0.478 & 0.478 & 0.477 & 0.478
+  & 0.477 & 0.475 & \textbf{0.483} & 0.480
+  & 0.481 & 0.480 & 0.480 & 0.479 \\
+ & ROUGE-L $\uparrow$
+  & 0.428 & 0.429 & 0.429 & 0.428 & 0.428
+  & 0.427 & 0.426 & \textbf{0.433} & 0.429
+  & 0.431 & 0.431 & 0.431 & 0.431 \\
+\midrule
+\multirow{2}{=}{LaMP-6: Personalized Email Subject Generation} & ROUGE-1 $\uparrow$
+  & 0.335 & 0.342 & 0.342 & 0.341 & 0.343
+  & 0.412 & 0.403 & 0.401 & 0.433
+  & 0.436 & 0.436 & 0.436 & \textbf{0.437} \\
+ & ROUGE-L $\uparrow$
+  & 0.319 & 0.325 & 0.326 & 0.325 & 0.326
+  & 0.398 & 0.389 & 0.386 & 0.418
+  & \textbf{0.422} & \textbf{0.422} & \textbf{0.422} & 0.421 \\
+\midrule
+\multirow{2}{=}{LaMP-7: Personalized Tweet Paraphrasing} & ROUGE-1 $\uparrow$
+  & 0.449 & 0.449 & 0.449 & 0.449 & 0.449
+  & 0.446 & 0.444 & 0.440 & \textbf{0.461}
+  & 0.460 & 0.460 & 0.460 & 0.460 \\
+ & ROUGE-L $\uparrow$
+  & 0.396 & 0.397 & 0.397 & 0.396 & 0.396
+  & 0.394 & 0.393 & 0.390 & \textbf{0.409}
+  & \textbf{0.409} & \textbf{0.409} & 0.408 & \textbf{0.409} \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
 
 \subsubsection{Main Findings}
 
@@ -635,10 +713,9 @@ The combination of PEFT-trained personalized LLMs and RAG retrieval models resul
 The findings from this paper reinforce the decision to use RAG as the primary retrieval strategy in DocMind. Given that DocMind operates on institutional document corpora with no per-student parametric fine-tuning, the RAG-only approach remains practical, cost-effective, and privacy-preserving. Fine-tuning could be explored in future work once sufficient interaction data is available.
 
 % ─────────────────────────────────────────────────────────────────────────────
-\newpage
-\subsection{Paper 2: A Comparison of Independent and Joint Fine-Tuning Strategies for Retrieval-Augmented Generation [2]}
+\subsection{Paper 2: A Comparison of Independent and Joint Fine-Tuning Strategies for Retrieval-Augmented Generation}
 
-\textbf{Authors}: Neal Lawton, Alfy Samuel, Anoop Kumar, Daben Liu\\
+\textbf{Authors}: Neal Lawton, Alfy Samuel, Anoop Kumar, Daben Liu [2]\\
 \textbf{Published at}: 17 Oct 2025, Cornell University
 
 \subsubsection{Overview}
@@ -651,7 +728,7 @@ This paper compares independent, joint, and two-phase fine-tuning strategies for
   \item \textbf{HotPotQA} dataset including 113k Questions and Answers with distractors to make the reasoning harder and test the fine-tuning performance (general).
   \item \textbf{PopQA} dataset: a smaller dataset containing 30k question-and-answer pairs including distractors (more specific).
 \end{enumerate}
-
+\newpage
 \subsubsection{Methodology}
 
 The paper evaluates five techniques for applying RAG:
@@ -663,8 +740,6 @@ The paper evaluates five techniques for applying RAG:
   \item Fine-tuning both the RAG pipeline and the LLM Generator (joint fine-tuning).
   \item Two-phase fine-tuning (fine-tuning the embedded vector alone, followed by fine-tuning the generator alone, then balancing between them).
 \end{enumerate}
-
-\newpage
 
 \paragraph{Diagram of Different Techniques:}\mbox{}\\
 
@@ -697,7 +772,7 @@ Table~\ref{tab:hotpot_eval} and Figure~\ref{fig:models_eval} present the evaluat
 \toprule
 \multirow{2}{*}{Method} & \multicolumn{4}{c}{HotPotQA} & \multicolumn{4}{c}{PopQA} \\
 \cmidrule(lr){2-5}\cmidrule(lr){6-9}
- & EM & F1 & Recall@5 & Time (h) & EM & F1 & Recall@5 & Time (h) \\
+ & Exact Match & F1 & Recall@5 & Time (h) & Exact Match & F1 & Recall@5 & Time (h) \\
 \midrule
 No Ft.      & 10.3 & 19.8 & 19.1 &  0.0 & 12.6 & 18.6 & 17.4 & 0   \\
 Ft. Embed.  & 11.1 & 20.8 & 21.4 &  3.5 & 18.2 & 26.6 & 30.8 & 0.4 \\
@@ -710,7 +785,7 @@ Indp.       & 29.3 & 40.2 & 21.4 & 27.4 & 40.6 & 43.2 & 30.8 & 3.2 \\
 
 \subsubsection{Conclusion}
 
-Fine-tuning the generator only is the most realistic option for DocMind as it is easier to implement than joint fine-tuning and two-phase fine-tuning. It also yields acceptable results in large datasets, making it suitable for this use case. Finally, it is comparatively affordable compared to more complex fine-tuning techniques.
+Fine-tuning the generator only is the most realistic option for DocMind as it is more affordable to implement than joint fine-tuning and two-phase fine-tuning. It also yields acceptable results in large datasets, making it suitable for this use case. Finally, it is comparatively affordable compared to more complex fine-tuning techniques.
 
 \subsubsection{Implications for DocMind}
 
@@ -718,9 +793,9 @@ This paper confirms that generator fine-tuning offers a practical middle ground 
 
 % ─────────────────────────────────────────────────────────────────────────────
 \newpage
-\subsection{Paper 3: Fine-Tuning or Fine-Failing? Debunking Performance Myths in Large Language Models [3]}
+\subsection{Paper 3: Fine-Tuning or Fine-Failing? Debunking Performance Myths in Large Language Models}
 
-\textbf{Authors}: Scott Barnett, Zac Brannelly, Stefanus, Sheng Wong\\
+\textbf{Authors}: Scott Barnett, Zac Brannelly, Stefanus, Sheng Wong [3]\\
 \textbf{Published at}: 17 Jun 2025, Deakin University
 
 \subsubsection{Overview}
@@ -786,9 +861,9 @@ The results in [3] directly validate the decision to avoid fine-tuning in the Do
 
 % ─────────────────────────────────────────────────────────────────────────────
 \newpage
-\subsection{Paper 4: Enhancing Retrieval-Augmented Generation: A Study of Best Practices [4]}
+\subsection{Paper 4: Enhancing Retrieval-Augmented Generation: A Study of Best Practices}
 
-\textbf{Authors}: Siran Li, Linus Stenzel, Carsten Eickhoff, Seyed Ali\\
+\textbf{Authors}: Siran Li, Linus Stenzel, Carsten Eickhoff, Seyed Ali [4]\\
 \textbf{Published at}: 13 Jan 2025, University of T\"{u}bingen
 
 \subsubsection{Overview}
