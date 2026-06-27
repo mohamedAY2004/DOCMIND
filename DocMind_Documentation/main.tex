@@ -422,7 +422,13 @@ Finally, we acknowledge the open-source communities behind FastAPI, React, Postg
 \clearpage
 
 % ─── Table of Contents ───────────────────────────────────────────────────────
+% Tighten line height across all TOC entries by zeroing the document's 12pt
+% \parskip for the duration of the TOC (section/subsection entries otherwise
+% inherit it). Scoped in a group so the body spacing is unchanged afterwards.
+\begingroup
+\setlength{\parskip}{0pt}
 \tableofcontents
+\endgroup
 \clearpage
 
 % ─── List of Tables ──────────────────────────────────────────────────────────
@@ -432,8 +438,17 @@ Finally, we acknowledge the open-source communities behind FastAPI, React, Postg
 \clearpage
 
 % ─── List of Figures ─────────────────────────────────────────────────────────
+% Zero \parskip and neutralize the \addvspace{10pt} LaTeX inserts between
+% figures of different chapters, so all entries are tightly spaced. Scoped in
+% a group so body spacing is unchanged afterwards.
 \clearpage
+\begingroup
+\setlength{\parskip}{0pt}
+\let\oldaddvspace\addvspace
+\renewcommand{\addvspace}[1]{}
 \listoffigures
+\let\addvspace\oldaddvspace
+\endgroup
 \addcontentsline{toc}{chapter}{List of Figures}
 \clearpage
 
@@ -556,7 +571,6 @@ This document is organized into five chapters to provide a comprehensive and str
 % ════════════════════════════════════════════════════════════════════════════
 %  CHAPTER 2 — LITERATURE REVIEW
 % ════════════════════════════════════════════════════════════════════════════
-\addtocontents{toc}{\protect\newpage}
 \chapter{Literature Review}
 
 This chapter presents a review of relevant academic research related to artificial intelligence in education, conversational learning systems, and document-grounded AI models. It also provides a market analysis and survey of similar systems currently available. The reviewed papers provide foundational insights that inform the design and implementation of the DocMind system. Rather than merely summarizing prior work, this chapter discusses the implications of each study for the DocMind approach, identifying strengths, limitations, and design decisions that arise from the literature.
@@ -1330,15 +1344,15 @@ Additionally, the system assumes compliance with institutional policies related 
 
 To further evaluate the strategic position of the DocMind system, a Strengths, Weaknesses, Opportunities, and Threats (SWOT) analysis is presented in Figure~\ref{fig:swot}, identifying internal strengths and weaknesses as well as external opportunities and threats.
 
-% ─── SWOT quadrant colors ────────────────────────────────────────────────────
-\definecolor{swotStrengthBg}{HTML}{E3F2E1}
-\definecolor{swotStrengthHd}{HTML}{2E7D32}
-\definecolor{swotWeakBg}{HTML}{FDE7E7}
-\definecolor{swotWeakHd}{HTML}{C62828}
-\definecolor{swotOppBg}{HTML}{E3EEFB}
-\definecolor{swotOppHd}{HTML}{1565C0}
-\definecolor{swotThreatBg}{HTML}{FFF6E0}
-\definecolor{swotThreatHd}{HTML}{EF6C00}
+% ─── SWOT quadrant colors (grayscale) ────────────────────────────────────────
+\definecolor{swotStrengthBg}{HTML}{EDEDED}
+\definecolor{swotStrengthHd}{HTML}{333333}
+\definecolor{swotWeakBg}{HTML}{E0E0E0}
+\definecolor{swotWeakHd}{HTML}{333333}
+\definecolor{swotOppBg}{HTML}{EDEDED}
+\definecolor{swotOppHd}{HTML}{333333}
+\definecolor{swotThreatBg}{HTML}{E0E0E0}
+\definecolor{swotThreatHd}{HTML}{333333}
 
 % ─── One reusable quadrant cell: {header color}{bg color}{title}{bullets} ─────
 \newcommand{\swotcell}[4]{%
@@ -1563,7 +1577,6 @@ The system is also constrained by computational resources, particularly those re
 Additionally, the effectiveness of the system is limited by the quality and completeness of the uploaded academic materials. Incomplete or inaccurate documents may reduce response quality.
 
 \newpage
-\addtocontents{toc}{\protect\newpage}
 \section{System Design}
 
 This section presents the detailed technical design of the DocMind system. It translates the requirements defined above into concrete architectural, structural, and interaction-level design decisions.
@@ -1765,7 +1778,6 @@ This structured system design provides a solid foundation for implementation, te
 % ════════════════════════════════════════════════════════════════════════════
 %  CHAPTER 4 — IMPLEMENTATION AND TESTING
 % ════════════════════════════════════════════════════════════════════════════
-\addtocontents{toc}{\protect\newpage}
 \chapter{Implementation and Testing}
 
 This chapter describes the working implementation in the DocMind repository: a full-stack prototype comprising a FastAPI backend, PostgreSQL schema with Alembic migrations, optional pgvector or Qdrant for embeddings, and a React frontend. It demonstrates how the concepts, requirements, and design decisions from Chapter 3 are realized in code and in the running application.
@@ -2072,8 +2084,6 @@ The market survey revealed that while commercial tools such as NotebookLM [17], 
 \newpage
 
 In conclusion, DocMind demonstrates that it is possible to build an academically responsible AI assistant that is reliable, role-aware, and deployable within university infrastructure using accessible open-source technologies. The system represents a meaningful contribution to the intersection of artificial intelligence and higher education, providing a foundation that can be extended, hardened for production, and adopted by institutions seeking to improve student learning outcomes without compromising academic integrity.
-
-\newpage
 
 \section{Future Work}
 
