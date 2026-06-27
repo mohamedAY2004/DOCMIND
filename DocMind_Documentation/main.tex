@@ -1328,31 +1328,62 @@ Additionally, the system assumes compliance with institutional policies related 
 
 \section{SWOT Analysis}
 
-To further evaluate the strategic position of the DocMind system, a Strengths, Weaknesses, Opportunities, and Threats (SWOT) analysis is presented, identifying internal strengths and weaknesses as well as external opportunities and threats.
+To further evaluate the strategic position of the DocMind system, a Strengths, Weaknesses, Opportunities, and Threats (SWOT) analysis is presented in Figure~\ref{fig:swot}, identifying internal strengths and weaknesses as well as external opportunities and threats.
 
-\subsection{Strengths}
+% ─── SWOT quadrant colors ────────────────────────────────────────────────────
+\definecolor{swotStrengthBg}{HTML}{E3F2E1}
+\definecolor{swotStrengthHd}{HTML}{2E7D32}
+\definecolor{swotWeakBg}{HTML}{FDE7E7}
+\definecolor{swotWeakHd}{HTML}{C62828}
+\definecolor{swotOppBg}{HTML}{E3EEFB}
+\definecolor{swotOppHd}{HTML}{1565C0}
+\definecolor{swotThreatBg}{HTML}{FFF6E0}
+\definecolor{swotThreatHd}{HTML}{EF6C00}
 
-DocMind's primary strength lies in its academic-first design philosophy. The system employs Retrieval-Augmented Generation (RAG) to ensure that all responses are grounded in verified, instructor-approved documents. This approach enhances reliability and minimizes the risk of hallucinating or misleading information.
+% ─── One reusable quadrant cell: {header color}{bg color}{title}{bullets} ─────
+\newcommand{\swotcell}[4]{%
+  \begin{minipage}[t][6.4cm][t]{7.1cm}
+    \setlength{\parskip}{0pt}\singlespacing%
+    \colorbox{#1}{\makebox[7.1cm][l]{\textbf{\textcolor{white}{\hspace{2pt}#3}}}}\\[4pt]
+    \footnotesize
+    \begin{itemize}[nosep,leftmargin=14pt,topsep=0pt,itemsep=4pt]
+      #4
+    \end{itemize}
+  \end{minipage}%
+}
 
-Another key strength is a clear separation into API, services, and data layers with role-based access control (RBAC) suitable for institutional deployment. Because the React web client and the Flutter mobile client consume this same API, the system reaches students across browsers and native iOS and Android devices without duplicating business logic per platform.
-
-\subsection{Weaknesses}
-
-Despite its advantages, DocMind has several inherent limitations. The reliance on RAG-based architectures may restrict complex reasoning capabilities compared to unrestricted large language models. The quality of system responses is also directly dependent on the quality and completeness of uploaded documents.
-
-Furthermore, the system requires significant AI computation and cloud infrastructure, which may increase operational costs for institutions. The lack of real-time internet access, while intentional for academic integrity, limits the system to pre-uploaded content.
-
-\subsection{Opportunities}
-
-The rapid growth of AI-driven education platforms presents substantial expansion opportunities for DocMind. Increasing demand for continuous academic support, particularly in large universities with high student-to-instructor ratios, creates a strong use case for scalable AI assistants.
-
-DocMind also has the potential to expand across multiple faculties, departments, and institutions, adapting to various academic disciplines.
-
-\subsection{Threats}
-
-DocMind faces competition from general-purpose AI tools that offer broader capabilities and unrestricted knowledge access. While these tools lack academic grounding, their widespread availability may reduce the perceived need for specialized systems.
-
-Additionally, evolving data privacy regulations and ethical AI policies pose potential compliance challenges. Resistance to AI adoption within academic institutions may also impact system acceptance and deployment.
+\begin{figure}[H]
+\centering
+\setlength{\parskip}{0pt}
+\renewcommand{\arraystretch}{1.2}
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{>{\columncolor{swotStrengthBg}}c >{\columncolor{swotWeakBg}}c}
+\swotcell{swotStrengthHd}{swotStrengthBg}{STRENGTHS}{%
+  \item Academic-first design: Retrieval-Augmented Generation grounds every response in verified, instructor-approved documents, reducing hallucination.
+  \item Clean separation into API, service, and data layers with role-based access control suited to institutional deployment.
+  \item One shared backend API serves both the React web client and the Flutter mobile app across browsers, iOS, and Android.
+} &
+\swotcell{swotWeakHd}{swotWeakBg}{WEAKNESSES}{%
+  \item RAG-based architecture may limit complex reasoning compared to unrestricted large language models.
+  \item Response quality depends directly on the quality and completeness of uploaded documents.
+  \item Significant AI computation and cloud infrastructure raise operational costs.
+  \item No real-time internet access (by design), limiting the system to pre-uploaded content.
+} \\[10pt]
+\rowcolor{white}\multicolumn{2}{c}{} \\[-6pt]
+\swotcell{swotOppHd}{swotOppBg}{OPPORTUNITIES}{%
+  \item Rapid growth of AI-driven education platforms creates strong demand for scalable academic assistants.
+  \item High student-to-instructor ratios in large universities favor continuous, automated support.
+  \item Potential to expand across faculties, departments, and institutions, adapting to diverse disciplines.
+} &
+\swotcell{swotThreatHd}{swotThreatBg}{THREATS}{%
+  \item General-purpose AI tools offer broader, unrestricted capabilities and wide availability.
+  \item Evolving data-privacy regulations and ethical-AI policies pose compliance challenges.
+  \item Institutional resistance to AI adoption may slow acceptance and deployment.
+} \\
+\end{tabular}
+\caption{SWOT analysis of the DocMind system}
+\label{fig:swot}
+\end{figure}
 
 \newpage
 
