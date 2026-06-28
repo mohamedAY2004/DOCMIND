@@ -25,6 +25,11 @@
 \usepackage{polyglossia}
 \setmainlanguage{english}
 \setotherlanguage{arabic}
+
+\usepackage{bidi}
+
+\newcommand{\eng}[1]{\LR{#1}}
+\newcommand{\engp}[1]{\LR{(#1)}}
 \setmainfont{Times New Roman}
 \newfontfamily\arabicfont[Script=Arabic]{Amiri}
 \usepackage{adjustbox}
@@ -177,6 +182,46 @@
 \renewcommand{\listfigurename}{List of Figures}
 \renewcommand{\listtablename}{List of Tables}
 
+% ─── TOC main-heading (chapter) spacing ──────────────────────────────────────
+% Decrease only the vertical gap before each main (chapter) entry in the TOC.
+% Implemented by redefining \l@chapter directly (rather than patching the
+% class internals) so the result is identical across TeX distributions
+% (e.g. local MiKTeX and Overleaf's TeX Live). This is the stock report.cls
+% definition with two changes, both scoped to chapter (main-heading) entries
+% only: the leading \vskip is reduced from 1.0em to 0.4em, and \parskip is
+% zeroed so the document's 12pt paragraph gap is not added between entries.
+\makeatletter
+\renewcommand*\l@chapter[2]{%
+  \ifnum \c@tocdepth >\m@ne
+    \addpenalty{-\@highpenalty}%
+    \vskip 0.4em \@plus\p@
+    \setlength\@tempdima{1.5em}%
+    \begingroup
+      \parindent \z@ \parskip \z@ \rightskip \@pnumwidth
+      \parfillskip -\@pnumwidth
+      \leavevmode \bfseries
+      \advance\leftskip\@tempdima
+      \hskip -\leftskip
+      #1\nobreak\hfil
+      \nobreak\hb@xt@\@pnumwidth{\hss #2%
+                                \kern-\p@\kern\p@}\par
+      \penalty\@highpenalty
+    \endgroup
+  \fi}
+\makeatother
+
+% ─── List of Tables entry spacing ────────────────────────────────────────────
+% Tighten the line height between List of Tables entries only. The document's
+% 12pt \parskip is otherwise inserted between each entry; zeroing it here (scoped
+% to \l@table) leaves the List of Figures and TOC spacing unchanged. This is the
+% stock report.cls \l@table (= \l@figure) wrapped to suppress \parskip.
+\makeatletter
+\renewcommand*\l@table[2]{%
+  \begingroup\parskip\z@
+  \@dottedtocline{1}{1.5em}{2.3em}{#1}{#2}%
+  \endgroup}
+\makeatother
+
 % ════════════════════════════════════════════════════════════════════════════
 \begin{document}
 
@@ -247,7 +292,7 @@
   \vspace{6pt}
 
   % Supervisor name: Italic 14pt
-  {\fontsize{14}{18}\selectfont\itshape Dr.\ Ahmed Saied\par}
+  {\fontsize{14}{18}\selectfont\itshape Dr.\ Ahmed Said\par}
 
   % Push date to footer
   \vfill
@@ -255,6 +300,9 @@
   % Month–Year: Regular 10pt
   {\fontsize{10}{12}\selectfont June 2026\par}
 \end{titlepage}
+
+% ─── Front-matter page numbering: roman numerals (i, ii, iii, …) ─────────────
+\pagenumbering{roman}
 
 % ─── Declaration ─────────────────────────────────────────────────────────────
 \chapter*{Declaration}
@@ -318,22 +366,25 @@ We hereby certify that this material, which we now submit for assessment on the 
 
 DocMind is an AI (Artificial Intelligence)-powered academic learning assistant designed to enhance the learning experience of university students by enabling reliable, document-grounded conversational interactions. The system addresses common challenges faced by students when dealing with large volumes of academic materials by allowing them to query trusted content using natural language. Unlike general-purpose AI chat systems, DocMind employs Retrieval-Augmented Generation (RAG) so that answers are grounded in an explicit corpus: instructor-uploaded materials for subject-based chat, and student-uploaded Portable Document Format (PDF) files for document-based chat.
 
-The implemented system provides role-based access control (RBAC) for students, instructors, and administrators enforced in the Application Programming Interface (API) and web client, JSON Web Token (JWT)-based authentication with configurable token lifetime, administrator-controlled student-access gating, and validated document uploads with per-conversation limits. The backend is built on FastAPI with a PostgreSQL relational database, while semantic retrieval is powered by a pluggable vector store supporting both pgvector and Qdrant. The React-based web frontend delivers a responsive Single-Page Application (SPA) accessible across desktop and mobile browsers, complemented by a native Flutter mobile application for iOS and Android that consumes the same API. This document presents a comprehensive overview of the system, covering the literature review, system analysis and design, and implementation details, demonstrating the feasibility of integrating trustworthy AI-driven assistance into formal academic environments.
+The implemented system provides role-based access control (RBAC) for students, instructors, and administrators enforced in the Application Programming Interface (API) and web client, JSON Web Token (JWT)-based authentication with configurable token lifetime, administrator-controlled student-access gating, and validated document uploads with per-conversation limits. The backend is built on FastAPI with a PostgreSQL relational database, while semantic retrieval is powered by a pluggable vector store supporting both pgvector and Qdrant. The React-based web frontend delivers a responsive Single-Page Application (SPA) accessible across desktop and mobile browsers, complemented by a native Flutter mobile application for iOS and Android that consumes the same API. An empirical evaluation of the retrieval-augmented pipeline using the RAGAS framework over 180 questions spanning nine university subjects confirms the reliability of the document-grounded answers, achieving a faithfulness score of 0.959, context precision of 0.926, and context recall of 0.914. This document presents a comprehensive overview of the system, covering the literature review, system analysis and design, and implementation details, demonstrating the feasibility of integrating trustworthy AI-driven assistance into formal academic environments.
 
 \clearpage
 
 % ─── Abstract (Arabic) ───────────────────────────────────────────────────────
-\chapter*{الملخص}
-\addcontentsline{toc}{chapter}{الملخص (Arabic Abstract)}
+\chapter*{\textarabic{الملخص}}
+\addcontentsline{toc}{chapter}{\textarabic{الملخص} (Arabic Abstract)}
+
 \begin{Arabic}
 \setlength{\parindent}{1.5em}
 \setlength{\parskip}{6pt}
 
- DocMind هو مساعد تعليمي أكاديمي مدعوم بالذكاء الاصطناعي، صُمِّم لتعزيز تجربة التعلم لدى طلاب الجامعات من خلال توفير تفاعلات محادثية موثوقة ومرتكزة على المستندات. يعالج النظام التحديات الشائعة التي يواجهها الطلاب عند التعامل مع كميات كبيرة من المواد الأكاديمية، إذ يتيح لهم الاستعلام عن المحتوى الموثوق باستخدام اللغة الطبيعية.
+\eng{DocMind} هو مساعد تعليمي أكاديمي مدعوم بالذكاء الاصطناعي، صُمِّم لتعزيز تجربة التعلم لدى طلاب الجامعات من خلال توفير تفاعلات محادثية موثوقة ومرتكزة على المستندات. يعالج النظام التحديات الشائعة التي يواجهها الطلاب عند التعامل مع كميات كبيرة من المواد الأكاديمية، إذ يتيح لهم الاستعلام عن المحتوى الموثوق باستخدام اللغة الطبيعية.
 
-على خلاف أنظمة الدردشة بالذكاء الاصطناعي ذات الأغراض العامة، يعتمد دوك مايند على تقنية التوليد المعزز بالاسترجاع (RAG) بحيث ترتكز الإجابات أساساً على مجموعة محتوى محددة: المواد التي يرفعها أعضاء هيئة التدريس لمحادثات المساعد الافتراضي (الدردشة بالمادة)، والملفات التي يرفعها الطلاب أنفسهم في محادثات المستندات. يدعم النظام وضعَي تفاعل رئيسيَّين: الدردشة المرتكزة على المستندات، والدردشة المرتكزة على مواد المادة الدراسية.
+على خلاف أنظمة الدردشة بالذكاء الاصطناعي ذات الأغراض العامة، يعتمد دوك مايند على تقنية التوليد المعزز بالاسترجاع (\eng{RAG}) بحيث ترتكز الإجابات أساساً على مجموعة محتوى محددة: المواد التي يرفعها أعضاء هيئة التدريس لمحادثات المساعد الافتراضي (الدردشة بالمادة)، والملفات التي يرفعها الطلاب أنفسهم في محادثات المستندات. يدعم النظام وضعَي تفاعل رئيسيَّين: الدردشة المرتكزة على المستندات، والدردشة المرتكزة على مواد المادة الدراسية.
 
-يوفر النظام المُنفَّذ تحكماً في الوصول قائماً على الأدوار للطلاب والمدرسين والمسؤولين، ومصادقة مبنية على رموز JWT مع مدة صلاحية قابلة للضبط، وبوابة للتحكم في وصول الطلاب يديرها المسؤول، فضلاً عن رفع مستندات محقَّق منها مع حدود لكل محادثة. تم بناء الواجهة الخلفية باستخدام FastAPI مع قاعدة بيانات علائقية PostgreSQL، فيما يعتمد الاسترجاع الدلالي على مخزن متجهات قابل للتوصيل يدعم كلاً من pgvector وQdrant. تقدم الواجهة الأمامية المبنية بـReact تطبيقاً من صفحة واحدة يعمل على أجهزة سطح المكتب والهاتف المحمول.
+يوفر النظام المُنفَّذ تحكماً في الوصول قائماً على الأدوار للطلاب والمدرسين والمسؤولين، ومصادقة مبنية على رموز \eng{JWT} مع مدة صلاحية قابلة للضبط، وبوابة للتحكم في وصول الطلاب يديرها المسؤول، فضلاً عن رفع مستندات محقَّق منها مع حدود لكل محادثة. تم بناء الواجهة الخلفية باستخدام \eng{FastAPI} مع قاعدة بيانات علائقية \eng{PostgreSQL}، فيما يعتمد الاسترجاع الدلالي على مخزن متجهات قابل للتوصيل يدعم كلاً من \eng{pgvector} و\eng{Qdrant}. تقدم الواجهة الأمامية المبنية بـ\eng{React} تطبيقاً من صفحة واحدة يعمل على أجهزة سطح المكتب والهاتف المحمول.
+
+ويؤكد تقييم تجريبي لمسار التوليد المعزز بالاسترجاع باستخدام إطار \eng{RAGAS} على \eng{180} سؤالاً تغطي تسع مواد دراسية جامعية موثوقية الإجابات المرتكزة على المستندات، إذ حقق درجة إخلاص \engp{faithfulness} قدرها \eng{0.959}، ودقة سياق \engp{context precision} قدرها \eng{0.926}، واستدعاء سياق \engp{context recall} قدره \eng{0.914}.
 
 يقدم هذا المستند نظرة شاملة على النظام تغطي مراجعة الأدبيات، وتحليل النظام وتصميمه، وتفاصيل التنفيذ، مما يعكس التطبيق الفعلي للمستودع ويُثبت جدوى دمج المساعدة الموثوقة المدعومة بالذكاء الاصطناعي في البيئات الأكاديمية الرسمية.
 
@@ -349,7 +400,7 @@ The implemented system provides role-based access control (RBAC) for students, i
 \vspace*{\fill}
 \begin{center}
   \textit{To our families, whose patience and support made this journey possible.}\\[6pt]
-  \textit{To our supervisor, Dr.\ Ahmed Saied, for his invaluable guidance.}\\[6pt]
+  \textit{To our supervisor, Dr.\ Ahmed Said, for his invaluable guidance.}\\[6pt]
   \textit{And to every student who deserves a smarter, more accessible way to learn.}
 \end{center}
 \vspace*{\fill}
@@ -360,7 +411,7 @@ The implemented system provides role-based access control (RBAC) for students, i
 \chapter*{Acknowledgments}
 \addcontentsline{toc}{chapter}{Acknowledgments}
 
-We would like to express our sincere gratitude to Dr.\ Ahmed Saied for his continuous guidance, insightful feedback, and unwavering support throughout the development of this project. His expertise and encouragement were instrumental in shaping both the academic and technical aspects of DocMind.
+We would like to express our sincere gratitude to Dr.\ Ahmed Said for his continuous guidance, insightful feedback, and unwavering support throughout the development of this project. His expertise and encouragement were instrumental in shaping both the academic and technical aspects of DocMind.
 
 We also extend our thanks to the faculty and staff of the College of Computing and Information Technology at the Arab Academy for Science, Technology, and Maritime Transport, for providing an environment conducive to research and innovation.
 
@@ -371,7 +422,13 @@ Finally, we acknowledge the open-source communities behind FastAPI, React, Postg
 \clearpage
 
 % ─── Table of Contents ───────────────────────────────────────────────────────
+% Tighten line height across all TOC entries by zeroing the document's 12pt
+% \parskip for the duration of the TOC (section/subsection entries otherwise
+% inherit it). Scoped in a group so the body spacing is unchanged afterwards.
+\begingroup
+\setlength{\parskip}{0pt}
 \tableofcontents
+\endgroup
 \clearpage
 
 % ─── List of Tables ──────────────────────────────────────────────────────────
@@ -381,8 +438,17 @@ Finally, we acknowledge the open-source communities behind FastAPI, React, Postg
 \clearpage
 
 % ─── List of Figures ─────────────────────────────────────────────────────────
+% Zero \parskip and neutralize the \addvspace{10pt} LaTeX inserts between
+% figures of different chapters, so all entries are tightly spaced. Scoped in
+% a group so body spacing is unchanged afterwards.
 \clearpage
+\begingroup
+\setlength{\parskip}{0pt}
+\let\oldaddvspace\addvspace
+\renewcommand{\addvspace}[1]{}
 \listoffigures
+\let\addvspace\oldaddvspace
+\endgroup
 \addcontentsline{toc}{chapter}{List of Figures}
 \clearpage
 
@@ -433,6 +499,8 @@ UX    & User Experience \\
 % ════════════════════════════════════════════════════════════════════════════
 %  CHAPTER 1 — INTRODUCTION
 % ════════════════════════════════════════════════════════════════════════════
+% ─── Main-matter page numbering: arabic numerals (1, 2, 3, …) ────────────────
+\pagenumbering{arabic}
 \chapter{Introduction}
 
 \section{Background}
@@ -449,7 +517,7 @@ At the same time, recent advancements in Artificial Intelligence (AI), particula
 
 Despite the availability of extensive academic resources, students frequently encounter difficulties in extracting meaningful knowledge from them. Large documents such as lecture slides and textbooks often contain dense information, making it challenging for students to locate specific answers or clarify particular concepts efficiently. As a result, students may resort to external sources that are not aligned with course content, or may receive incomplete or misleading explanations.
 
-Generic AI chat systems have gained popularity as tools for answering questions and providing explanations. However, these systems are typically trained on broad datasets and are not restricted to verified academic sources. Consequently, they may generate responses that are factually incorrect, inconsistent with course materials, or entirely fabricated --- a phenomenon commonly referred to as AI hallucination in [7]. Such behavior poses significant risks in academic contexts, where accuracy and reliability are essential.
+Generic AI chat systems have gained popularity as tools for answering questions and providing explanations. However, these systems are typically trained on broad datasets and are not restricted to verified academic sources. Consequently, they may generate responses that are factually incorrect, inconsistent with course materials, or entirely fabricated, a phenomenon Known as AI hallucination in [7]. Such behavior poses significant risks in academic contexts, where accuracy and reliability are essential.
 
 Furthermore, instructors often face repetitive questions from students regarding course materials, which can increase workload and reduce time available for higher-level academic engagement. There is a clear need for a system that can provide consistent, accurate, and course-aligned assistance while reducing reliance on unreliable external tools.
 
@@ -482,7 +550,7 @@ These objectives guide both the functional requirements and the design decisions
 
 The scope of the DocMind project includes the design and development of an academic assistant integrated within a university environment. The system supports two primary modes of interaction: document-based chat, where students interact with uploaded documents, and subject-based chat, which relies on instructor-managed course materials.
 
-The project focuses on system architecture, user interaction design, database design, and AI integration using Retrieval-Augmented Generation (RAG) techniques as described in [5]. The system is designed to operate within defined constraints, such as authenticated session expiry via JSON Web Token (JWT), per-role authorization, per-conversation upload limits and file-type validation, and administrator policies including optional disabling of student access, to ensure relevance and reliability.
+The project focuses on system architecture, user interaction design, database design, and AI integration using Retrieval-Augmented Generation (RAG) techniques [5]. The system is designed to operate within defined constraints, such as authenticated session expiry via JSON Web Token (JWT), per-role authorization, per-conversation upload limits and file-type validation, and administrator policies including optional disabling of student access, to ensure relevance and reliability.
 
 The project does not aim to replace instructors, tutors, or formal assessment methods. Instead, DocMind functions as a supplementary learning tool that enhances understanding and supports academic engagement. Features such as grading automation or autonomous decision-making are explicitly outside the scope of this project.
 
@@ -503,7 +571,6 @@ This document is organized into five chapters to provide a comprehensive and str
 % ════════════════════════════════════════════════════════════════════════════
 %  CHAPTER 2 — LITERATURE REVIEW
 % ════════════════════════════════════════════════════════════════════════════
-\addtocontents{toc}{\protect\newpage}
 \chapter{Literature Review}
 
 This chapter presents a review of relevant academic research related to artificial intelligence in education, conversational learning systems, and document-grounded AI models. It also provides a market analysis and survey of similar systems currently available. The reviewed papers provide foundational insights that inform the design and implementation of the DocMind system. Rather than merely summarizing prior work, this chapter discusses the implications of each study for the DocMind approach, identifying strengths, limitations, and design decisions that arise from the literature.
@@ -513,16 +580,15 @@ This chapter presents a review of relevant academic research related to artifici
 This section reviews four research papers that examine fine-tuning and Retrieval-Augmented Generation (RAG), highlighting their performance, limitations, and suitability for the DocMind application.
 
 % ─────────────────────────────────────────────────────────────────────────────
-\newpage
-\subsection{Paper 1: Comparing Retrieval-Augmentation and Parameter Efficient Fine-Tuning for Privacy-Preserving Personalization of Large Language Models [1]}
+\subsection{Paper 1: Comparing Retrieval-Augmentation and Parameter Efficient Fine-Tuning for Privacy-Preserving Personalization of Large Language Models}
 
-\textbf{Authors}: Hamed Zamani, Alireza Salemi\\
+\textbf{Authors}: Hamed Zamani, Alireza Salemi [1]\\
 \textbf{Published at}: 26 Jun 2025, University of Massachusetts
 
 
 \subsubsection{Overview}
 
-This paper compares retrieval-augmented generation (RAG) and parameter-efficient fine-tuning (PEFT) for privacy-preserving personalization of large language models (LLMs). Results show that RAG outperforms PEFT when user data is limited, while PEFT improves with larger user profiles. Combining RAG and PEFT achieves the best personalization performance without violating user privacy.
+This paper compares retrieval-augmented generation (RAG) and parameter-efficient fine-tuning (PEFT) for privacy-preserving personalization of large language models (LLMs). Results show that RAG outperforms PEFT when data is limited, while PEFT improves with larger profiles. Combining them achieves the best personalization performance without violating privacy.
 
 \subsubsection{The Dataset}
 
@@ -534,7 +600,6 @@ LaMP datasets with different personalized fields:
   \item LaMP-7 (Tweet Paraphrasing)
 \end{itemize}
 
-\newpage
 
 \subsubsection{Methodology}
 
@@ -547,21 +612,99 @@ LaMP datasets with different personalized fields:
 
 This approach combines Parameter-Efficient Fine-Tuning (PEFT) and Retrieval-Augmented Generation (RAG) to enhance the personalization of large language models by:
 
-\begin{description}
-  \item[\textbf{PEFT:}] Fine-tunes a small set of additional parameters, reducing computational and memory overhead.
-  \item[\textbf{RAG:}] Mitigates the limitations of PEFT by dynamically retrieving user-specific information during inference.
-\end{description}
+\begin{itemize}[noitemsep]
+    \item \textbf{PEFT:} Fine-tunes a small set of additional parameters, reducing computational and memory overhead.
 
+    \item \textbf{RAG:} Mitigates the limitations of PEFT by dynamically retrieving user-specific information during inference.
+\end{itemize}
+\newpage
 \subsubsection{Comparison of Different Techniques}
 
-The following figure compares the methods described --- RAG, PEFT, and PEFT-RAG. As shown in Figure~\ref{fig:lamp_comparison}, the combination of both techniques consistently yields the highest personalization scores across the LaMP benchmark tasks.
+The following table compares the methods described: RAG, PEFT, and PEFT-RAG. As shown in Table~\ref{tab:lamp_comparison}, the combination of both techniques consistently yields the highest personalization scores across the LaMP benchmark tasks.
 
-\begin{figure}[H]
+\begin{table}[H]
 \centering
-\includegraphics[width=0.95\textwidth]{lamp_comparison.png}
 \caption{Comparison of Personalization Techniques Across LaMP Datasets}
-\label{fig:lamp_comparison}
-\end{figure}
+\label{tab:lamp_comparison}
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.2}
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{>{\raggedright\arraybackslash}p{3.2cm} l c cccc cccc cccc}
+\toprule
+\multirow{2}{=}{\textbf{Dataset}} & \multirow{2}{*}{\textbf{Metric}}
+  & \textbf{No}
+  & \multicolumn{4}{c}{\textbf{PEFT Personalization}}
+  & \multicolumn{4}{c}{\textbf{RAG Personalization}}
+  & \multicolumn{4}{c}{\textbf{PEFT-RAG Personalization}} \\
+\cmidrule(lr){4-7} \cmidrule(lr){8-11} \cmidrule(lr){12-15}
+ & & \textbf{Pers.}
+  & $r{=}8$ & $r{=}16$ & $r{=}32$ & $r{=}64$
+  & BM25 & Recency & Contriever & RSPG
+  & $r{=}8$ & $r{=}16$ & $r{=}32$ & $r{=}64$ \\
+\midrule
+LaMP-1: Personalized Citation Identification & Accuracy $\uparrow$
+  & 0.502 & 0.502 & 0.502 & 0.504 & 0.506
+  & 0.626 & 0.622 & 0.636 & \textbf{0.672}
+  & 0.670 & 0.668 & 0.671 & 0.671 \\
+\midrule
+\multirow{2}{=}{LaMP-2: Personalized Movie Tagging} & Accuracy $\uparrow$
+  & 0.359 & 0.360 & 0.360 & 0.360 & 0.359
+  & 0.387 & 0.377 & 0.396 & 0.430
+  & 0.430 & \textbf{0.431} & 0.430 & 0.430 \\
+ & F1 $\uparrow$
+  & 0.276 & 0.278 & 0.278 & 0.278 & 0.277
+  & 0.306 & 0.295 & 0.304 & 0.339
+  & 0.341 & \textbf{0.342} & 0.341 & 0.341 \\
+\midrule
+\multirow{2}{=}{LaMP-3: Personalized Product Rating} & MAE $\downarrow$
+  & 0.308 & 0.308 & 0.307 & 0.306 & 0.301
+  & 0.298 & 0.296 & 0.299 & 0.264
+  & 0.264 & 0.265 & 0.264 & \textbf{0.259} \\
+ & RMSE $\downarrow$
+  & 0.611 & 0.607 & 0.607 & 0.602 & 0.600
+  & 0.611 & 0.605 & 0.616 & 0.568
+  & 0.568 & 0.570 & 0.564 & \textbf{0.562} \\
+\midrule
+\multirow{2}{=}{LaMP-4: Personalized News Headline Generation} & ROUGE-1 $\uparrow$
+  & 0.176 & 0.178 & 0.177 & 0.178 & 0.178
+  & 0.186 & 0.189 & 0.183 & 0.203
+  & 0.203 & \textbf{0.204} & \textbf{0.204} & 0.203 \\
+ & ROUGE-L $\uparrow$
+  & 0.160 & 0.162 & 0.162 & 0.163 & 0.163
+  & 0.171 & 0.173 & 0.169 & 0.186
+  & 0.186 & 0.186 & \textbf{0.187} & 0.186 \\
+\midrule
+\multirow{2}{=}{LaMP-5: Personalized Scholarly Title Generation} & ROUGE-1 $\uparrow$
+  & 0.478 & 0.478 & 0.478 & 0.477 & 0.478
+  & 0.477 & 0.475 & \textbf{0.483} & 0.480
+  & 0.481 & 0.480 & 0.480 & 0.479 \\
+ & ROUGE-L $\uparrow$
+  & 0.428 & 0.429 & 0.429 & 0.428 & 0.428
+  & 0.427 & 0.426 & \textbf{0.433} & 0.429
+  & 0.431 & 0.431 & 0.431 & 0.431 \\
+\midrule
+\multirow{2}{=}{LaMP-6: Personalized Email Subject Generation} & ROUGE-1 $\uparrow$
+  & 0.335 & 0.342 & 0.342 & 0.341 & 0.343
+  & 0.412 & 0.403 & 0.401 & 0.433
+  & 0.436 & 0.436 & 0.436 & \textbf{0.437} \\
+ & ROUGE-L $\uparrow$
+  & 0.319 & 0.325 & 0.326 & 0.325 & 0.326
+  & 0.398 & 0.389 & 0.386 & 0.418
+  & \textbf{0.422} & \textbf{0.422} & \textbf{0.422} & 0.421 \\
+\midrule
+\multirow{2}{=}{LaMP-7: Personalized Tweet Paraphrasing} & ROUGE-1 $\uparrow$
+  & 0.449 & 0.449 & 0.449 & 0.449 & 0.449
+  & 0.446 & 0.444 & 0.440 & \textbf{0.461}
+  & 0.460 & 0.460 & 0.460 & 0.460 \\
+ & ROUGE-L $\uparrow$
+  & 0.396 & 0.397 & 0.397 & 0.396 & 0.396
+  & 0.394 & 0.393 & 0.390 & \textbf{0.409}
+  & \textbf{0.409} & \textbf{0.409} & 0.408 & \textbf{0.409} \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
 
 \subsubsection{Main Findings}
 
@@ -584,10 +727,9 @@ The combination of PEFT-trained personalized LLMs and RAG retrieval models resul
 The findings from this paper reinforce the decision to use RAG as the primary retrieval strategy in DocMind. Given that DocMind operates on institutional document corpora with no per-student parametric fine-tuning, the RAG-only approach remains practical, cost-effective, and privacy-preserving. Fine-tuning could be explored in future work once sufficient interaction data is available.
 
 % ─────────────────────────────────────────────────────────────────────────────
-\newpage
-\subsection{Paper 2: A Comparison of Independent and Joint Fine-Tuning Strategies for Retrieval-Augmented Generation [2]}
+\subsection{Paper 2: A Comparison of Independent and Joint Fine-Tuning Strategies for Retrieval-Augmented Generation}
 
-\textbf{Authors}: Neal Lawton, Alfy Samuel, Anoop Kumar, Daben Liu\\
+\textbf{Authors}: Neal Lawton, Alfy Samuel, Anoop Kumar, Daben Liu [2]\\
 \textbf{Published at}: 17 Oct 2025, Cornell University
 
 \subsubsection{Overview}
@@ -600,7 +742,7 @@ This paper compares independent, joint, and two-phase fine-tuning strategies for
   \item \textbf{HotPotQA} dataset including 113k Questions and Answers with distractors to make the reasoning harder and test the fine-tuning performance (general).
   \item \textbf{PopQA} dataset: a smaller dataset containing 30k question-and-answer pairs including distractors (more specific).
 \end{enumerate}
-
+\newpage
 \subsubsection{Methodology}
 
 The paper evaluates five techniques for applying RAG:
@@ -612,8 +754,6 @@ The paper evaluates five techniques for applying RAG:
   \item Fine-tuning both the RAG pipeline and the LLM Generator (joint fine-tuning).
   \item Two-phase fine-tuning (fine-tuning the embedded vector alone, followed by fine-tuning the generator alone, then balancing between them).
 \end{enumerate}
-
-\newpage
 
 \paragraph{Diagram of Different Techniques:}\mbox{}\\
 
@@ -646,7 +786,7 @@ Table~\ref{tab:hotpot_eval} and Figure~\ref{fig:models_eval} present the evaluat
 \toprule
 \multirow{2}{*}{Method} & \multicolumn{4}{c}{HotPotQA} & \multicolumn{4}{c}{PopQA} \\
 \cmidrule(lr){2-5}\cmidrule(lr){6-9}
- & EM & F1 & Recall@5 & Time (h) & EM & F1 & Recall@5 & Time (h) \\
+ & Exact Match & F1 & Recall@5 & Time (h) & Exact Match & F1 & Recall@5 & Time (h) \\
 \midrule
 No Ft.      & 10.3 & 19.8 & 19.1 &  0.0 & 12.6 & 18.6 & 17.4 & 0   \\
 Ft. Embed.  & 11.1 & 20.8 & 21.4 &  3.5 & 18.2 & 26.6 & 30.8 & 0.4 \\
@@ -659,7 +799,7 @@ Indp.       & 29.3 & 40.2 & 21.4 & 27.4 & 40.6 & 43.2 & 30.8 & 3.2 \\
 
 \subsubsection{Conclusion}
 
-Fine-tuning the generator only is the most realistic option for DocMind as it is easier to implement than joint fine-tuning and two-phase fine-tuning. It also yields acceptable results in large datasets, making it suitable for this use case. Finally, it is comparatively affordable compared to more complex fine-tuning techniques.
+Fine-tuning the generator only is the most realistic option for DocMind as it is more affordable to implement than joint fine-tuning and two-phase fine-tuning. It also yields acceptable results in large datasets, making it suitable for this use case. Finally, it is comparatively affordable compared to more complex fine-tuning techniques.
 
 \subsubsection{Implications for DocMind}
 
@@ -667,9 +807,9 @@ This paper confirms that generator fine-tuning offers a practical middle ground 
 
 % ─────────────────────────────────────────────────────────────────────────────
 \newpage
-\subsection{Paper 3: Fine-Tuning or Fine-Failing? Debunking Performance Myths in Large Language Models [3]}
+\subsection{Paper 3: Fine-Tuning or Fine-Failing? Debunking Performance Myths in Large Language Models}
 
-\textbf{Authors}: Scott Barnett, Zac Brannelly, Stefanus, Sheng Wong\\
+\textbf{Authors}: Scott Barnett, Zac Brannelly, Stefanus, Sheng Wong [3]\\
 \textbf{Published at}: 17 Jun 2025, Deakin University
 
 \subsubsection{Overview}
@@ -735,9 +875,9 @@ The results in [3] directly validate the decision to avoid fine-tuning in the Do
 
 % ─────────────────────────────────────────────────────────────────────────────
 \newpage
-\subsection{Paper 4: Enhancing Retrieval-Augmented Generation: A Study of Best Practices [4]}
+\subsection{Paper 4: Enhancing Retrieval-Augmented Generation: A Study of Best Practices}
 
-\textbf{Authors}: Siran Li, Linus Stenzel, Carsten Eickhoff, Seyed Ali\\
+\textbf{Authors}: Siran Li, Linus Stenzel, Carsten Eickhoff, Seyed Ali [4]\\
 \textbf{Published at}: 13 Jan 2025, University of T\"{u}bingen
 
 \subsubsection{Overview}
@@ -770,7 +910,7 @@ This paper systematically studies best practices for designing high-performance 
 
 \paragraph{Retrieval Module:}
 \begin{itemize}[noitemsep]
-  \item Uses FAISS as described in [15] with Sentence Transformers for semantic search.
+  \item Uses FAISS [14] with Sentence Transformers for semantic search.
   \item Documents split into chunks; Focus Mode retrieves only the most relevant sentences.
 \end{itemize}
 
@@ -869,7 +1009,7 @@ This section surveys existing commercial and research-grade tools that are simil
 
 \subsubsection{Positioning and Primary Use Case}
 
-NotebookLM is Google's AI-powered research and learning tool as described in [18]. It is designed to help users organize and understand collections of sources --- such as Portable Document Format (PDF) files, Google Docs, web pages, and YouTube transcripts --- inside notebooks, then interact with those sources through chat and a range of generated learning artifacts.
+NotebookLM is Google's AI-powered research and learning tool [17]. It is designed to help users organize and understand collections of sources, such as Portable Document Format (PDF) files, Google Docs, web pages, and YouTube transcripts, inside notebooks, then interact with those sources through chat and a range of generated learning artifacts.
 
 Google explicitly presents NotebookLM as a tool for students and researchers to generate study guides, summaries, mind maps, flashcards, quizzes, and overviews from their own materials.
 \newpage
@@ -965,7 +1105,7 @@ NotebookLM offers a rich feature set, but free usage is capped at 50 queries per
 
 \subsubsection{Positioning and Primary Use Case}
 
-Humata is marketed as an AI assistant for long and complex documents, especially technical papers and knowledge bases as described in [19]. It enables users to upload documents and ask questions, generate summaries, and compare multiple files with grounded answers.
+Humata is marketed as an AI assistant for long and complex documents, especially technical papers and knowledge bases [18]. It enables users to upload documents and ask questions, generate summaries, and compare multiple files with grounded answers.
 
 \subsubsection{Supported Content and Interaction Model}
 
@@ -1019,7 +1159,7 @@ Humata's strict page-based pricing makes it unsuitable for large textbooks and m
 
 \subsubsection{Positioning and Primary Use Case}
 
-Mindgrasp positions itself as an AI learning and study platform, aimed at transforming educational content into structured study materials as described in [20].
+Mindgrasp positions itself as an AI learning and study platform, aimed at transforming educational content into structured study materials [19].
 
 \subsubsection{Supported Content Types}
 
@@ -1066,7 +1206,7 @@ Mindgrasp's subscription-only model and strict per-file page limits make it cost
 
 \subsubsection{Positioning and Primary Use Case}
 
-AskYourPDF is a document chat and summarization tool focused on interacting with PDF files and multi-document knowledge bases as described in [21].
+AskYourPDF is a document chat and summarization tool focused on interacting with PDF files and multi-document knowledge bases [20].
 
 \subsubsection{Supported Content and Features}
 
@@ -1146,7 +1286,7 @@ The survey confirms that while commercial tools offer polished interfaces and br
 
 DocMind is an AI-powered academic learning assistant designed to support university students by enabling interactive, document-grounded learning. The system allows students to ask natural language questions related to their academic materials and receive accurate, context-aware responses that are strictly based on verified documents. By combining conversational artificial intelligence with structured academic content, DocMind enhances the learning experience while maintaining academic integrity.
 
-The system is intended for use in a university-style environment and can be embedded alongside or linked from an institutional portal or learning management system. Unlike generic AI chat tools, DocMind does not rely on unrestricted internet knowledge for retrieval: tutor chat is grounded in instructor-uploaded materials for the selected subject, and document chat is grounded in the student's uploaded PDF files for that conversation. This design approach is consistent with the grounded generation paradigm established in [5].
+The system is intended for use in a university-style environment and can be embedded alongside or linked from an institutional portal or learning management system. Unlike generic AI chat tools, DocMind does not rely on unrestricted internet knowledge for retrieval: tutor chat is grounded in instructor-uploaded materials for the selected subject, and document chat is grounded in the student's uploaded PDF files for that conversation. This design approach is consistent with the grounded generation paradigm [5].
 
 DocMind supports multiple modes of interaction, including document-based chat and subject-based chat. These modes address different learning scenarios, such as revising lecture notes, clarifying specific topics, or preparing for examinations. The system emphasizes reliability, transparency, and ethical use of artificial intelligence in education.
 
@@ -1176,7 +1316,7 @@ One of the primary functions of the system is document ingestion and processing.
 
 Another essential function is conversational interaction. When a user submits a question, the system analyzes the query, retrieves the most relevant document segments, and passes them as context to a language model. The generated response is then presented to the user in a conversational format.
 
-The system persists conversations --- including document chat and tutor chat --- in the relational database, along with message history, until the user or retention policies delete them. Authenticated API sessions use JWTs with a configurable expiry (for example, twelve hours in the default configuration), after which the user must sign in again; logging out revokes the current token identifier.
+The system persists conversations, including document chat and tutor chat, in the relational database, along with message history, until the user or retention policies delete them. Authenticated API sessions use JWTs with a configurable expiry (for example, twelve hours in the default configuration), after which the user must sign in again; logging out revokes the current token identifier.
 
 \newpage
 
@@ -1194,7 +1334,7 @@ Performance constraints also exist, particularly with respect to AI model infere
 
 The design of DocMind is based on several assumptions. It is assumed that users have access to stable internet connectivity and compatible devices. It is also assumed that instructors upload accurate and relevant course materials, as the quality of system responses depends directly on the quality of the document corpus.
 
-The system depends on several external components and services, including embedding and text generation APIs. The codebase supports configurable providers such as Google Gemini (the default), OpenAI, and Cohere, selected via environment settings. Additional dependencies include PostgreSQL and a vector index (pgvector or Qdrant). An optional agent layer, disabled by default, can route each user turn through a planner that decides whether to retrieve from the vector store before generation.
+The system depends on several external components and services, including embedding and text generation APIs. The codebase supports configurable providers such as Google Gemini, OpenAI (the default with ollama), and Cohere, selected via environment settings. Additional dependencies include PostgreSQL and a vector index (pgvector or Qdrant). An optional agent layer, disabled by default, can route each user turn through a planner that decides whether to retrieve from the vector store before generation.
 
 Additionally, the system assumes compliance with institutional policies related to data privacy, academic integrity, and ethical AI usage.
 
@@ -1202,37 +1342,68 @@ Additionally, the system assumes compliance with institutional policies related 
 
 \section{SWOT Analysis}
 
-To further evaluate the strategic position of the DocMind system, a Strengths, Weaknesses, Opportunities, and Threats (SWOT) analysis is presented, identifying internal strengths and weaknesses as well as external opportunities and threats.
+To further evaluate the strategic position of the DocMind system, a Strengths, Weaknesses, Opportunities, and Threats (SWOT) analysis is presented in Figure~\ref{fig:swot}, identifying internal strengths and weaknesses as well as external opportunities and threats.
 
-\subsection{Strengths}
+% ─── SWOT quadrant colors (grayscale) ────────────────────────────────────────
+\definecolor{swotStrengthBg}{HTML}{EDEDED}
+\definecolor{swotStrengthHd}{HTML}{333333}
+\definecolor{swotWeakBg}{HTML}{E0E0E0}
+\definecolor{swotWeakHd}{HTML}{333333}
+\definecolor{swotOppBg}{HTML}{EDEDED}
+\definecolor{swotOppHd}{HTML}{333333}
+\definecolor{swotThreatBg}{HTML}{E0E0E0}
+\definecolor{swotThreatHd}{HTML}{333333}
 
-DocMind's primary strength lies in its academic-first design philosophy. The system employs Retrieval-Augmented Generation (RAG) to ensure that all responses are grounded in verified, instructor-approved documents. This approach enhances reliability and minimizes the risk of hallucinating or misleading information.
+% ─── One reusable quadrant cell: {header color}{bg color}{title}{bullets} ─────
+\newcommand{\swotcell}[4]{%
+  \begin{minipage}[t][6.4cm][t]{7.1cm}
+    \setlength{\parskip}{0pt}\singlespacing%
+    \colorbox{#1}{\makebox[7.1cm][l]{\textbf{\textcolor{white}{\hspace{2pt}#3}}}}\\[4pt]
+    \footnotesize
+    \begin{itemize}[nosep,leftmargin=14pt,topsep=0pt,itemsep=4pt]
+      #4
+    \end{itemize}
+  \end{minipage}%
+}
 
-Another key strength is a clear separation into API, services, and data layers with role-based access control (RBAC) suitable for institutional deployment. Because the React web client and the Flutter mobile client consume this same API, the system reaches students across browsers and native iOS and Android devices without duplicating business logic per platform.
-
-\subsection{Weaknesses}
-
-Despite its advantages, DocMind has several inherent limitations. The reliance on RAG-based architectures may restrict complex reasoning capabilities compared to unrestricted large language models. The quality of system responses is also directly dependent on the quality and completeness of uploaded documents.
-
-Furthermore, the system requires significant AI computation and cloud infrastructure, which may increase operational costs for institutions. The lack of real-time internet access, while intentional for academic integrity, limits the system to pre-uploaded content.
-
-\subsection{Opportunities}
-
-The rapid growth of AI-driven education platforms presents substantial expansion opportunities for DocMind. Increasing demand for continuous academic support, particularly in large universities with high student-to-instructor ratios, creates a strong use case for scalable AI assistants.
-
-DocMind also has the potential to expand across multiple faculties, departments, and institutions, adapting to various academic disciplines.
-
-\subsection{Threats}
-
-DocMind faces competition from general-purpose AI tools that offer broader capabilities and unrestricted knowledge access. While these tools lack academic grounding, their widespread availability may reduce the perceived need for specialized systems.
-
-Additionally, evolving data privacy regulations and ethical AI policies pose potential compliance challenges. Resistance to AI adoption within academic institutions may also impact system acceptance and deployment.
+\begin{figure}[H]
+\centering
+\setlength{\parskip}{0pt}
+\renewcommand{\arraystretch}{1.2}
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{>{\columncolor{swotStrengthBg}}c >{\columncolor{swotWeakBg}}c}
+\swotcell{swotStrengthHd}{swotStrengthBg}{STRENGTHS}{%
+  \item Academic-first design: Retrieval-Augmented Generation grounds every response in verified, instructor-approved documents, reducing hallucination.
+  \item Clean separation into API, service, and data layers with role-based access control suited to institutional deployment.
+  \item One shared backend API serves both the React web client and the Flutter mobile app across browsers, iOS, and Android.
+} &
+\swotcell{swotWeakHd}{swotWeakBg}{WEAKNESSES}{%
+  \item RAG-based architecture may limit complex reasoning compared to unrestricted large language models.
+  \item Response quality depends directly on the quality and completeness of uploaded documents.
+  \item Significant AI computation and cloud infrastructure raise operational costs.
+  \item No real-time internet access (by design), limiting the system to pre-uploaded content.
+} \\[10pt]
+\rowcolor{white}\multicolumn{2}{c}{} \\[-6pt]
+\swotcell{swotOppHd}{swotOppBg}{OPPORTUNITIES}{%
+  \item Rapid growth of AI-driven education platforms creates strong demand for scalable academic assistants.
+  \item High student-to-instructor ratios in large universities favor continuous, automated support.
+  \item Potential to expand across faculties, departments, and institutions, adapting to diverse disciplines.
+} &
+\swotcell{swotThreatHd}{swotThreatBg}{THREATS}{%
+  \item General-purpose AI tools offer broader, unrestricted capabilities and wide availability.
+  \item Evolving data-privacy regulations and ethical-AI policies pose compliance challenges.
+  \item Institutional resistance to AI adoption may slow acceptance and deployment.
+} \\
+\end{tabular}
+\caption{SWOT analysis of the DocMind system}
+\label{fig:swot}
+\end{figure}
 
 \newpage
 
 \section{Functional Requirements}
 
-Functional requirements specify the core capabilities and behaviors that the DocMind system must support, as defined in accordance with IEEE/ISO/IEC 29148 as described in [9]. These requirements are organized by system functionality and user role.
+Functional requirements specify the core capabilities and behaviors that the DocMind system must support, as defined in accordance with IEEE/ISO/IEC 29148 [9]. These requirements are organized by system functionality and user role.
 
 \subsection{User Roles and Characteristics}
 
@@ -1369,9 +1540,9 @@ Nonfunctional requirements define the quality attributes and constraints under w
 \subsection{Security Requirements}
 
 \begin{itemize}
-  \item All API traffic shall use Transport Layer Security (TLS) in production deployments; passwords shall be stored using strong one-way hashing (bcrypt in the implementation), in line with established web security guidelines as described in [11].
+  \item All API traffic shall use Transport Layer Security (TLS) in production deployments; passwords shall be stored using strong one-way hashing (bcrypt in the implementation), in line with established web security guidelines [10].
   \item The system shall prevent unauthorized access to academic content through role checks on every protected route.
-  \item The system shall be designed so that institutional data privacy policies can be applied at deployment time (retention, backups, and optional at-rest database encryption are operator responsibilities), in accordance with applicable data protection regulations as described in [12].
+  \item The system shall be designed so that institutional data privacy policies can be applied at deployment time (retention, backups, and optional at-rest database encryption are operator responsibilities), in accordance with applicable data protection regulations [11].
 \end{itemize}
 
 \subsection{Usability Requirements}
@@ -1406,14 +1577,13 @@ The system is also constrained by computational resources, particularly those re
 Additionally, the effectiveness of the system is limited by the quality and completeness of the uploaded academic materials. Incomplete or inaccurate documents may reduce response quality.
 
 \newpage
-\addtocontents{toc}{\protect\newpage}
 \section{System Design}
 
 This section presents the detailed technical design of the DocMind system. It translates the requirements defined above into concrete architectural, structural, and interaction-level design decisions.
 
 \subsection{Design Goals and Principles}
 
-The design of the DocMind system is guided by several key principles that ensure reliability, scalability, and academic suitability, consistent with established software engineering practice as described in [8].
+Several key principles, including reliability, scalability, and academic suitability, underpin the design of the DocMind system, in accordance with established software engineering practice [8].
 
 \begin{itemize}
   \item \textbf{Modularity}: The system is divided into independent components to simplify development, testing, and maintenance.
@@ -1479,7 +1649,7 @@ This module ensures that only the most contextually relevant information is pass
 
 \subsubsection{Response Generation Module}
 
-The response generation module calls a configurable remote Large Language Model (LLM) --- for example Google Gemini, OpenAI, or Cohere Application Programming Interfaces (APIs) --- to produce answers from retrieved chunks and prompt templates, with English and Arabic template locales in the codebase. By default, each chat turn follows a single-shot retrieve-then-generate path; when the agent feature flag is enabled, a planner model may decide whether retrieval runs and with which query before generation.
+The response generation module calls a configurable remote Large Language Model (LLM), for example Google Gemini, OpenAI, or Cohere Application Programming Interfaces (APIs), to produce answers from retrieved chunks and prompt templates, with English and Arabic template locales in the codebase. By default, each chat turn follows a single-shot retrieve-then-generate path; when the agent feature flag is enabled, a planner model may decide whether retrieval runs and with which query before generation.
 
 \newpage
 
@@ -1493,7 +1663,7 @@ The relational database stores structured metadata, including user accounts and 
 
 \subsubsection{Vector Database Design}
 
-Embeddings and chunk metadata are stored in a pluggable vector backend: either PostgreSQL with the pgvector extension as described in [16] (sharing the primary application database URL) or a Qdrant collection as described in [17] (file- or server-backed, depending on deployment). Each embedding is associated with conversation or material identifiers so that retrieval scopes to the correct corpus.
+Embeddings and chunk metadata are stored in a pluggable vector backend: either PostgreSQL with the pgvector extension [15] (sharing the primary application database URL) or a Qdrant collection [16] (file- or server-backed, depending on deployment). Each embedding is associated with conversation or material identifiers so that retrieval scopes to the correct corpus.
 
 This design enables semantic search while keeping the relational model as the source of truth for ownership and permissions.
 
@@ -1608,7 +1778,6 @@ This structured system design provides a solid foundation for implementation, te
 % ════════════════════════════════════════════════════════════════════════════
 %  CHAPTER 4 — IMPLEMENTATION AND TESTING
 % ════════════════════════════════════════════════════════════════════════════
-\addtocontents{toc}{\protect\newpage}
 \chapter{Implementation and Testing}
 
 This chapter describes the working implementation in the DocMind repository: a full-stack prototype comprising a FastAPI backend, PostgreSQL schema with Alembic migrations, optional pgvector or Qdrant for embeddings, and a React frontend. It demonstrates how the concepts, requirements, and design decisions from Chapter 3 are realized in code and in the running application.
@@ -1620,9 +1789,9 @@ The implementation covers the primary user journeys for students, instructors, a
 The DocMind system is implemented using the following technologies:
 
 \begin{itemize}
-  \item \textbf{Backend}: Python 3.10, FastAPI as described in [13], SQLAlchemy (async), Alembic for migrations, Pydantic for data validation.
-  \item \textbf{AI/ML}: an in-house Retrieval-Augmented Generation (RAG) orchestration layer (structure-aware chunking, prompt assembly, and retrieval) that uses LangChain text-splitting utilities as described in [14]; embedding generation and text generation are served by configurable remote providers --- Google Gemini by default, switchable to OpenAI or Cohere --- and an optional \texttt{sentence-transformers} cross-encoder is available for reranking.
-  \item \textbf{Vector Store}: pgvector as described in [16] (PostgreSQL extension) or Qdrant as described in [17], switchable by environment configuration.
+  \item \textbf{Backend}: Python 3.10, FastAPI [12], SQLAlchemy (async), Alembic for migrations, Pydantic for data validation.
+  \item \textbf{AI/ML}: an in-house Retrieval-Augmented Generation (RAG) orchestration layer (structure-aware chunking, prompt assembly, and retrieval) that uses LangChain text-splitting utilities [13]; embedding generation and text generation are served by configurable remote providers (OpenAI by default with ollama, Google Gemini, or Cohere), and an optional \texttt{sentence-transformers} cross-encoder is available for reranking.
+  \item \textbf{Vector Store}: pgvector [15] (PostgreSQL extension) or Qdrant [16], switchable by environment configuration.
   \item \textbf{Relational Database}: PostgreSQL 16 with the pgvector extension.
   \item \textbf{Web Frontend}: React 19 with Vite, Tailwind CSS, React Router, and Axios for API calls.
   \item \textbf{Mobile}: Flutter and Dart, with GetX for state management and dependency injection and Dio for HTTP, organized in Clean Architecture (data, domain, and presentation layers per feature).
@@ -1649,7 +1818,7 @@ The backend follows a layered architecture:
 
 \subsection{Authentication and Authorization}
 
-JSON Web Token (JWT)-based authentication is implemented in AuthService. On successful login, the service issues a signed access token embedding the user's identifier and role. Every protected route uses a FastAPI dependency that validates the token signature, checks expiry, and rejects token identifiers recorded in the blocklist. Role-specific dependencies --- \texttt{require\_student}, \texttt{require\_instructor}, and \texttt{require\_admin} --- are applied to route groups to enforce the principle of least privilege.
+JSON Web Token (JWT)-based authentication is implemented in AuthService. On successful login, the service issues a signed access token embedding the user's identifier and role. Every protected route uses a FastAPI dependency that validates the token signature, checks expiry, and rejects token identifiers recorded in the blocklist. Role-specific dependencies (\texttt{require\_student}, \texttt{require\_instructor}, and \texttt{require\_admin}) are applied to route groups to enforce the principle of least privilege.
 
 \newpage
 \subsection{Document Ingestion Pipeline}
@@ -1774,7 +1943,7 @@ The DocMind system employs a multi-level testing strategy to validate correctnes
 
 \begin{itemize}
   \item \textbf{Unit Testing}: Individual service functions and repository methods are tested in isolation using pytest with async support. Mock objects are used to substitute external dependencies such as the vector store and LLM API.
-  \item \textbf{Integration Testing}: API endpoints are tested end-to-end using an asynchronous HTTP client (\texttt{httpx.AsyncClient}) that drives the application in-process, exercising the full request-response cycle --- including authentication, authorization, and database interaction --- against a dedicated PostgreSQL with pgvector test database, while the language model and vector store are substituted with test doubles.
+  \item \textbf{Integration Testing}: API endpoints are tested end-to-end using an asynchronous HTTP client (\texttt{httpx.AsyncClient}) that drives the application in-process, exercising the full request-response cycle, including authentication, authorization, and database interaction, against a dedicated PostgreSQL with pgvector test database, while the language model and vector store are substituted with test doubles.
   \item \textbf{RAG Pipeline Testing}: The embedding and retrieval pipeline is validated by ingesting known documents and verifying that expected chunks are retrieved for representative queries.
   \item \textbf{Security Testing}: Role-Based Access Control (RBAC) is validated by asserting that requests made with student-role tokens are rejected by instructor and administrator endpoints, and vice versa.
   \item \textbf{User Acceptance Testing (UAT)}: Manual walkthroughs of the primary student, instructor, and administrator user journeys are performed against the running application with seeded data.
@@ -1831,7 +2000,7 @@ Initial evaluation of the running system indicates that document-grounded and su
 
 While the test cases in Table~\ref{tab:test_cases} confirm that each user journey behaves correctly, they do not measure how \emph{good} the generated answers are. To assess answer quality quantitatively, the RAG pipeline was evaluated with RAGAS, a reference-grounded, automated framework that uses a large language model as an independent judge to score retrieval-augmented answers along several complementary dimensions.
 
-The evaluation harness reproduces the production pipeline so that the measured behavior matches the deployed system: the document ingestion and structure-aware chunking logic is ported verbatim from the backend ingestion service, the prompt templates are copied verbatim from the backend RAG templates, and retrieval mirrors the production search path. It was run over a curated question bank of 180 questions spanning 9 university subjects (communication skills, computer and society, computer graphics, computer system security, digital image processing, embedded systems, human-computer interaction, operating systems, and theory of computation), each paired with an instructor-style ground-truth answer. Retrieval parameters mirror the backend configuration (top-$k$ retrieval limit of 5 and a similarity threshold of 0.3), and generation and embedding are served by the configured local backend --- the \texttt{gemma4:e4b} generation model and the \texttt{qwen3-embedding:4b} embedding model --- at a generation temperature of 0.2.
+The evaluation harness reproduces the production pipeline so that the measured behavior matches the deployed system: the document ingestion and structure-aware chunking logic is ported verbatim from the backend ingestion service, the prompt templates are copied verbatim from the backend RAG templates, and retrieval mirrors the production search path. It was run over a curated question bank of 180 questions spanning 9 university subjects (communication skills, computer and society, computer graphics, computer system security, digital image processing, embedded systems, human-computer interaction, operating systems, and theory of computation), each paired with an instructor-style ground-truth answer. Retrieval parameters mirror the backend configuration (top-$k$ retrieval limit of 5 and a similarity threshold of 0.3), and generation and embedding are served by the configured local backend with ollama through OpenAI API, the \texttt{gemma4:e4b} generation model and the \texttt{qwen3-embedding:4b} embedding model, at a generation temperature of 0.2.
 
 To quantify the benefit of the optional reranking stage, two retrieval configurations were scored head-to-head over the same question bank: a baseline that takes the top five vector-similarity matches (\textit{no-rerank}), and the optional cross-encoder path that over-fetches a larger candidate set and rescores it with a \texttt{BAAI/bge-reranker-base} cross-encoder before truncating back to the top five (\textit{with-rerank}). All answers were scored by RAGAS using an independent OpenAI judge model, so that answer quality is assessed by a different model than the one that produced the answers.
 
@@ -1893,31 +2062,28 @@ Theory of Computation      & 0.817 & 0.850 & $+0.033$ \\
 \end{tabular}
 \end{table}
 
-The results validate the core design premise of DocMind. High faithfulness (approximately 0.94--0.96) together with strong context precision and recall (approximately 0.91--0.93) confirm that the pipeline retrieves the right material and that generated answers remain anchored to it rather than to model priors --- the central mechanism by which RAG curbs hallucination in an academic setting. The comparatively lower answer relevancy and answer correctness scores (approximately 0.77) reflect differences in phrasing and completeness relative to the strict instructor-authored ground truth rather than failures of grounding, an outcome consistent with the use of a compact, locally hosted generation model.
+The results validate the core design premise of DocMind. High faithfulness (approximately 0.94--0.96) together with strong context precision and recall (approximately 0.91--0.93) confirm that the pipeline retrieves the right material and that generated answers remain anchored to it rather than to model priors, the central mechanism by which RAG curbs hallucination in an academic setting. The comparatively lower answer relevancy and answer correctness scores (approximately 0.77) reflect differences in phrasing and completeness relative to the strict instructor-authored ground truth rather than failures of grounding, an outcome consistent with the use of a compact, locally hosted generation model.
 
 Enabling cross-encoder reranking produces a small but consistent improvement in the overall mean score (from 0.862 to 0.872), with the clearest gains in faithfulness and context precision. The per-subject breakdown in Table~\ref{tab:ragas_subjects} shows that this benefit is uneven: reranking helps markedly on subjects such as Computer and Society and Theory of Computation, while leaving others essentially unchanged or marginally lower (for example, Digital Image Processing). This mixed, modest effect at additional latency and dependency cost is precisely why reranking ships as an optional, off-by-default stage in the RAG query pipeline, and why hybrid and query-expansion retrieval are identified as future enhancements.
 
 % ════════════════════════════════════════════════════════════════════════════
 %  CHAPTER 5 — CONCLUSIONS AND FUTURE WORK
 % ════════════════════════════════════════════════════════════════════════════
-\addtocontents{toc}{\protect\newpage}
 \chapter{Conclusions and Future Work}
 
 \section{Conclusions}
 
 The DocMind project successfully demonstrates the feasibility of integrating a trustworthy, document-grounded AI assistant into a university academic environment. By employing Retrieval-Augmented Generation (RAG) over explicitly managed document corpora, the system substantially reduces the risk of hallucination compared to unrestricted language model deployments, ensuring that student responses remain anchored to verified course materials.
 
-The implemented system achieves all primary objectives set out in Chapter 1. Role-Based Access Control (RBAC) effectively separates student, instructor, and administrator concerns. The dual interaction model --- encompassing both document-based chat and subject-based tutor chat --- addresses different student learning scenarios within a unified interface. JSON Web Token (JWT)-based authentication with configurable token lifetime and a blocklist-based logout mechanism provides session security appropriate for institutional deployment.
+The implemented system achieves all primary objectives set out in Chapter 1. Role-Based Access Control (RBAC) effectively separates student, instructor, and administrator concerns. The dual interaction model, encompassing both document-based chat and subject-based tutor chat, addresses different student learning scenarios within a unified interface. JSON Web Token (JWT)-based authentication with configurable token lifetime and a blocklist-based logout mechanism provides session security appropriate for institutional deployment.
 
-The literature review confirmed that plain RAG, without necessarily fine-tuning the underlying model, is a practical and cost-effective strategy for domain-specific question-and-answer applications as established in [5]. Paper findings from Barnett et al.\ as described in [3] reinforced this by demonstrating that fine-tuning may degrade RAG performance in specialized domains, while Li et al.\ as described in [4] showed that prompt engineering and retrieval quality have greater impact on answer accuracy than knowledge base size. These insights directly shaped the DocMind retrieval pipeline design.
+The literature review confirmed that plain RAG, without necessarily fine-tuning the underlying model, is a practical and cost-effective strategy for domain-specific question-and-answer applications [5]. Paper findings from Barnett et al.\ [3] reinforced this by demonstrating that fine-tuning may degrade RAG performance in specialized domains, while Li et al.\ [4] showed that prompt engineering and retrieval quality have greater impact on answer accuracy than knowledge base size. These insights directly shaped the DocMind retrieval pipeline design.
 
-The market survey revealed that while commercial tools such as NotebookLM as described in [18], Humata as described in [19], Mindgrasp as described in [20], and AskYourPDF as described in [21] offer overlapping document-chat features, none are designed for institutional multi-role deployment with instructor-controlled knowledge bases. DocMind fills this gap by providing an open, configurable system that institutions can deploy and operate without per-user subscription costs.
+The market survey revealed that while commercial tools such as NotebookLM [17], Humata [18], Mindgrasp [19], and AskYourPDF [20] offer overlapping document-chat features, none are designed for institutional multi-role deployment with instructor-controlled knowledge bases. DocMind fills this gap by providing an open, configurable system that institutions can deploy and operate without per-user subscription costs.
 
 \newpage
 
 In conclusion, DocMind demonstrates that it is possible to build an academically responsible AI assistant that is reliable, role-aware, and deployable within university infrastructure using accessible open-source technologies. The system represents a meaningful contribution to the intersection of artificial intelligence and higher education, providing a foundation that can be extended, hardened for production, and adopted by institutions seeking to improve student learning outcomes without compromising academic integrity.
-
-\newpage
 
 \section{Future Work}
 
@@ -1945,7 +2111,7 @@ The administrator analytics dashboard currently provides usage-level metrics. Fu
 
 \subsection{Production Hardening}
 
-Operational improvements include formal rate limiting on all API endpoints to prevent abuse, encryption at rest for the relational database and vector store, automated integration and regression test coverage tracking, horizontal autoscaling configuration for cloud deployments using Kubernetes-based orchestration, and formal data retention and deletion policies compliant with the General Data Protection Regulation (GDPR) as described in [12] and institutional data governance frameworks.
+Operational improvements include formal rate limiting on all API endpoints to prevent abuse, encryption at rest for the relational database and vector store, automated integration and regression test coverage tracking, horizontal autoscaling configuration for cloud deployments using Kubernetes-based orchestration, and formal data retention and deletion policies compliant with the General Data Protection Regulation (GDPR) [11] and institutional data governance frameworks.
 
 \subsection{Agentic Retrieval Expansion}
 
@@ -1975,31 +2141,29 @@ The optional agentic layer (plan-execute-reflect) is disabled by default in the 
 
   \item I.\ Sommerville, \textit{Software Engineering}, 10th ed. Harlow, UK: Pearson, 2016.
 
-  \item ISO/IEC/IEEE 29148:2018, \textit{Systems and Software Engineering --- Life Cycle Processes --- Requirements Engineering}, IEEE Standards Association, 2018.
+  \item ISO/IEC/IEEE 29148:2018, \textit{Systems and Software Engineering Life Cycle Processes Requirements Engineering}, IEEE Standards Association, 2018.
 
-  \item IEEE Std 1016-2009, \textit{IEEE Standard for Information Technology --- Systems Design --- Software Design Descriptions}, IEEE Computer Society, 2009.
-
-  \item OWASP Foundation, \textit{OWASP Top Ten Web Application Security Risks}, 2023. [Online]. Available: \url{https://owasp.org/www-project-top-ten/}
+  \item OWASP Foundation, \textit{OWASP Top Ten Web Application Security Risks}, 2023. [Online]. Available: \url{https://owasp.org/www-project-top-ten/} (Last access Oct.\ 2025).
 
   \item European Union, ``General Data Protection Regulation (GDPR),'' Regulation (EU) 2016/679, Off.\ J.\ Eur.\ Union, Apr.\ 2016.
 
-  \item S.\ Tiangolo, \textit{FastAPI: Modern, Fast Web Framework for Building APIs with Python}. [Online]. Available: \url{https://fastapi.tiangolo.com}
+  \item S.\ Tiangolo, \textit{FastAPI: Modern, Fast Web Framework for Building APIs with Python}. [Online]. Available: \url{https://fastapi.tiangolo.com} (Last access Oct.\ 2025).
 
-  \item J.\ Harrison, \textit{LangChain: Building Applications with LLMs}. [Online]. Available: \url{https://python.langchain.com}
+  \item J.\ Harrison, \textit{LangChain: Building Applications with LLMs}. [Online]. Available: \url{https://python.langchain.com} (Last access Oct.\ 2025).
 
-  \item A.\ Johnson et al., ``FAISS: A Library for Efficient Similarity Search,'' Facebook AI Research. [Online]. Available: \url{https://github.com/facebookresearch/faiss}
+  \item A.\ Johnson et al., ``FAISS: A Library for Efficient Similarity Search,'' Facebook AI Research. [Online]. Available: \url{https://github.com/facebookresearch/faiss} (Last access Oct.\ 2025).
 
-  \item pgvector Contributors, \textit{pgvector: Open-Source Vector Similarity Search for PostgreSQL}. [Online]. Available: \url{https://github.com/pgvector/pgvector}
+  \item pgvector Contributors, \textit{pgvector: Open-Source Vector Similarity Search for PostgreSQL}. [Online]. Available: \url{https://github.com/pgvector/pgvector} (Last access Mar.\ 2026).
 
-  \item Qdrant Team, \textit{Qdrant Vector Database Documentation}. [Online]. Available: \url{https://qdrant.tech/documentation/}
+  \item Qdrant Team, \textit{Qdrant Vector Database Documentation}. [Online]. Available: \url{https://qdrant.tech/documentation/} (Last access Oct.\ 2025).
 
-  \item Google, \textit{NotebookLM: AI-Powered Research and Learning Tool}. [Online]. Available: \url{https://notebooklm.google.com}
+  \item Google, \textit{NotebookLM: AI-Powered Research and Learning Tool}. [Online]. Available: \url{https://notebooklm.google.com} (Last access Oct.\ 2025).
 
-  \item Humata AI, \textit{Humata: AI-Powered Document Assistant}. [Online]. Available: \url{https://www.humata.ai}
+  \item Humata AI, \textit{Humata: AI-Powered Document Assistant}. [Online]. Available: \url{https://www.humata.ai} (Last access Oct.\ 2025).
 
-  \item Mindgrasp, \textit{Mindgrasp: AI Learning and Study Platform}. [Online]. Available: \url{https://mindgrasp.ai}
+  \item Mindgrasp, \textit{Mindgrasp: AI Learning and Study Platform}. [Online]. Available: \url{https://mindgrasp.ai} (Last access Oct.\ 2025).
 
-  \item AskYourPDF, \textit{AskYourPDF: Chat with Your Documents}. [Online]. Available: \url{https://askyourpdf.com}
+  \item AskYourPDF, \textit{AskYourPDF: Chat with Your Documents}. [Online]. Available: \url{https://askyourpdf.com} (Last access Oct.\ 2025).
 
 \end{list}
 
