@@ -18,7 +18,41 @@ function clearAllAuthStorage() {
   }
 }
 
+/** Portal-demo SSO: token passed via ?sso= on redirect from sso-bridge.html */
+function readSsoFromUrl() {
+  try {
+    const params = new URLSearchParams(window.location.search)
+    const sso = params.get('sso')
+    if (!sso) return null
+
+    const payload = JSON.parse(decodeURIComponent(sso))
+    if (!payload?.token || !payload?.user) return null
+
+    params.delete('sso')
+    const qs = params.toString()
+    const clean = qs
+      ? `${window.location.pathname}?${qs}`
+      : window.location.pathname
+    window.history.replaceState({}, '', clean)
+
+    return { token: payload.token, user: payload.user, role: payload.user.role }
+  } catch {
+    return null
+  }
+}
+
 function readStoredAuth() {
+  const ssoAuth = readSsoFromUrl()
+  if (ssoAuth) {
+    try {
+      localStorage.setItem(AUTH_TOKEN_KEY, ssoAuth.token)
+      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(ssoAuth.user))
+    } catch {
+      /* swallow */
+    }
+    return ssoAuth
+  }
+
   try {
     const token = localStorage.getItem(AUTH_TOKEN_KEY)
     const raw = localStorage.getItem(AUTH_USER_KEY)

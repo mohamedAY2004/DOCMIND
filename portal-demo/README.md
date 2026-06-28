@@ -19,13 +19,26 @@ login.html  ──▶  portal.html  ──▶  sso-bridge.html  ──▶  DocMi
 |---|---|
 | `login.html` | AASTMT portal login clone (Registration Number + Pin Code) |
 | `portal.html` | Portal dashboard with all standard services + the DocMind card |
-| `sso-bridge.html` | Animated SSO hand-off page that "passes" the session to DocMind |
+| `sso-bridge.html` | Plain portal loading screen while SSO hand-off runs, then redirect to DocMind |
 
 ---
 
 ## How to Use
 
-1. **Open `login.html`** in any browser (no server needed — pure HTML/JS).
+> **Serve over HTTP** — do not open the HTML files directly (`file://`). Browsers block cross-origin API calls from `file://`, and the backend will reject the CORS preflight (`OPTIONS /api/auth/login` → 400).
+
+From the `portal-demo` folder:
+
+```bash
+# Python (port 8080 — already allowed in backend CORS_ORIGINS)
+python -m http.server 8080
+
+# Or VS Code Live Server (port 5500 — also allowed)
+```
+
+Then open `http://localhost:8080/login.html` (or your Live Server URL).
+
+1. **Open `login.html`** via the local server above.
 2. Enter **any** Registration Number and Pin Code (e.g. `2210097510` / `1234`).
 3. Check the fake CAPTCHA checkbox and click **Login**.
 4. You land on the **portal dashboard** — all standard services are decorative links.
@@ -36,7 +49,12 @@ login.html  ──▶  portal.html  ──▶  sso-bridge.html  ──▶  DocMi
 
 ## Configuration
 
-By default the SSO bridge redirects to `http://localhost:5173` (Vite dev server).
+The SSO bridge calls `http://localhost:5000/api/auth/login` by default (matches `uvicorn --port 5000`). Override at runtime:
+
+```js
+sessionStorage.setItem('docmind_api', 'http://localhost:5000/api');
+sessionStorage.setItem('docmind_url', 'http://localhost:5173');
+```
 
 To change the DocMind URL at runtime, set it in `sessionStorage` from the portal page:
 ```js

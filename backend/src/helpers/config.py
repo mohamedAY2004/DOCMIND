@@ -112,7 +112,14 @@ class Settings(BaseSettings):
     # ==================== CORS ====================
     # Comma-separated list in the env file, e.g.
     #   CORS_ORIGINS="http://localhost:5173,https://docmind.example.com"
-    CORS_ORIGINS: List[str] = ["http://localhost:5173"]
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:5173",
+        # portal-demo static server (Live Server, python -m http.server, etc.)
+        "http://127.0.0.1:5500",
+        "http://localhost:5500",
+        "http://127.0.0.1:8080",
+        "http://localhost:8080",
+    ]
 
     # ==================== Misc ====================
     STUDENT_ACCESS_DEFAULT_ENABLED: bool = True

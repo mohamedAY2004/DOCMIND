@@ -1,416 +1,162 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Launching DocMind…</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <title>Student Portal</title>
   <style>
-    *,
-    *::before,
-    *::after {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Inter', sans-serif;
-      background: #0f0c29;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #e9ecef;
       min-height: 100vh;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      color: #fff;
-      overflow: hidden;
     }
 
-    /* Background particle dots */
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background:
-        radial-gradient(circle at 20% 20%, rgba(0, 119, 182, 0.25) 0%, transparent 50%),
-        radial-gradient(circle at 80% 80%, rgba(88, 28, 235, 0.2) 0%, transparent 50%),
-        radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0) 0%, #0f0c29 100%);
-      pointer-events: none;
-    }
-
-    .card {
-      position: relative;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 20px;
-      padding: 52px 60px;
+    .loading-screen {
       text-align: center;
-      max-width: 480px;
-      width: 90%;
-      backdrop-filter: blur(12px);
-      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
-      animation: slideUp 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards;
     }
 
-    @keyframes slideUp {
-      from {
-        opacity: 0;
-        transform: translateY(30px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    /* Portal → DocMind flow visual */
-    .flow {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      margin-bottom: 32px;
-    }
-
-    .flow-node {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .flow-node-icon {
+    /* 8-dot ring spinner (matches AASTMT portal style) */
+    .spinner {
+      position: relative;
       width: 48px;
       height: 48px;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.5rem;
-      overflow: hidden;
+      margin: 0 auto 28px;
     }
 
-    .flow-node-icon img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-    }
-
-    .flow-node-icon.portal-icon {
-      background: #fff;
-      box-shadow: 0 4px 16px rgba(0, 119, 182, 0.3);
-      padding: 4px;
-    }
-
-    .flow-node-icon.docmind-icon {
-      background: linear-gradient(135deg, #0a3d5c, #1a6a6a);
-      box-shadow: 0 4px 20px rgba(88, 28, 235, 0.4);
-      padding: 6px;
-    }
-
-    .flow-node-label {
-      font-size: 0.7rem;
-      color: rgba(255, 255, 255, 0.55);
-      font-weight: 500;
-    }
-
-    .flow-arrow {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 2px;
-      padding-bottom: 18px;
-    }
-
-    .flow-arrow-line {
-      width: 40px;
-      height: 2px;
-      background: linear-gradient(90deg, rgba(0, 119, 182, 0.6), rgba(88, 28, 235, 0.6));
-      position: relative;
-      overflow: visible;
-    }
-
-    .flow-arrow-line::after {
-      content: '';
+    .spinner span {
       position: absolute;
-      right: -1px;
+      left: 50%;
       top: 50%;
-      transform: translateY(-50%);
-      border-left: 8px solid rgba(88, 28, 235, 0.7);
-      border-top: 5px solid transparent;
-      border-bottom: 5px solid transparent;
-    }
-
-    /* Animated transfer dot */
-    .transfer-dot {
-      position: absolute;
-      top: 50%;
-      left: 0;
       width: 8px;
       height: 8px;
-      background: #fff;
+      margin: -4px 0 0 -4px;
+      background: #6c757d;
       border-radius: 50%;
-      transform: translateY(-50%);
-      box-shadow: 0 0 6px 2px rgba(0, 200, 255, 0.8);
-      animation: travel 1.2s ease-in-out infinite;
+      animation: dot-fade 1.2s linear infinite;
     }
 
-    @keyframes travel {
-      0% {
-        left: 0;
-        opacity: 0;
-      }
+    .spinner span:nth-child(1)  { transform: rotate(0deg)   translateY(-20px); animation-delay: 0s; }
+    .spinner span:nth-child(2)  { transform: rotate(45deg)  translateY(-20px); animation-delay: -1.05s; }
+    .spinner span:nth-child(3)  { transform: rotate(90deg)  translateY(-20px); animation-delay: -0.9s; }
+    .spinner span:nth-child(4)  { transform: rotate(135deg) translateY(-20px); animation-delay: -0.75s; }
+    .spinner span:nth-child(5)  { transform: rotate(180deg) translateY(-20px); animation-delay: -0.6s; }
+    .spinner span:nth-child(6)  { transform: rotate(225deg) translateY(-20px); animation-delay: -0.45s; }
+    .spinner span:nth-child(7)  { transform: rotate(270deg) translateY(-20px); animation-delay: -0.3s; }
+    .spinner span:nth-child(8)  { transform: rotate(315deg) translateY(-20px); animation-delay: -0.15s; }
 
-      20% {
-        opacity: 1;
-      }
-
-      80% {
-        opacity: 1;
-      }
-
-      100% {
-        left: calc(100% - 8px);
-        opacity: 0;
-      }
+    @keyframes dot-fade {
+      0%, 39%, 100% { opacity: 0.25; }
+      40% { opacity: 1; }
     }
 
-    /* Title */
-    h1 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      margin-bottom: 8px;
+    .loading-text {
+      font-size: 1.35rem;
+      font-weight: 600;
+      color: #5a6268;
+      letter-spacing: 0.01em;
     }
 
-    h1 span {
-      color: #60a5fa;
+    .error-text {
+      display: none;
+      margin-top: 16px;
+      font-size: 0.9rem;
+      color: #b91c1c;
+      max-width: 420px;
+      line-height: 1.5;
     }
 
-    .subtitle {
-      font-size: 0.88rem;
-      color: rgba(255, 255, 255, 0.6);
-      margin-bottom: 36px;
-      line-height: 1.55;
-    }
-
-    /* SSO info pills */
-    .sso-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: rgba(255, 255, 255, 0.07);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 30px;
-      padding: 5px 14px;
-      font-size: 0.75rem;
-      color: rgba(255, 255, 255, 0.75);
-      margin: 0 4px 8px;
-    }
-
-    .sso-pill .dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #4ade80;
-      box-shadow: 0 0 4px #4ade80;
-      animation: blink 1.2s ease infinite;
-    }
-
-    @keyframes blink {
-
-      0%,
-      100% {
-        opacity: 1;
-      }
-
-      50% {
-        opacity: 0.3;
-      }
-    }
-
-    .pills-row {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      margin-bottom: 32px;
-    }
-
-    /* Progress bar */
-    .progress-track {
-      width: 100%;
-      height: 4px;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 4px;
-      overflow: hidden;
-      margin-bottom: 12px;
-    }
-
-    .progress-fill {
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, #0077b6, #60a5fa, #581ce3);
-      border-radius: 4px;
-      transition: width 0.1s linear;
-    }
-
-    .progress-label {
-      font-size: 0.75rem;
-      color: rgba(255, 255, 255, 0.45);
-    }
-
-    /* Step messages */
-    .step-msg {
-      font-size: 0.82rem;
-      color: rgba(255, 255, 255, 0.65);
-      margin-top: 18px;
-      min-height: 20px;
-      transition: opacity 0.3s;
-    }
+    .error-text.visible { display: block; }
   </style>
 </head>
-
 <body>
-  <div class="card">
-
-    <!-- Portal → DocMind Flow -->
-    <div class="flow">
-      <div class="flow-node">
-        <div class="flow-node-icon portal-icon"><img src="images/AASTMT_Logo.png" alt="AASTMT" /></div>
-        <div class="flow-node-label">AASTMT Portal</div>
-      </div>
-
-      <div class="flow-arrow">
-        <div class="flow-arrow-line">
-          <div class="transfer-dot"></div>
-        </div>
-      </div>
-
-      <div class="flow-node">
-        <div class="flow-node-icon docmind-icon"><img src="../frontend/src/assets/docmind-logo.png" alt="DocMind" />
-        </div>
-        <div class="flow-node-label">DocMind</div>
-      </div>
+  <div class="loading-screen">
+    <div class="spinner" id="spinner" aria-hidden="true">
+      <span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span>
     </div>
-
-    <h1>Launching <span>DocMind</span></h1>
-    <p class="subtitle">
-      Your portal session is being securely passed to DocMind.<br />
-      No separate login required.
-    </p>
-
-    <!-- SSO pills -->
-    <div class="pills-row">
-      <div class="sso-pill"><span class="dot"></span> <span id="pillName">Student ID verified</span></div>
-      <div class="sso-pill"><span class="dot"></span> SSO token issued</div>
-      <div class="sso-pill"><span class="dot"></span> Secure handoff</div>
-    </div>
-
-    <!-- Progress -->
-    <div class="progress-track">
-      <div class="progress-fill" id="progressFill"></div>
-    </div>
-    <div class="progress-label" id="progressPct">0%</div>
-    <div class="step-msg" id="stepMsg">Authenticating with AASTMT portal…</div>
-
+    <p class="loading-text" id="loadingText">Student Portal is Loading ...</p>
+    <p class="error-text" id="errorText"></p>
   </div>
 
   <script>
-    // ═══════════════════════════════════════════════════════
-    //  DEMO CONFIGURATION
-    //  Set the DocMind credentials that the portal SSO will
-    //  use to auto-login. Change these to a real student
-    //  account that exists in your DocMind backend.
-    // ═══════════════════════════════════════════════════════
-    const DOCMIND_USERNAME = 'aya_s';   //
-    const DOCMIND_PASSWORD = 'student123';   //
-    const API_BASE_URL = 'http://localhost:5000/api';
-    const DOCMIND_APP_URL = 'http://localhost:5173';
-    // ═══════════════════════════════════════════════════════
+    const DOCMIND_USERNAME = 'aya_s';
+    const DOCMIND_PASSWORD = 'student123';
+    const API_BASE_URL = sessionStorage.getItem('docmind_api')
+      || `http://${window.location.hostname}:5000/api`;
+    const DOCMIND_APP_URL = sessionStorage.getItem('docmind_url')
+      || 'http://localhost:5173';
 
-    const name = sessionStorage.getItem('portal_name') || 'Student';
-    const reg = sessionStorage.getItem('portal_reg') || '';
+    const errorEl = document.getElementById('errorText');
+    const spinnerEl = document.getElementById('spinner');
+    const loadingTextEl = document.getElementById('loadingText');
 
-    // Update pill with actual student
-    document.getElementById('pillName').textContent =
-      reg ? `ID ${reg} verified` : 'Student ID verified';
+    function showError(message) {
+      spinnerEl.style.display = 'none';
+      loadingTextEl.style.display = 'none';
+      errorEl.textContent = message;
+      errorEl.classList.add('visible');
+    }
 
-    const steps = [
-      { pct: 15, msg: `Authenticating as ${name.split(' ')[0]}…` },
-      { pct: 35, msg: 'Validating portal session token…' },
-      { pct: 55, msg: 'Generating SSO credentials for DocMind…' },
-      { pct: 75, msg: 'Establishing secure connection…' },
-      { pct: 92, msg: 'Preparing your DocMind workspace…' },
-      { pct: 100, msg: 'Done! Redirecting to DocMind…' },
-    ];
+    async function loginToDocMind() {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
 
-    const fill = document.getElementById('progressFill');
-    const pctEl = document.getElementById('progressPct');
-    const msgEl = document.getElementById('stepMsg');
+      try {
+        const res = await fetch(`${API_BASE_URL}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: DOCMIND_USERNAME, password: DOCMIND_PASSWORD }),
+          signal: controller.signal,
+        });
 
-    let i = 0;
-    let loginResult = null;
-    let loginError = null;
-    const delays = [400, 700, 600, 600, 700, 500];
-
-    // Fire the real backend login in parallel with the animation
-    const loginPromise = fetch(`${API_BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: DOCMIND_USERNAME, password: DOCMIND_PASSWORD }),
-    })
-      .then(async (res) => {
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
-          throw new Error(body.message || `Login failed (HTTP ${res.status})`);
+          const detail = body.message || body.detail || `HTTP ${res.status}`;
+          throw new Error(detail);
         }
-        return res.json();
-      })
-      .then((data) => { loginResult = data; })
-      .catch((err) => { loginError = err; });
 
-    function runStep() {
-      if (i >= steps.length) return;
-      const s = steps[i];
-      fill.style.width = s.pct + '%';
-      pctEl.textContent = s.pct + '%';
-      msgEl.style.opacity = '0';
-      setTimeout(() => {
-        msgEl.textContent = s.msg;
-        msgEl.style.opacity = '1';
-      }, 150);
-
-      i++;
-      if (i < steps.length) {
-        setTimeout(runStep, delays[i]);
-      } else {
-        // Animation finished — wait for login API to complete, then redirect
-        loginPromise.then(() => {
-          if (loginError) {
-            msgEl.textContent = '⚠ SSO Error: ' + loginError.message;
-            msgEl.style.color = '#f87171';
-            fill.style.background = '#f87171';
-            return;
-          }
-
-          // Pass auth data via URL so the React app (different origin) can consume it.
-          // localStorage is origin-scoped, so we can't set it from here.
-          const ssoPayload = encodeURIComponent(JSON.stringify({
-            token: loginResult.token,
-            user: loginResult.user,
-          }));
-
-          setTimeout(() => {
-            window.location.href = DOCMIND_APP_URL + '/home?sso=' + ssoPayload;
-          }, 600);
-        });
+        const data = await res.json();
+        if (!data?.token || !data?.user) {
+          throw new Error('Login response missing token or user');
+        }
+        return data;
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          throw new Error(`Timed out reaching ${API_BASE_URL}. Is the backend running?`);
+        }
+        if (err.message === 'Failed to fetch') {
+          throw new Error(
+            `Cannot reach ${API_BASE_URL}. Check backend port and CORS (origin: ${window.location.origin}).`
+          );
+        }
+        throw err;
+      } finally {
+        clearTimeout(timeout);
       }
     }
 
-    setTimeout(runStep, 600);
+    async function startHandoff() {
+      try {
+        const loginResult = await loginToDocMind();
+
+        const ssoPayload = encodeURIComponent(JSON.stringify({
+          token: loginResult.token,
+          user: loginResult.user,
+        }));
+
+        window.location.href = `${DOCMIND_APP_URL}/home?sso=${ssoPayload}`;
+      } catch (err) {
+        showError(err.message || 'Unable to open application. Please try again.');
+        console.error('SSO handoff failed:', err);
+      }
+    }
+
+    startHandoff();
   </script>
 </body>
-
 </html>
