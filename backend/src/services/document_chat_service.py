@@ -131,7 +131,9 @@ class DocumentChatService:
         saved, job = await self._save_file(conv.id, upload)
         return _file_response(saved), job
 
-    async def remove_file(self, owner: User, conv_id: str, file_id: str) -> None:
+    async def remove_file(
+        self, owner: User, conv_id: str, file_id: str, rag: RAGService
+    ) -> None:
         conv = await self._load_owned(owner, conv_id)
         all_files = await self._files.list_for_conversation(conv.id)
         if len(all_files) <= 1:
@@ -146,6 +148,10 @@ class DocumentChatService:
                 ErrorCode.NOT_FOUND, status.HTTP_404_NOT_FOUND, "File not found."
             )
         await self._files.delete(target)
+        # Evict the file's chunks from the conversation's collection so chat
+        # stops answering from removed documents. Runs before the request
+        # commits: a failure rolls the row delete back so removal can be retried.
+        await rag.delete_material(collection_for_conversation(conv.id), file_id)
         if target.storage_path and os.path.exists(target.storage_path):
             try:
                 os.unlink(target.storage_path)

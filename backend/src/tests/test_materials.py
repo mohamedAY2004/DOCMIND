@@ -129,6 +129,38 @@ async def test_delete_material(client, seed):
     assert resp.status_code == 204
 
 
+async def test_delete_material_evicts_chunks(client, seed, app, pdf_bytes, monkeypatch):
+    """Deleting a material must also evict its chunks from the subject's tutor
+    collection — otherwise the tutor keeps retrieving the deleted content."""
+    sup, _viewer = await _subject_with_super(seed)
+    from services.ingestion_service import IngestedChunk
+
+    monkeypatch.setattr(
+        "services.material_service.ingest_file",
+        lambda path: [IngestedChunk(text="stale chunk", metadata={"page": 1})],
+    )
+    resp = await client.post(
+        "/api/subjects/mat-sub/materials",
+        files={"file": ("lecture.pdf", pdf_bytes, "application/pdf")},
+        data={"name": "ToEvict"},
+        headers=auth_header(sup),
+    )
+    assert resp.status_code == 201, resp.text
+    mat_id = resp.json()["id"]
+
+    def chunks_for(material_id):
+        store = app.state.vectordb_client.collections.get("tutor_mat-sub", {})
+        return [m for _, _, m in store.values() if m.get("material_id") == material_id]
+
+    assert chunks_for(mat_id), "indexing should have stored chunks for the material"
+
+    delete = await client.delete(
+        f"/api/subjects/mat-sub/materials/{mat_id}", headers=auth_header(sup)
+    )
+    assert delete.status_code == 204
+    assert not chunks_for(mat_id), "deleted material's chunks must leave the vector store"
+
+
 async def test_materials_requires_role(client, seed):
     student = await seed.student()
     await seed.subject(id="mat-sub2", instructors=[], students=[student])

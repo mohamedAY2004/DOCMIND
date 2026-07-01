@@ -115,6 +115,18 @@ class FakeVectorDB(VectorDBInterface):
         for text, vec, meta, rid in zip(texts, vectors, metas, ids):
             self.collections[collection_name][rid] = (text, vec, meta or {})
 
+    async def delete_by_material_id(self, collection_name: str, material_id: str) -> bool:
+        store = self.collections.get(collection_name)
+        if store is None:
+            return False
+        stale = [
+            rid for rid, (_, _, meta) in store.items()
+            if (meta or {}).get("material_id") == material_id
+        ]
+        for rid in stale:
+            del store[rid]
+        return True
+
     async def search_by_vector(
         self, collection_name: str, vector: list, limit: int, threshold: float,
         material_ids: list | None = None,

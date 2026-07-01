@@ -190,11 +190,14 @@ async def list_doc_files(
 async def delete_doc_file(
     conv_id: str,
     file_id: str,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     student: User = Depends(require_role(UserRole.STUDENT)),
     _gate: User = Depends(require_student_access),
 ) -> None:
-    await DocumentChatService(session).remove_file(student, conv_id, file_id)
+    await DocumentChatService(session).remove_file(
+        student, conv_id, file_id, _rag_service(request)
+    )
 
 
 @router.post(

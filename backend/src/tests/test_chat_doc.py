@@ -95,6 +95,43 @@ async def test_add_and_delete_file(client, seed, pdf_bytes, monkeypatch):
     assert delete.status_code == 204
 
 
+async def test_delete_file_evicts_chunks(client, seed, app, pdf_bytes, monkeypatch):
+    """Removing a doc-chat file must also evict its chunks from the
+    conversation's collection so chat stops answering from it."""
+    student = await seed.student(username="doc_evict")
+    conv = await seed.doc_conversation(owner_id=student.id)
+    await seed.doc_file(conv.id, name="keep.pdf")  # existing first file
+
+    from services.ingestion_service import IngestedChunk
+
+    monkeypatch.setattr(
+        "services.document_chat_service.ingest_file",
+        lambda path: [IngestedChunk(text="evict me", metadata={})],
+    )
+    add = await client.post(
+        f"/api/chat/doc/conversations/{conv.id}/files",
+        files={"file": ("second.pdf", pdf_bytes, "application/pdf")},
+        headers=auth_header(student),
+    )
+    assert add.status_code == 201, add.text
+    file_id = add.json()["id"]
+
+    collection = f"doc_{conv.id}".lower()
+
+    def chunks_for(fid):
+        store = app.state.vectordb_client.collections.get(collection, {})
+        return [m for _, _, m in store.values() if m.get("material_id") == fid]
+
+    assert chunks_for(file_id), "indexing should have stored chunks for the file"
+
+    delete = await client.delete(
+        f"/api/chat/doc/conversations/{conv.id}/files/{file_id}",
+        headers=auth_header(student),
+    )
+    assert delete.status_code == 204
+    assert not chunks_for(file_id), "deleted file's chunks must leave the vector store"
+
+
 async def test_cannot_delete_last_file(client, seed):
     student = await seed.student(username="doc_last")
     conv = await seed.doc_conversation(owner_id=student.id)

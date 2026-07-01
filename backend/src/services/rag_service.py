@@ -150,6 +150,16 @@ class RAGService:
     async def delete_collection(self, collection_name: str) -> None:
         await self._vectordb.delete_collection(collection_name=collection_name)
 
+    async def delete_material(self, collection_name: str, material_id: str) -> None:
+        """Evict every chunk owned by one material/file from a collection.
+
+        Must be called whenever a material or doc-chat file is deleted;
+        otherwise its chunks stay searchable and chat keeps citing them.
+        """
+        await self._vectordb.delete_by_material_id(
+            collection_name=collection_name, material_id=material_id
+        )
+
     async def search(
         self,
         collection_name: str,

@@ -98,6 +98,20 @@ class QdrantDBProvider(VectorDBInterface):
         return True
 
 
+    async def delete_by_material_id(self, collection_name: str, material_id: str) -> bool:
+        if not await self.is_collection_exists(collection_name):
+            return False
+        await self.client.delete(
+            collection_name=collection_name,
+            points_selector=models.FilterSelector(filter=models.Filter(must=[
+                models.FieldCondition(
+                    key="metadata.material_id",
+                    match=models.MatchValue(value=material_id),
+                )
+            ])),
+        )
+        return True
+
     async def search_by_vector(self, collection_name: str, vector: list, limit: int,threshold: float = 0.5,
                                material_ids: Optional[List[str]] = None)->List[RetrievedChunk]:
         if not await self.is_collection_exists(collection_name):

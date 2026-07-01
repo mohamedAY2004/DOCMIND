@@ -207,6 +207,27 @@ class PgVectorProvider(VectorDBInterface):
                 return False
         return True
 
+    async def delete_by_material_id(self, collection_name: str, material_id: str) -> bool:
+        if not await self.is_collection_exists(collection_name):
+            return False
+        # Chunks are stamped with metadata.material_id at index time; the id
+        # LIKE clause additionally catches chunks indexed before stamping
+        # existed (record ids embed the material id as a prefix).
+        legacy_id_pattern = f"{collection_name}_{material_id.replace('-', '')}_%"
+        result = await self.pool.execute(
+            """DELETE FROM vector_embeddings
+               WHERE collection_name = $1
+                 AND (metadata->>'material_id' = $2 OR id LIKE $3)""",
+            collection_name,
+            material_id,
+            legacy_id_pattern,
+        )
+        self.logger.info(
+            "Deleted chunks for material %s in collection %s: %s",
+            material_id, collection_name, result,
+        )
+        return True
+
     async def search_by_vector(self, collection_name: str, vector: list,
                                limit: int, threshold: float = 0.5,
                                material_ids: Optional[List[str]] = None) -> List[RetrievedChunk]:

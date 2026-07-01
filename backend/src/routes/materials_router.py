@@ -114,10 +114,13 @@ async def patch_material(
 async def delete_material(
     subject_id: str,
     material_id: str,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_role(UserRole.INSTRUCTOR, UserRole.ADMIN)),
 ) -> None:
-    await MaterialService(session).delete(user, subject_id, material_id)
+    await MaterialService(session).delete(
+        user, subject_id, material_id, _rag_service(request)
+    )
 
 
 @router.get("/{subject_id}/materials/{material_id}/download")

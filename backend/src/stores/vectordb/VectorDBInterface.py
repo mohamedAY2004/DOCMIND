@@ -52,4 +52,10 @@ class VectorDBInterface(ABC):
         """Similarity search, optionally scoped to chunks whose stamped
         ``metadata.material_id`` is in ``material_ids`` (None = no scope)."""
         pass
+
+    @abstractmethod
+    async def delete_by_material_id(self, collection_name: str, material_id: str) -> bool:
+        """Remove every chunk stamped with ``metadata.material_id`` from the
+        collection, so deleting a material/file also evicts its vectors."""
+        pass
     

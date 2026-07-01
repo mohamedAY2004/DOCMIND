@@ -288,7 +288,7 @@ class MaterialService:
         return self._to_response(material, uploader)
 
     async def delete(
-        self, caller: User, subject_id: str, material_id: str
+        self, caller: User, subject_id: str, material_id: str, rag: RAGService
     ) -> None:
         await self._ensure_can_upload(caller, subject_id)
         await self._ensure_not_archived(subject_id)
@@ -306,6 +306,11 @@ class MaterialService:
             meta={"subjectId": subject_id, "materialId": material_id},
         )
         await self._materials.delete(material)
+        # Evict the material's chunks from the subject's tutor collection so
+        # the tutor stops retrieving deleted content. Runs before the request
+        # commits: if it raises, the row delete rolls back and the instructor
+        # can retry — never a deleted row with live vectors.
+        await rag.delete_material(collection_for_subject(subject_id), material_id)
         try:
             if material.storage_path and os.path.exists(material.storage_path):
                 os.unlink(material.storage_path)
