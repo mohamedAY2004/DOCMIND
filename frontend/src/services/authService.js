@@ -13,6 +13,17 @@ import { STUDENT_ACCESS_DISABLED } from '../constants/studentAccess'
 function extractServerMessage(err, fallback) {
   const data = err?.response?.data
   if (data?.message) return data.message
+
+  // No response object → the request never reached (or never heard back from)
+  // the server: backend down, connection refused, DNS/CORS, or a timeout.
+  // These must NOT be reported as a credential error.
+  if (!err?.response) {
+    if (err?.code === 'ECONNABORTED' || /timeout/i.test(err?.message ?? '')) {
+      return 'The server took too long to respond. Please try again.'
+    }
+    return 'Cannot reach the server. Please check your connection and try again.'
+  }
+
   return fallback
 }
 
@@ -35,7 +46,13 @@ export async function login(username, password) {
       throw wrapped
     }
 
-    throw new Error(extractServerMessage(err, 'Invalid username or password.'))
+    // Reserve the credential message for an actual 401; other statuses fall
+    // back to a neutral message so a 5xx isn't mislabeled as bad credentials.
+    const fallback =
+      status === 401
+        ? 'Invalid username or password.'
+        : 'Something went wrong while signing in. Please try again.'
+    throw new Error(extractServerMessage(err, fallback))
   }
 }
 
