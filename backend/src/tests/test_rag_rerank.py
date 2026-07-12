@@ -21,11 +21,12 @@ class _SpyVectorDB(FakeVectorDB):
         self.last_material_ids = None
 
     async def search_by_vector(self, collection_name, vector, limit, threshold,
-                               material_ids=None):
+                               material_ids=None, with_vectors=False):
         self.last_limit = limit
         self.last_material_ids = material_ids
         return await super().search_by_vector(
-            collection_name, vector, limit, threshold, material_ids=material_ids
+            collection_name, vector, limit, threshold, material_ids=material_ids,
+            with_vectors=with_vectors,
         )
 
 

@@ -49,6 +49,9 @@ def _rag_service(request: Request) -> RAGService:
         rerank_client=getattr(request.app.state, "rerank_client", None),
         rerank_overfetch=settings.RERANK_OVERFETCH,
         rerank_top_n=settings.RERANK_TOP_N,
+        mmr_enabled=settings.MMR_ENABLED,
+        mmr_lambda=settings.MMR_LAMBDA,
+        mmr_overfetch=settings.MMR_OVERFETCH,
     )
 
 

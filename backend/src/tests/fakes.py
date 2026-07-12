@@ -129,7 +129,7 @@ class FakeVectorDB(VectorDBInterface):
 
     async def search_by_vector(
         self, collection_name: str, vector: list, limit: int, threshold: float,
-        material_ids: list | None = None,
+        material_ids: list | None = None, with_vectors: bool = False,
     ) -> List[RetrievedChunk]:
         store = self.collections.get(collection_name)
         if not store:
@@ -142,7 +142,10 @@ class FakeVectorDB(VectorDBInterface):
             if material_ids and (meta or {}).get("material_id") not in material_ids:
                 continue
             score = float(sum(a * b for a, b in zip(vector, vec)))
-            scored.append(RetrievedChunk(chunk_text=text, score=score, chunk_metadata=meta or {}))
+            scored.append(RetrievedChunk(
+                chunk_text=text, score=score, chunk_metadata=meta or {},
+                embedding=list(vec) if with_vectors else None,
+            ))
         scored.sort(key=lambda c: c.score, reverse=True)
         return scored[:limit]
 

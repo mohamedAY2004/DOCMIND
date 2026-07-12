@@ -151,6 +151,15 @@ async def _startup() -> None:
     else:
         app.rerank_client = None
 
+    # ----- MMR diversity prefilter (optional; ``MMR_ENABLED`` in .env) -----
+    # Pure function, no client object — logged here for startup visibility.
+    if settings.MMR_ENABLED:
+        logger.info(
+            "MMR diversity enabled lambda=%s overfetch=%s",
+            settings.MMR_LAMBDA,
+            settings.MMR_OVERFETCH,
+        )
+
     # Mirror onto ``app.state`` so the new routes (which use ``request.app.state``)
     # can access the same singletons.
     app.state.generation_client = app.generation_client

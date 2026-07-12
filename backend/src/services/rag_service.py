@@ -13,6 +13,7 @@ from typing import List, Optional
 from stores.llm.LLMEnums import DocumentTypeEnum
 
 from services.ingestion_service import IngestedChunk
+from services.mmr import mmr_select
 
 logger = logging.getLogger("docmind.rag")
 
@@ -64,6 +65,9 @@ class RAGService:
         rerank_client=None,
         rerank_overfetch: int = 3,
         rerank_top_n: Optional[int] = None,
+        mmr_enabled: bool = False,
+        mmr_lambda: float = 0.7,
+        mmr_overfetch: int = 5,
     ) -> None:
         self._vectordb = vectordb_client
         self._embedding = embedding_client
@@ -74,6 +78,11 @@ class RAGService:
         self._rerank = rerank_client
         self._rerank_overfetch = max(1, rerank_overfetch)
         self._rerank_top_n = rerank_top_n
+        # Optional MMR diversity prefilter (pure function, no client). When
+        # disabled the retrieval path is behaviour-identical to before.
+        self._mmr_enabled = mmr_enabled
+        self._mmr_lambda = mmr_lambda
+        self._mmr_overfetch = max(1, mmr_overfetch)
 
     async def index_chunks(
         self,
@@ -179,29 +188,47 @@ class RAGService:
             return []
         vector = vector[0]
 
-        if self._rerank is None:
-            results = await self._vectordb.search_by_vector(
-                collection_name=collection_name,
-                vector=vector,
-                limit=limit,
-                threshold=threshold,
-                material_ids=material_ids or None,
-            )
-            return results or []
+        # Staged pipeline: over-fetch -> MMR (diversity prefilter) -> rerank
+        # (precision) -> top ``keep``. Each stage is optional; with both off
+        # this collapses to a single plain search, byte-identical to before.
+        rerank_on = self._rerank is not None
+        mmr_on = self._mmr_enabled
 
-        # Rerank path: over-fetch by recall, then truncate by precision so the
-        # generation model gets fewer, cleaner chunks within the same budget.
-        keep = self._rerank_top_n or limit
+        # ``keep`` = final result size. rerank_top_n only applies when the
+        # reranker is active (unchanged semantics).
+        keep = (self._rerank_top_n or limit) if rerank_on else limit
+        # Pool the reranker receives (or the final size when reranking is off).
+        pool = keep * self._rerank_overfetch if rerank_on else keep
+        # Raw vector fetch: over-fetch further for MMR to choose from.
+        fetch = keep * self._mmr_overfetch if mmr_on else pool
+
         candidates = await self._vectordb.search_by_vector(
             collection_name=collection_name,
             vector=vector,
-            limit=keep * self._rerank_overfetch,
+            limit=fetch,
             threshold=threshold,
             material_ids=material_ids or None,
+            with_vectors=mmr_on,
         )
         candidates = candidates or []
         if not candidates:
             return []
+
+        if mmr_on:
+            try:
+                candidates = mmr_select(
+                    vector, candidates, k=pool, lambda_mult=self._mmr_lambda
+                )
+            except Exception:  # noqa: BLE001 - never let MMR fault a chat turn
+                logger.exception(
+                    "MMR selection failed for collection %s; using vector order",
+                    collection_name,
+                )
+                candidates = candidates[:pool]
+
+        if not rerank_on:
+            return candidates[:keep]
+
         try:
             reranked = await self._rerank.rerank(query, candidates, top_n=keep)
         except Exception:  # noqa: BLE001 - never let a reranker fault 500 a turn

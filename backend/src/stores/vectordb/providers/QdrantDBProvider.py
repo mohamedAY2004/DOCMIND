@@ -113,7 +113,8 @@ class QdrantDBProvider(VectorDBInterface):
         return True
 
     async def search_by_vector(self, collection_name: str, vector: list, limit: int,threshold: float = 0.5,
-                               material_ids: Optional[List[str]] = None)->List[RetrievedChunk]:
+                               material_ids: Optional[List[str]] = None,
+                               with_vectors: bool = False)->List[RetrievedChunk]:
         if not await self.is_collection_exists(collection_name):
             self.logger.error(f"Collection {collection_name} does not exist to search records")
             return None
@@ -127,11 +128,26 @@ class QdrantDBProvider(VectorDBInterface):
                     match=models.MatchAny(any=list(material_ids)),
                 )
             ])
-        results = await self.client.query_points(collection_name=collection_name, query=vector, limit=limit, with_payload=True,score_threshold=threshold, query_filter=query_filter)
+        results = await self.client.query_points(collection_name=collection_name, query=vector, limit=limit, with_payload=True,score_threshold=threshold, query_filter=query_filter, with_vectors=with_vectors)
         if results:
-            return [RetrievedChunk(chunk_text=result.payload["text"], score=result.score, chunk_metadata=result.payload["metadata"]) for result in results.points]
+            return [
+                RetrievedChunk(
+                    chunk_text=result.payload["text"],
+                    score=result.score,
+                    chunk_metadata=result.payload["metadata"],
+                    embedding=self._point_vector(result) if with_vectors else None,
+                )
+                for result in results.points
+            ]
         else:
             return None
+
+    @staticmethod
+    def _point_vector(point) -> Optional[list]:
+        vec = getattr(point, "vector", None)
+        if isinstance(vec, dict):  # named-vector collections
+            vec = next(iter(vec.values()), None)
+        return list(vec) if vec is not None else None
 
     def _to_qdrant_id(self, record_id) -> str:
         hex_str = str(record_id).zfill(32)

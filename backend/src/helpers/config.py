@@ -96,6 +96,19 @@ class Settings(BaseSettings):
     # Final cap on reranked chunks; defaults to the caller's `limit` when unset.
     RERANK_TOP_N: Optional[int] = None
 
+    # ==================== MMR diversity (Phase 4) ====================
+    # Maximal-Marginal-Relevance prefilter between the vector over-fetch and
+    # the cross-encoder: prunes near-duplicate chunks so the reranker (and the
+    # generation model) see a diverse pool. Ships OFF — when disabled the
+    # retrieval path is byte-identical to before.
+    MMR_ENABLED: bool = False
+    # Relevance/diversity trade-off: 1.0 = pure relevance, 0.0 = pure diversity.
+    # 0.7 keeps ordering relevance-heavy while dropping near-duplicates.
+    MMR_LAMBDA: float = 0.7
+    # Raw candidate multiplier: vector search fetches keep * MMR_OVERFETCH rows;
+    # MMR keeps keep * RERANK_OVERFETCH (or just `keep` when reranking is off).
+    MMR_OVERFETCH: int = 5
+
     # ==================== Template ====================
     DEFAULT_LANGUAGE: str = "en"
 

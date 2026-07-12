@@ -230,7 +230,8 @@ class PgVectorProvider(VectorDBInterface):
 
     async def search_by_vector(self, collection_name: str, vector: list,
                                limit: int, threshold: float = 0.5,
-                               material_ids: Optional[List[str]] = None) -> List[RetrievedChunk]:
+                               material_ids: Optional[List[str]] = None,
+                               with_vectors: bool = False) -> List[RetrievedChunk]:
         if not await self.is_collection_exists(collection_name):
             self.logger.error(f"Collection {collection_name} does not exist to search records")
             return None
@@ -247,9 +248,12 @@ class PgVectorProvider(VectorDBInterface):
             params.append(list(material_ids))
             source_clause = f"AND metadata->>'material_id' = ANY(${len(params)})"
 
+        # Only select the stored vectors when the caller (MMR) needs them, so
+        # the default query stays byte-identical to before.
+        embed_col = ", embedding" if with_vectors else ""
         query = f"""
             SELECT text, metadata,
-                   1 - (embedding {op} $1::vector) AS score
+                   1 - (embedding {op} $1::vector) AS score{embed_col}
             FROM vector_embeddings
             WHERE collection_name = $2
               AND 1 - (embedding {op} $1::vector) >= $3
@@ -265,9 +269,31 @@ class PgVectorProvider(VectorDBInterface):
                     chunk_text=row["text"],
                     score=float(row["score"]),
                     chunk_metadata=row["metadata"],
+                    embedding=_coerce_embedding(row["embedding"]) if with_vectors else None,
                 )
                 for row in rows
             ]
         return None
+
+
+def _coerce_embedding(value) -> Optional[list]:
+    """Normalise a pgvector column value to ``list[float]``.
+
+    The pool registers the pgvector codec (``register_vector`` in
+    ``_init_connection``) so ``value`` is normally an ``np.ndarray``; the other
+    forms are accepted defensively in case the codec is ever not registered.
+    """
+    if value is None:
+        return None
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, (list, tuple)):
+        return [float(v) for v in value]
+    if isinstance(value, str):  # "[0.1,0.2,...]"
+        try:
+            return [float(v) for v in value.strip("[]").split(",") if v.strip()]
+        except ValueError:
+            return None
+    return None
 
 

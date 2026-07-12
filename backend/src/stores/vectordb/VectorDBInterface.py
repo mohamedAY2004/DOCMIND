@@ -48,9 +48,14 @@ class VectorDBInterface(ABC):
     @abstractmethod
     async def search_by_vector(self, collection_name: str, vector: list, limit: int,
                                threshold: float,
-                               material_ids: Optional[List[str]] = None)->List[RetrievedChunk]:
+                               material_ids: Optional[List[str]] = None,
+                               with_vectors: bool = False)->List[RetrievedChunk]:
         """Similarity search, optionally scoped to chunks whose stamped
-        ``metadata.material_id`` is in ``material_ids`` (None = no scope)."""
+        ``metadata.material_id`` is in ``material_ids`` (None = no scope).
+
+        ``with_vectors=True`` additionally populates ``RetrievedChunk.embedding``
+        (needed by MMR); callers must treat ``embedding=None`` in the results as
+        "vectors unavailable" and degrade accordingly."""
         pass
 
     @abstractmethod
