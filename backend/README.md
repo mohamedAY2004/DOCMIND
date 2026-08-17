@@ -31,4 +31,9 @@ $ sudo docker compose up -d
 ```bash
     uvicorn main:app --reload --host 0.0.0.0 --port 5000
 ```
- 
+
+## Legacy debug surface
+
+The development-only RAG debug tool lives in `src/controllers/`, `src/routes/legacy_router.py`, the raw asyncpg pool in `src/main.py`, and the `/api/v1/data/*` and `/api/v1/nlp/*` routes. It is not part of the official API and is intentionally excluded from the test suite; never add new code there.
+
+It can be removed once no developer workflow depends on the `/api/v1/*` debug routes. Removing it will also remove the second, asyncpg-based database path from `src/main.py`.
