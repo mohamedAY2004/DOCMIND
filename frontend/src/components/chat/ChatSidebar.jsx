@@ -44,6 +44,8 @@ function ChatSidebar({
   loading = false,
   emptyLabel = 'No conversations yet.',
   disableNewChat = false,
+  mobileOpen = false,
+  onMobileClose,
 }) {
   const [collapsed, setCollapsed] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
@@ -97,8 +99,8 @@ function ChatSidebar({
 
   return (
     <aside
-      className={`hidden lg:flex h-full shrink-0 flex-col border-r border-dm-border bg-dm-card transition-all duration-300 ease-in-out overflow-hidden ${
-        collapsed ? 'w-16' : 'w-64'
+      className={`${mobileOpen ? 'flex fixed inset-y-0 left-0 z-50 w-72 shadow-2xl' : 'hidden'} lg:static lg:z-auto lg:flex h-full shrink-0 flex-col border-r border-dm-border bg-dm-card transition-all duration-300 ease-in-out overflow-hidden ${
+        mobileOpen ? 'w-72' : collapsed ? 'w-16' : 'w-64'
       }`}
     >
       {/* Header */}
@@ -124,6 +126,9 @@ function ChatSidebar({
             <PanelLeftClose size={18} className="text-current" />
           )}
         </button>
+        {mobileOpen && (
+          <button type="button" onClick={onMobileClose} className={`${toggleBtnClass} lg:hidden`} aria-label="Close conversation history"><X size={18} /></button>
+        )}
       </div>
 
       {/* Chat list */}
@@ -177,7 +182,7 @@ function ChatSidebar({
                   <>
                     <button
                       type="button"
-                      onClick={() => onSelectChat?.(chat.id)}
+                      onClick={() => { onSelectChat?.(chat.id); onMobileClose?.() }}
                       className={`${chatBtnBase} ${
                         chat.id === activeId ? chatBtnActive : chatBtnInactive
                       }`}

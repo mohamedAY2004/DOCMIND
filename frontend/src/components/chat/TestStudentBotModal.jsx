@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { X, Bot, Send, Loader2 } from 'lucide-react'
+import { X, Bot, Send, Square } from 'lucide-react'
 import { toast } from 'sonner'
 import ChatMessageBubble from '../ui/ChatMessageBubble'
 import ErrorBanner from '../ui/ErrorBanner'
 import TypingIndicator from './TypingIndicator'
 import useAutoScroll from '../../hooks/useAutoScroll'
-import { sendTestBotMessage } from '../../services/subjectService'
+import { streamTestBotMessage } from '../../services/subjectService'
 
 const backdropClass =
   'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm transition-opacity'
@@ -58,6 +58,8 @@ function TestStudentBotModal({ isOpen, onClose, subjectName, subjectId }) {
   const [lastFailedText, setLastFailedText] = useState('')
   const messagesRef = useRef(null)
   const inputRef = useRef(null)
+  const controllerRef = useRef(null)
+  const modalRef = useRef(null)
   useAutoScroll(messagesRef, [isOpen, messages, loading])
 
   // Reset conversation when modal opens/closes
@@ -73,14 +75,26 @@ function TestStudentBotModal({ isOpen, onClose, subjectName, subjectId }) {
     }
   }, [isOpen])
 
-  // Escape key to close
+  // Trap focus and support Escape while the modal is open.
   useEffect(() => {
     if (!isOpen) return
-    const handleEsc = (e) => {
-      if (e.key === 'Escape') onClose()
+    const previous = document.activeElement
+    const handleKey = (event) => {
+      if (event.key === 'Escape') onClose()
+      if (event.key !== 'Tab') return
+      const items = [...(modalRef.current?.querySelectorAll('button,textarea,[tabindex]:not([tabindex="-1"])') || [])]
+      if (!items.length) return
+      const first = items[0]
+      const last = items[items.length - 1]
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
     }
-    window.addEventListener('keydown', handleEsc)
-    return () => window.removeEventListener('keydown', handleEsc)
+    window.addEventListener('keydown', handleKey)
+    return () => {
+      window.removeEventListener('keydown', handleKey)
+      controllerRef.current?.abort()
+      previous?.focus?.()
+    }
   }, [isOpen, onClose])
 
   const doSend = useCallback(
@@ -102,22 +116,59 @@ function TestStudentBotModal({ isOpen, onClose, subjectName, subjectId }) {
       setInput('')
       setLoading(true)
 
+      const botMsg = {
+        id: `bot-${Date.now()}`,
+        role: 'assistant',
+        text: '',
+        generationStatus: 'generating',
+      }
+      setMessages((prev) => [...prev, botMsg])
+      const controller = new AbortController()
+      controllerRef.current = controller
+
       try {
-        const data = await sendTestBotMessage(subjectId, text)
-        const botMsg = {
-          id: `bot-${Date.now()}`,
-          role: 'assistant',
-          text: data.reply || 'No response received.',
-        }
-        setMessages((prev) => [...prev, botMsg])
+        await streamTestBotMessage(subjectId, text, {
+          signal: controller.signal,
+          onEvent: (event, data) => {
+            if (event === 'answer.delta') {
+              setMessages((prev) => prev.map((item) =>
+                item.id === botMsg.id
+                  ? { ...item, text: item.text + (data.delta || '') }
+                  : item,
+              ))
+            } else if (event === 'answer.citations') {
+              setMessages((prev) => prev.map((item) =>
+                item.id === botMsg.id
+                  ? { ...item, citations: data.citations || [], groundingStatus: data.groundingStatus }
+                  : item,
+              ))
+            } else if (event === 'answer.completed') {
+              setMessages((prev) => prev.map((item) =>
+                item.id === botMsg.id ? { ...item, ...data.reply, id: botMsg.id } : item,
+              ))
+            } else if (event === 'answer.failed') {
+              throw new Error(data.message || 'Preview generation failed.')
+            }
+          },
+        })
+        setMessages((prev) => prev.map((item) =>
+          item.id === botMsg.id ? { ...item, generationStatus: 'complete' } : item,
+        ))
         setLastFailedText('')
       } catch (err) {
+        if (err.name === 'AbortError') {
+          setMessages((prev) => prev.map((item) =>
+            item.id === botMsg.id ? { ...item, generationStatus: 'cancelled' } : item,
+          ))
+          setLastFailedText(text)
+          return
+        }
         const errorText = friendlyError(err)
         setError(errorText)
         setLastFailedText(text)
-        // Remove the optimistic user message so they can retry
-        setMessages((prev) => prev.filter((m) => m.id !== userMsg.id))
+        setMessages((prev) => prev.filter((m) => m.id !== userMsg.id && m.id !== botMsg.id))
       } finally {
+        controllerRef.current = null
         setLoading(false)
         setTimeout(() => inputRef.current?.focus(), 50)
       }
@@ -156,7 +207,7 @@ function TestStudentBotModal({ isOpen, onClose, subjectName, subjectId }) {
       aria-modal="true"
       aria-labelledby="test-bot-modal-title"
     >
-      <div className={modalClass} onClick={(e) => e.stopPropagation()}>
+      <div ref={modalRef} className={modalClass} onClick={(e) => e.stopPropagation()}>
         <header className={headerClass}>
           <div className={headerLeftClass}>
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-dm-primary/15">
@@ -205,9 +256,13 @@ function TestStudentBotModal({ isOpen, onClose, subjectName, subjectId }) {
                   role={m.role}
                   text={m.text}
                   variant="modal"
+                  streaming={m.generationStatus === 'generating'}
+                  citations={m.citations}
+                  groundingStatus={m.groundingStatus}
+                  generationStatus={m.generationStatus}
                 />
               ))}
-              {loading && <TypingIndicator maxWidth="max-w-2xl" />}
+              {loading && !messages.at(-1)?.text && <TypingIndicator maxWidth="max-w-2xl" />}
             </>
           )}
         </div>
@@ -222,11 +277,17 @@ function TestStudentBotModal({ isOpen, onClose, subjectName, subjectId }) {
         )}
 
         <form onSubmit={handleSend} className={inputWrapClass}>
-          <input
+          <textarea
             ref={inputRef}
-            type="text"
+            rows={1}
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey && !loading) {
+                event.preventDefault()
+                doSend(input.trim())
+              }
+            }}
             placeholder={
               loading ? 'Generating response…' : 'Ask a question as a student…'
             }
@@ -236,13 +297,14 @@ function TestStudentBotModal({ isOpen, onClose, subjectName, subjectId }) {
             maxLength={MAX_MSG + 200}
           />
           <button
-            type="submit"
-            disabled={!input.trim() || loading}
+            type={loading ? 'button' : 'submit'}
+            onClick={loading ? () => controllerRef.current?.abort() : undefined}
+            disabled={!loading && !input.trim()}
             className="shrink-0 rounded-lg p-2 text-dm-primary hover:bg-dm-primary/10 transition-all duration-150 active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
-            aria-label="Send"
+            aria-label={loading ? 'Stop generating' : 'Send'}
           >
             {loading ? (
-              <Loader2 size={24} className="animate-spin text-dm-primary" />
+              <Square size={20} className="fill-current text-dm-primary" />
             ) : (
               <Send size={24} className="text-current" />
             )}

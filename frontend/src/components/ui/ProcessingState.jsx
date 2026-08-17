@@ -28,11 +28,12 @@ function ProcessingState({
   const [statusIdx, setStatusIdx] = useState(0)
   const [textVisible, setTextVisible] = useState(true)
   const [elapsed, setElapsed] = useState(0)
-  const startRef = useRef(Date.now())
+  const startRef = useRef(null)
   const stepRef = useRef(100 / (durationMs / TICK_MS))
 
   // Elapsed seconds counter
   useEffect(() => {
+    startRef.current = Date.now()
     const id = setInterval(() => {
       setElapsed(Math.floor((Date.now() - startRef.current) / 1000))
     }, 1000)

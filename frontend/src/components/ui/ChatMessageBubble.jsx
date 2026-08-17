@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { User, Copy, Check, ThumbsUp, ThumbsDown } from 'lucide-react'
+import { User, Copy, Check, ThumbsUp, ThumbsDown, AlertTriangle, BookOpen } from 'lucide-react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
@@ -10,7 +10,7 @@ import rehypeKatex from 'rehype-katex'
 import { primarySurfaceClassBr } from '../../constants/themeClasses'
 import useTheme from '../../hooks/useTheme'
 import logoLight from '../../assets/docmind-logo.png'
-import logoDark from '../../assets/docmind_logo_dark.png'
+import logoDark from '../../assets/docmind_logo_dark_256.png'
 
 const bubbleUserAddClass = 'flex-row-reverse ml-auto'
 
@@ -58,6 +58,10 @@ function ChatMessageBubble({
   messageId,
   feedbackValue,
   onFeedback,
+  citations = [],
+  groundingStatus,
+  generationStatus = 'complete',
+  onCitation,
 }) {
   const isAssistant = role === 'assistant' || role === 'doc'
   const [copied, setCopied] = useState(false)
@@ -135,6 +139,39 @@ function ChatMessageBubble({
             </div>
           )}
         </div>
+        {isAssistant && !streaming && groundingStatus && groundingStatus !== 'grounded' && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300" role="status">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+            <span>
+              {groundingStatus === 'no_context'
+                ? 'No relevant course source was found for this answer.'
+                : groundingStatus === 'partially_grounded'
+                  ? 'Only part of this answer could be linked to a source.'
+                  : 'This answer is not supported by a cited source.'}
+            </span>
+          </div>
+        )}
+        {isAssistant && citations.length > 0 && !streaming && (
+          <div className="flex flex-wrap gap-2" aria-label="Answer sources">
+            {citations.map((citation) => (
+              <button
+                key={citation.id}
+                type="button"
+                disabled={!onCitation}
+                onClick={() => onCitation?.(messageId, citation)}
+                className="inline-flex items-center gap-1.5 rounded-full border border-dm-primary/30 bg-dm-primary/10 px-2.5 py-1 text-xs text-dm-primary enabled:hover:bg-dm-primary/20 focus:outline-none focus:ring-2 focus:ring-dm-primary disabled:cursor-default"
+                aria-label={`${onCitation ? 'Open' : 'Answer'} source ${citation.marker}: ${citation.sourceName}`}
+              >
+                <BookOpen size={12} />
+                [{citation.marker}] {citation.sourceName}
+                {citation.location?.number ? ` - ${citation.location.type} ${citation.location.number}` : ''}
+              </button>
+            ))}
+          </div>
+        )}
+        {isAssistant && generationStatus === 'cancelled' && (
+          <p className="text-xs text-dm-muted">Generation stopped. Use Retry to ask again.</p>
+        )}
         {isAssistant && !streaming && (
           <div className="flex items-center gap-1">
             <button

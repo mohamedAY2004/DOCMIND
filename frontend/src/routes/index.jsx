@@ -1,32 +1,37 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import useAuth from '../hooks/useAuth'
 import ProtectedRoute, { HOME_BY_ROLE } from './ProtectedRoute'
-import Login from '../pages/Login'
-import InstructorHome from '../pages/InstructorHome'
-import UserHome from '../pages/UserHome'
-import ChatWithDoc from '../pages/ChatWithDoc'
-import ChatWithTutors from '../pages/ChatWithTutors'
-import TutorChat from '../pages/TutorChat'
-import InstructorSubject from '../pages/InstructorSubject'
-import AdminDashboard from '../pages/admin/AdminDashboard'
-import ManageUsers from '../pages/admin/ManageUsers'
-import ManageInstructors from '../pages/admin/ManageInstructors'
-import ManageSubjects from '../pages/admin/ManageSubjects'
-import ManageSemesters from '../pages/admin/ManageSemesters'
-import SubjectFeedback from '../pages/admin/SubjectFeedback'
-import Analytics from '../pages/admin/Analytics'
-import SystemAccess from '../pages/admin/SystemAccess'
 import StudentAccessGate from '../components/layout/StudentAccessGate'
-import StudentUnavailable from '../pages/StudentUnavailable'
+
+const Login = lazy(() => import('../pages/Login'))
+const InstructorHome = lazy(() => import('../pages/InstructorHome'))
+const UserHome = lazy(() => import('../pages/UserHome'))
+const ChatWithDoc = lazy(() => import('../pages/ChatWithDoc'))
+const ChatWithTutors = lazy(() => import('../pages/ChatWithTutors'))
+const TutorChat = lazy(() => import('../pages/TutorChat'))
+const InstructorSubject = lazy(() => import('../pages/InstructorSubject'))
+const AdminDashboard = lazy(() => import('../pages/admin/AdminDashboard'))
+const ManageUsers = lazy(() => import('../pages/admin/ManageUsers'))
+const ManageInstructors = lazy(() => import('../pages/admin/ManageInstructors'))
+const ManageSubjects = lazy(() => import('../pages/admin/ManageSubjects'))
+const ManageSemesters = lazy(() => import('../pages/admin/ManageSemesters'))
+const SubjectFeedback = lazy(() => import('../pages/admin/SubjectFeedback'))
+const Analytics = lazy(() => import('../pages/admin/Analytics'))
+const SystemAccess = lazy(() => import('../pages/admin/SystemAccess'))
+const QualityReport = lazy(() => import('../pages/admin/QualityReport'))
+const StudentUnavailable = lazy(() => import('../pages/StudentUnavailable'))
 
 function RootRedirect() {
-  const { isAuthenticated, role } = useAuth()
+  const { isAuthenticated, role, ready } = useAuth()
+  if (!ready) return null
   if (!isAuthenticated) return <Navigate to="/login" replace />
   return <Navigate to={HOME_BY_ROLE[role] || '/home'} replace />
 }
 
 function LoginGate() {
-  const { isAuthenticated, role } = useAuth()
+  const { isAuthenticated, role, ready } = useAuth()
+  if (!ready) return null
   if (isAuthenticated) {
     return <Navigate to={HOME_BY_ROLE[role] || '/home'} replace />
   }
@@ -35,6 +40,7 @@ function LoginGate() {
 
 export function AppRoutes() {
   return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-dm-background text-dm-muted">Loading…</div>}>
     <Routes>
       <Route path="/" element={<RootRedirect />} />
       <Route path="/login" element={<LoginGate />} />
@@ -66,7 +72,9 @@ export function AppRoutes() {
         <Route path="/admin/feedback" element={<SubjectFeedback />} />
         <Route path="/admin/analytics" element={<Analytics />} />
         <Route path="/admin/system-access" element={<SystemAccess />} />
+        <Route path="/admin/quality" element={<QualityReport />} />
       </Route>
     </Routes>
+    </Suspense>
   )
 }

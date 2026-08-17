@@ -4,7 +4,7 @@ import ThemeToggle from '../ui/ThemeToggle'
 const headerClass =
   'shrink-0 border-b border-dm-border bg-dm-card'
 
-function ChatHeader({ backTo, backLabel = 'Go back', rightSlot }) {
+function ChatHeader({ backTo, rightSlot }) {
   return (
     <header className={headerClass}>
       <AppTopBar

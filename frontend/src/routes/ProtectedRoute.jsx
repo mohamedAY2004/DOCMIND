@@ -8,7 +8,9 @@ const HOME_BY_ROLE = {
 }
 
 function ProtectedRoute({ allowedRoles }) {
-  const { isAuthenticated, role } = useAuth()
+  const { isAuthenticated, role, ready } = useAuth()
+
+  if (!ready) return null
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />

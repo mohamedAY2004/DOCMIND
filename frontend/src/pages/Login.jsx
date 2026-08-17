@@ -10,6 +10,7 @@ import PrimaryButton from '../components/ui/PrimaryButton'
 import ThemeToggle from '../components/ui/ThemeToggle'
 import useAuth from '../hooks/useAuth'
 import { getStudentAccess } from '../services/systemAccessService'
+import { startPortalLogin } from '../services/authService'
 
 const formVariants = {
   hidden: { opacity: 0 },
@@ -33,6 +34,7 @@ function Login() {
   const [fieldErrors, setFieldErrors] = useState({})
   const [loading, setLoading] = useState(false)
   const [studentAccessNote, setStudentAccessNote] = useState(null)
+  const portalEnabled = import.meta.env.VITE_PORTAL_SSO === 'true'
 
   useEffect(() => {
     let cancelled = false
@@ -67,6 +69,18 @@ function Login() {
       navigate(redirect, { replace: true })
     } catch (err) {
       setError(err.message || 'Invalid username or password.')
+      setLoading(false)
+    }
+  }
+
+  const handlePortalLogin = async () => {
+    setError('')
+    setLoading(true)
+    try {
+      const result = await startPortalLogin()
+      window.location.assign(result.portalUrl)
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Could not open the campus portal.')
       setLoading(false)
     }
   }
@@ -145,6 +159,18 @@ function Login() {
             )}
           </PrimaryButton>
         </motion.div>
+        {portalEnabled && (
+          <motion.div variants={itemVariants}>
+            <button
+              type="button"
+              onClick={handlePortalLogin}
+              disabled={loading}
+              className="w-full rounded-xl border border-dm-border px-4 py-3 text-sm font-semibold text-dm-foreground transition hover:border-dm-primary hover:bg-dm-primary/10 disabled:opacity-60"
+            >
+              Continue with campus portal
+            </button>
+          </motion.div>
+        )}
       </motion.form>
     </AuthCard>
   )

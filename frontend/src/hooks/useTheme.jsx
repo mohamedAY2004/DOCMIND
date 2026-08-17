@@ -9,7 +9,9 @@ export function ThemeProvider({ children }) {
     try {
       const stored = localStorage.getItem(STORAGE_KEY)
       if (stored === 'light' || stored === 'dark') return stored
-    } catch {}
+    } catch {
+      // Storage can be unavailable in privacy-restricted browser contexts.
+    }
     return 'dark'
   })
 
@@ -19,7 +21,9 @@ export function ThemeProvider({ children }) {
     root.classList.add(theme)
     try {
       localStorage.setItem(STORAGE_KEY, theme)
-    } catch {}
+    } catch {
+      // Theme still applies to this page when persistence is unavailable.
+    }
   }, [theme])
 
   const toggleTheme = useCallback(() => {
@@ -33,6 +37,7 @@ export function ThemeProvider({ children }) {
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export default function useTheme() {
   return useContext(ThemeContext)
 }

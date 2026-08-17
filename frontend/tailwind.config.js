@@ -1,4 +1,18 @@
 import typographyPlugin from '@tailwindcss/typography'
+import plugin from 'tailwindcss/plugin'
+
+const reducedMotionPlugin = plugin(({ addBase }) => {
+  addBase({
+    '@media (prefers-reduced-motion: reduce)': {
+      '*, *::before, *::after': {
+        animationDuration: '0.01ms !important',
+        animationIterationCount: '1 !important',
+        scrollBehavior: 'auto !important',
+        transitionDuration: '0.01ms !important',
+      },
+    },
+  })
+})
 
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -95,5 +109,5 @@ export default {
       },
     },
   },
-  plugins: [typographyPlugin],
+  plugins: [typographyPlugin, reducedMotionPlugin],
 }

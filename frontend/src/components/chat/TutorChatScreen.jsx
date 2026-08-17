@@ -1,10 +1,12 @@
 import { useCallback, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { GraduationCap, Loader2, Lock, Send } from 'lucide-react'
+import { GraduationCap, History, Loader2, Lock, Send, Square } from 'lucide-react'
 import ChatMessageBubble from '../ui/ChatMessageBubble'
 import ErrorBanner from '../ui/ErrorBanner'
 import TypingIndicator from './TypingIndicator'
+import FeedbackReasonDialog from './FeedbackReasonDialog'
+import SourceDrawer from './SourceDrawer'
 import ChatHeader from './ChatHeader'
 import ChatSidebar from './ChatSidebar'
 import useAutoScroll from '../../hooks/useAutoScroll'
@@ -34,6 +36,9 @@ const sendBtnClass =
   'shrink-0 rounded-lg p-2 text-dm-primary transition-all duration-150 hover:bg-dm-primary/10 hover:opacity-90 active:scale-95 disabled:opacity-40 disabled:pointer-events-none'
 function TutorChatScreen({ subjectId, subjectName, semesterState = 'active' }) {
   const [feedbackMap, setFeedbackMap] = useState({})
+  const [negativeFeedbackId, setNegativeFeedbackId] = useState(null)
+  const [source, setSource] = useState(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
 
   // Past/future terms are read-only: students can browse and re-read history
   // (the GET paths gate on ownership, not semester) but cannot start new turns.
@@ -44,6 +49,10 @@ function TutorChatScreen({ subjectId, subjectName, semesterState = 'active' }) {
       : 'This semester hasn’t started yet — the tutor will open once it begins.'
 
   const handleFeedback = useCallback(async (messageId, value) => {
+    if (value === 'down') {
+      setNegativeFeedbackId(messageId)
+      return
+    }
     const prev = feedbackMap[messageId] ?? null
     setFeedbackMap((m) => ({ ...m, [messageId]: value }))
     try {
@@ -57,6 +66,20 @@ function TutorChatScreen({ subjectId, subjectName, semesterState = 'active' }) {
       toast.error('Could not save feedback.')
     }
   }, [feedbackMap])
+
+  const submitNegativeFeedback = useCallback(async (details) => {
+    const messageId = negativeFeedbackId
+    if (!messageId) return
+    const previous = feedbackMap[messageId] ?? null
+    setFeedbackMap((map) => ({ ...map, [messageId]: 'down' }))
+    setNegativeFeedbackId(null)
+    try {
+      await sendMessageFeedback(messageId, 'down', details)
+    } catch {
+      setFeedbackMap((map) => ({ ...map, [messageId]: previous }))
+      toast.error('Could not save feedback.')
+    }
+  }, [feedbackMap, negativeFeedbackId])
 
   const handleFeedbackMapLoaded = useCallback((loaded) => {
     setFeedbackMap(loaded)
@@ -107,6 +130,7 @@ function TutorChatScreen({ subjectId, subjectName, semesterState = 'active' }) {
     errorMessage,
     lastFailedText,
     sendMessage,
+    stopGeneration,
     retry,
     dismissError,
     handleInputChange,
@@ -127,14 +151,22 @@ function TutorChatScreen({ subjectId, subjectName, semesterState = 'active' }) {
 
   const hasUserMessages = messages.some((m) => m.role === 'user')
   const isBusy = isTyping || !!streamingId
+  const canStop = isTyping || !!streamingId
   const showWelcome = !loadingHistory && !hasUserMessages && !isTyping
   const msgTooLong = input.length > MAX_MSG
 
   return (
     <div className={rootClass}>
-      <ChatHeader backTo="/tutors" backLabel="Back to tutors" />
+      {source && <SourceDrawer source={source} onClose={() => setSource(null)} />}
+      <FeedbackReasonDialog
+        open={Boolean(negativeFeedbackId)}
+        onCancel={() => setNegativeFeedbackId(null)}
+        onSubmit={submitNegativeFeedback}
+      />
+      <ChatHeader backTo="/tutors" backLabel="Back to tutors" rightSlot={<button type="button" onClick={() => setHistoryOpen(true)} className="rounded-lg p-2 text-dm-muted hover:bg-dm-background lg:hidden" aria-label="Open conversation history"><History size={19} /></button>} />
 
       <div className={bodyRowClass}>
+        {historyOpen && <button type="button" className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setHistoryOpen(false)} aria-label="Close conversation history" />}
         <ChatSidebar
           chats={conversations}
           activeId={activeId}
@@ -145,6 +177,8 @@ function TutorChatScreen({ subjectId, subjectName, semesterState = 'active' }) {
           loading={conversationsLoading}
           emptyLabel="No past conversations yet."
           disableNewChat={readOnly}
+          mobileOpen={historyOpen}
+          onMobileClose={() => setHistoryOpen(false)}
         />
 
         <main className={mainClass}>
@@ -171,6 +205,10 @@ function TutorChatScreen({ subjectId, subjectName, semesterState = 'active' }) {
                     messageId={m.role === 'assistant' ? m.id : undefined}
                     feedbackValue={m.role === 'assistant' ? (feedbackMap[m.id] ?? null) : undefined}
                     onFeedback={m.role === 'assistant' ? handleFeedback : undefined}
+                    citations={m.citations}
+                    groundingStatus={m.groundingStatus}
+                    generationStatus={m.generationStatus}
+                    onCitation={(messageId, citation) => setSource({ messageId, citation })}
                   />
                 ))}
                 {isTyping && <TypingIndicator maxWidth="max-w-3xl" />}
@@ -224,12 +262,15 @@ function TutorChatScreen({ subjectId, subjectName, semesterState = 'active' }) {
                 </span>
               )}
               <button
-                type="submit"
-                disabled={isBusy || loadingHistory || !input.trim() || msgTooLong}
+                type={canStop ? 'button' : 'submit'}
+                onClick={canStop ? stopGeneration : undefined}
+                disabled={!canStop && (isBusy || loadingHistory || !input.trim() || msgTooLong)}
                 className={sendBtnClass}
-                aria-label="Send"
+                aria-label={canStop ? 'Stop generating' : 'Send'}
               >
-                {isTyping ? (
+                {canStop ? (
+                  <Square size={18} className="fill-current" />
+                ) : isTyping ? (
                   <Loader2 size={22} className="animate-spin text-dm-primary" />
                 ) : (
                   <Send size={22} className="text-current" />

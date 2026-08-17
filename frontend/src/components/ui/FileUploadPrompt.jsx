@@ -84,7 +84,13 @@ function FileUploadPrompt({ onFileSelect, className = '' }) {
         onDrop={handleDrop}
         role="button"
         tabIndex={0}
-        onKeyDown={(e) => e.key === 'Enter' && handleClick()}
+        onKeyDown={(e) => {
+          if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault()
+            handleClick()
+          }
+        }}
+        aria-label="Upload a PDF to start a new document chat"
       >
         <div className="mb-6 animate-float">
           <FileUp size={72} className="text-dm-primary" strokeWidth={1.5} />

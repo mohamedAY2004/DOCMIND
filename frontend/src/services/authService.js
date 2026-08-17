@@ -59,10 +59,31 @@ export async function login(username, password) {
 export async function logout() {
   try {
     await apiClient.post('/auth/logout')
-  } catch {
-    /* swallow — server may have already revoked the token. */
-  } finally {
-    localStorage.removeItem('auth_token')
-    localStorage.removeItem('auth_user')
+  } catch (firstError) {
+    try {
+      await apiClient.post('/auth/logout')
+    } catch {
+      throw new Error(
+        extractServerMessage(
+          firstError,
+          'Sign-out did not complete. Please try again before leaving this device.',
+        ),
+      )
+    }
   }
+}
+
+export async function getCurrentSession() {
+  const { data } = await apiClient.get('/auth/me')
+  return data
+}
+
+export async function exchangePortalCode(state, code) {
+  const { data } = await apiClient.post('/auth/sso/exchange', { state, code })
+  return data
+}
+
+export async function startPortalLogin() {
+  const { data } = await apiClient.post('/auth/sso/start')
+  return data
 }

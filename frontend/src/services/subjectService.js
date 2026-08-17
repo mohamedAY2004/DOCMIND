@@ -1,4 +1,5 @@
 import apiClient, { LLM_TIMEOUT } from './apiClient'
+import { streamMessage } from './chatService'
 
 /**
  * Subject service — talks to the real backend.
@@ -97,4 +98,8 @@ export async function sendTestBotMessage(subjectId, message) {
     LLM_TIMEOUT,
   )
   return data
+}
+
+export function streamTestBotMessage(subjectId, message, options = {}) {
+  return streamMessage(`/subjects/${subjectId}/test-bot/stream`, message, options)
 }

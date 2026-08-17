@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { FileText, Loader2, Paperclip, Send, X } from 'lucide-react'
+import { FileText, History, Loader2, Paperclip, Send, Square, X } from 'lucide-react'
 import ChatMessageBubble from '../ui/ChatMessageBubble'
 import ErrorBanner from '../ui/ErrorBanner'
 import FileUploadPrompt from '../ui/FileUploadPrompt'
@@ -7,6 +7,7 @@ import ProcessingState from '../ui/ProcessingState'
 import TypingIndicator from './TypingIndicator'
 import ChatHeader from './ChatHeader'
 import ChatSidebar from './ChatSidebar'
+import SourceDrawer from './SourceDrawer'
 import useChat from '../../hooks/useChat'
 import useAutoScroll from '../../hooks/useAutoScroll'
 
@@ -17,7 +18,7 @@ const messagesClass = 'flex-1 min-h-0 overflow-y-auto p-4 md:p-6'
 const inputWrapClass =
   'flex shrink-0 items-center gap-3 border-t border-dm-border bg-dm-card p-4 md:px-6'
 const inputClass =
-  'flex-1 rounded-xl border border-dm-border bg-dm-background py-3 pl-12 pr-4 text-dm-foreground placeholder:text-dm-muted transition-shadow duration-200 focus:outline-none focus:ring-2 focus:ring-dm-primary focus:shadow-md focus:shadow-dm-primary/10 disabled:opacity-50 disabled:cursor-not-allowed'
+  'max-h-40 min-h-12 flex-1 resize-none rounded-xl border border-dm-border bg-dm-background py-3 pl-12 pr-4 text-dm-foreground placeholder:text-dm-muted transition-shadow duration-200 focus:outline-none focus:ring-2 focus:ring-dm-primary focus:shadow-md focus:shadow-dm-primary/10 disabled:opacity-50 disabled:cursor-not-allowed'
 const sendBtnClass =
   'shrink-0 rounded-lg p-2 text-dm-primary transition-all duration-150 hover:bg-dm-primary/10 hover:opacity-90 active:scale-95 disabled:opacity-40 disabled:pointer-events-none'
 const FILE_ACCEPT = '.pdf'
@@ -50,10 +51,13 @@ function ChatScreen({
     errorMessage,
     lastFailedText,
     sendMessage,
+    stopGeneration,
     retry,
     dismissError,
   } = useChat(activeConversationId)
   const [input, setInput] = useState('')
+  const [source, setSource] = useState(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const messagesRef = useRef(null)
   const fileInputRef = useRef(null)
 
@@ -63,6 +67,7 @@ function ChatScreen({
   const hasFilesProcessing = files.some((f) => f.status === 'processing')
   const isUploadingFirst = !hasActive && !!uploadingFirstFileName
   const isBusy = status === 'loading' || hasFilesProcessing || !!streamingId
+  const canStop = isTyping || !!streamingId
   const msgTooLong = input.length > MAX_MSG
   const sendDisabled = isBusy || loadingHistory || msgTooLong
 
@@ -98,6 +103,7 @@ function ChatScreen({
 
   return (
     <div className={rootClass}>
+      {source && <SourceDrawer source={source} onClose={() => setSource(null)} />}
       <input
         ref={fileInputRef}
         type="file"
@@ -107,9 +113,10 @@ function ChatScreen({
         onChange={handleFileChange}
       />
 
-      <ChatHeader backTo={backTo} backLabel={backLabel} />
+      <ChatHeader backTo={backTo} backLabel={backLabel} rightSlot={<button type="button" onClick={() => setHistoryOpen(true)} className="rounded-lg p-2 text-dm-muted hover:bg-dm-background lg:hidden" aria-label="Open conversation history"><History size={19} /></button>} />
 
       <div className={bodyRowClass}>
+        {historyOpen && <button type="button" className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setHistoryOpen(false)} aria-label="Close conversation history" />}
         <ChatSidebar
           chats={conversations}
           activeId={activeConversationId}
@@ -119,6 +126,8 @@ function ChatScreen({
           onRenameChat={onRenameConversation}
           loading={conversationsLoading}
           emptyLabel="No past conversations yet."
+          mobileOpen={historyOpen}
+          onMobileClose={() => setHistoryOpen(false)}
         />
 
         <main className={mainClass}>
@@ -183,6 +192,11 @@ function ChatScreen({
                     text={m.text}
                     maxWidth="max-w-3xl"
                     streaming={m.id === streamingId}
+                    citations={m.citations}
+                    groundingStatus={m.groundingStatus}
+                    generationStatus={m.generationStatus}
+                    messageId={m.role !== 'user' ? m.id : undefined}
+                    onCitation={(messageId, citation) => setSource({ messageId, citation })}
                   />
                 ))}
                 {isTyping && <TypingIndicator maxWidth="max-w-3xl" />}
@@ -215,15 +229,21 @@ function ChatScreen({
                   >
                     <Paperclip size={20} />
                   </button>
-                  <input
-                    type="text"
+                  <textarea
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        handleSend(e)
+                      }
+                    }}
                     placeholder={placeholderText}
                     className={`${inputClass} ${msgTooLong ? 'border-red-500/60 focus:ring-red-500/20' : ''}`}
                     disabled={isBusy || loadingHistory}
                     aria-label="Message"
                     maxLength={MAX_MSG + 200}
+                    rows={1}
                   />
                 </div>
                 {input.length > MAX_MSG * 0.8 && (
@@ -232,12 +252,15 @@ function ChatScreen({
                   </span>
                 )}
                 <button
-                  type="submit"
-                  disabled={sendDisabled || !input.trim()}
+                  type={canStop ? 'button' : 'submit'}
+                  onClick={canStop ? stopGeneration : undefined}
+                  disabled={!canStop && (sendDisabled || !input.trim())}
                   className={sendBtnClass}
-                  aria-label="Send"
+                  aria-label={canStop ? 'Stop generating' : 'Send'}
                 >
-                  {status === 'loading' ? (
+                  {canStop ? (
+                    <Square size={18} className="fill-current" />
+                  ) : status === 'loading' ? (
                     <Loader2 size={22} className="animate-spin text-dm-primary" />
                   ) : (
                     <Send size={22} className="text-current" />

@@ -39,7 +39,6 @@ function ChatWithDoc() {
     selectConversation,
     startNewConversation,
     prependConversation,
-    updateConversation,
     deleteConversation,
     renameConversation,
   } = useConversations({

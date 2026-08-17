@@ -1,122 +1,92 @@
-import { createContext, useContext, useState, useCallback, useMemo } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
+  exchangePortalCode,
+  getCurrentSession,
   login as authLogin,
   logout as authLogout,
 } from '../services/authService'
 
-const AUTH_TOKEN_KEY = 'auth_token'
-const AUTH_USER_KEY = 'auth_user'
-
-function clearAllAuthStorage() {
-  try {
-    localStorage.removeItem(AUTH_TOKEN_KEY)
-    localStorage.removeItem(AUTH_USER_KEY)
-  } catch {
-    /* swallow */
-  }
-}
-
-/** Portal-demo SSO: token passed via ?sso= on redirect from sso-bridge.html */
-function readSsoFromUrl() {
-  try {
-    const params = new URLSearchParams(window.location.search)
-    const sso = params.get('sso')
-    if (!sso) return null
-
-    const payload = JSON.parse(decodeURIComponent(sso))
-    if (!payload?.token || !payload?.user) return null
-
-    params.delete('sso')
-    const qs = params.toString()
-    const clean = qs
-      ? `${window.location.pathname}?${qs}`
-      : window.location.pathname
-    window.history.replaceState({}, '', clean)
-
-    return { token: payload.token, user: payload.user, role: payload.user.role }
-  } catch {
-    return null
-  }
-}
-
-function readStoredAuth() {
-  const ssoAuth = readSsoFromUrl()
-  if (ssoAuth) {
-    try {
-      localStorage.setItem(AUTH_TOKEN_KEY, ssoAuth.token)
-      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(ssoAuth.user))
-    } catch {
-      /* swallow */
-    }
-    return ssoAuth
-  }
-
-  try {
-    const token = localStorage.getItem(AUTH_TOKEN_KEY)
-    const raw = localStorage.getItem(AUTH_USER_KEY)
-    if (token && raw) {
-      const user = JSON.parse(raw)
-      return { token, user, role: user.role }
-    }
-  } catch {
-    /* corrupted — treat as logged-out */
-  }
-  return { token: null, user: null, role: null }
-}
-
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [auth, setAuth] = useState(readStoredAuth)
+  const [auth, setAuth] = useState({ user: null, role: null })
+  const [ready, setReady] = useState(false)
   const navigate = useNavigate()
 
-  const completeLogin = useCallback(({ token, user, redirect, welcomeMessage }) => {
-    clearAllAuthStorage()
-    localStorage.setItem(AUTH_TOKEN_KEY, token)
-    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user))
-    setAuth({ token, user, role: user.role })
-    toast.success(welcomeMessage ?? `Welcome back, ${user.name || user.username}!`, {
-      description: `Signed in as ${user.role}`,
-    })
-    return redirect
+  useEffect(() => {
+    let cancelled = false
+    const bootstrap = async () => {
+      try {
+        const params = new URLSearchParams(window.location.search)
+        const state = params.get('state')
+        const code = params.get('code')
+        const result = state && code
+          ? await exchangePortalCode(state, code)
+          : await getCurrentSession()
+        if (state && code) {
+          params.delete('state')
+          params.delete('code')
+          const query = params.toString()
+          window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}`)
+        }
+        if (!cancelled && result?.user) setAuth({ user: result.user, role: result.user.role })
+      } catch {
+        if (!cancelled) setAuth({ user: null, role: null })
+      } finally {
+        if (!cancelled) setReady(true)
+      }
+    }
+    void bootstrap()
+    return () => { cancelled = true }
   }, [])
 
-  const login = useCallback(
-    async (username, password) => {
-      const result = await authLogin(username, password)
-      return completeLogin(result)
-    },
-    [completeLogin],
-  )
-
-  const logout = useCallback(() => {
-    authLogout()
-    clearAllAuthStorage()
-    setAuth({ token: null, user: null, role: null })
-    navigate('/login', { replace: true })
-    toast('Signed out successfully')
+  useEffect(() => {
+    const sessionExpired = () => {
+      setAuth({ user: null, role: null })
+      setReady(true)
+      navigate('/login', { replace: true })
+    }
+    window.addEventListener('docmind:session-expired', sessionExpired)
+    return () => window.removeEventListener('docmind:session-expired', sessionExpired)
   }, [navigate])
 
-  const value = useMemo(
-    () => ({
-      user: auth.user,
-      token: auth.token,
-      role: auth.role,
-      isAuthenticated: !!auth.token,
-      login,
-      logout,
-    }),
-    [auth, login, logout],
-  )
+  const login = useCallback(async (username, password) => {
+    const result = await authLogin(username, password)
+    setAuth({ user: result.user, role: result.user.role })
+    toast.success(result.welcomeMessage ?? `Welcome back, ${result.user.name || result.user.username}!`, {
+      description: `Signed in as ${result.user.role}`,
+    })
+    return result.redirect
+  }, [])
+
+  const logout = useCallback(async () => {
+    try {
+      await authLogout()
+      setAuth({ user: null, role: null })
+      navigate('/login', { replace: true })
+      toast('Signed out successfully')
+    } catch (error) {
+      toast.error(error.message || 'Sign-out did not complete. Please try again.')
+    }
+  }, [navigate])
+
+  const value = useMemo(() => ({
+    user: auth.user,
+    role: auth.role,
+    ready,
+    isAuthenticated: !!auth.user,
+    login,
+    logout,
+  }), [auth, ready, login, logout])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
 export default function useAuth() {
-  const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth must be used inside <AuthProvider>')
-  return ctx
+  const context = useContext(AuthContext)
+  if (!context) throw new Error('useAuth must be used inside <AuthProvider>')
+  return context
 }
