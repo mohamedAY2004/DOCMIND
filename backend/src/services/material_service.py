@@ -40,6 +40,7 @@ from services.file_service import (
 )
 from services.ingestion_service import detect_pdf_encrypted, ingest_file
 from services.rag_service import RAGService, collection_for_subject
+from services.storage_service import get_storage
 
 logger = logging.getLogger("docmind.materials")
 
@@ -224,12 +225,26 @@ class MaterialService:
                 "Encrypted PDFs are not supported.",
             )
 
+        storage_backend = settings.STORAGE_BACKEND
+        storage_key = str(storage)
+        if storage_backend == "s3":
+            storage_key = f"materials/{subject_id}/{random_suffix(24)}{ext}"
+            try:
+                await get_storage().upload(
+                    str(storage), storage_key,
+                    (upload.content_type or "application/octet-stream").lower(),
+                )
+            except Exception:
+                _best_effort_unlink(storage)
+                raise
         material = Material(
             subject_id=subject_id,
             name=display_name,
             size_bytes=total,
             mime=(upload.content_type or "application/octet-stream").lower(),
             storage_path=str(storage),
+            storage_key=storage_key,
+            storage_backend=storage_backend,
             status=MaterialStatus.INDEXING,
             uploaded_by_id=caller.id,
         )
@@ -240,6 +255,10 @@ class MaterialService:
             # leave it orphaned. (A commit failure *after* this method returns is
             # a rarer residual; a periodic orphan sweep is the longer-term fix.)
             _best_effort_unlink(storage)
+            if storage_backend == "s3":
+                await get_storage().delete(
+                    backend="s3", key=storage_key, local_path=None
+                )
             raise
 
         await self._activity.record(
@@ -311,15 +330,15 @@ class MaterialService:
         # commits: if it raises, the row delete rolls back and the instructor
         # can retry — never a deleted row with live vectors.
         await rag.delete_material(collection_for_subject(subject_id), material_id)
-        try:
-            if material.storage_path and os.path.exists(material.storage_path):
-                os.unlink(material.storage_path)
-        except OSError as exc:
-            logger.warning("Failed to remove file %s: %s", material.storage_path, exc)
+        await get_storage().delete(
+            backend=material.storage_backend,
+            key=material.storage_key,
+            local_path=material.storage_path,
+        )
 
     async def get_download(
         self, caller: User, subject_id: str, material_id: str
-    ) -> tuple[str, str, str]:
+    ) -> tuple[str, str, str, bool]:
         """Resolve a material's on-disk file for download.
 
         Returns ``(path, download_filename, media_type)``. Any instructor on
@@ -335,18 +354,29 @@ class MaterialService:
                 status.HTTP_404_NOT_FOUND,
                 "Material not found in this subject.",
             )
+        ext = ext_of(material.storage_key or material.storage_path or "")
+        download_name = material.name
+        if ext and not download_name.lower().endswith(ext):
+            download_name = f"{download_name}{ext}"
+        media_type = material.mime or "application/octet-stream"
+        if material.storage_backend == "s3" and material.storage_key:
+            return (
+                get_storage().download_url(
+                    key=material.storage_key,
+                    filename=download_name,
+                    content_type=media_type,
+                ),
+                download_name,
+                media_type,
+                True,
+            )
         if not material.storage_path or not os.path.exists(material.storage_path):
             raise APIError(
                 ErrorCode.NOT_FOUND,
                 status.HTTP_404_NOT_FOUND,
                 "The file for this material is no longer available.",
             )
-        ext = ext_of(material.storage_path)
-        download_name = material.name
-        if ext and not download_name.lower().endswith(ext):
-            download_name = f"{download_name}{ext}"
-        media_type = material.mime or "application/octet-stream"
-        return material.storage_path, download_name, media_type
+        return material.storage_path, download_name, media_type, False
 
     # ---------- formatting ----------
 
@@ -396,8 +426,13 @@ async def index_material_job(
                 await MaterialRepository(session).set_status(
                     material_id, MaterialStatus.PROCESSED
                 )
+                material = await MaterialRepository(session).get(material_id)
+        if material and material.storage_backend == "s3":
+            _best_effort_unlink(Path(path))
     except Exception:  # noqa: BLE001
         logger.exception("Indexing failed for material %s", material_id)
+        from services.telemetry_service import metrics
+        metrics.increment("indexing_failures_total")
         # Surface the failure on the row so it doesn't stay stuck in INDEXING.
         try:
             async with session_factory() as session:

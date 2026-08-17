@@ -13,10 +13,12 @@ from fastapi import (
     status,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.responses import StreamingResponse
 
 from db.models import User, UserRole
 from helpers.config import get_settings
 from helpers.deps import get_session, require_role, require_student_access
+from helpers.errors import APIError, ErrorCode
 from helpers.pagination import Page, PaginationParams, pagination_query
 from schemas.chat import (
     ChatReplyResponse,
@@ -32,7 +34,10 @@ from services.document_chat_service import (
     DocumentChatService,
     index_doc_file_job,
 )
+from services.ephemeral_store import store_for
+from services.generation_control import GenerationSlot
 from services.rag_service import RAGService
+from services.sse import encode_sse
 from stores.agent import AgentInterface
 
 router = APIRouter(prefix="/chat/doc", tags=["chat", "doc"])
@@ -214,8 +219,50 @@ async def send_doc_message(
     student: User = Depends(require_role(UserRole.STUDENT)),
     _gate: User = Depends(require_student_access),
 ) -> ChatReplyResponse:
-    return await DocumentChatService(session).send_message(
-        student, conv_id, body.message, _rag_service(request), _agent(request)
+    store = store_for(request.app)
+    slot = await GenerationSlot.acquire(store, student.id)
+    try:
+        return await DocumentChatService(session).send_message(
+            student, conv_id, body.message, _rag_service(request), _agent(request)
+        )
+    finally:
+        await slot.release()
+
+
+@router.post("/conversations/{conv_id}/messages/stream")
+async def stream_doc_message(
+    conv_id: str,
+    body: SendMessageRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    student: User = Depends(require_role(UserRole.STUDENT)),
+    _gate: User = Depends(require_student_access),
+) -> StreamingResponse:
+    if not get_settings().STREAMING_CHAT:
+        raise APIError(ErrorCode.NOT_FOUND, status.HTTP_404_NOT_FOUND, "Streaming chat is disabled.")
+    service = DocumentChatService(session)
+    store = store_for(request.app)
+    event_source = await service.stream_message(
+        student,
+        conv_id,
+        body.message,
+        _rag_service(request),
+        _agent(request),
+        store,
+    )
+    slot = await GenerationSlot.acquire(store, student.id)
+
+    async def events():
+        try:
+            async for event, payload in event_source:
+                yield encode_sse(event, payload)
+        finally:
+            await slot.release()
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 
@@ -230,7 +277,12 @@ async def legacy_doc_chat(
     student: User = Depends(require_role(UserRole.STUDENT)),
     _gate: User = Depends(require_student_access),
 ) -> LegacyReplyResponse:
-    reply = await DocumentChatService(session).legacy_doc_reply(
-        student, body.message, _rag_service(request), _agent(request)
-    )
+    store = store_for(request.app)
+    slot = await GenerationSlot.acquire(store, student.id)
+    try:
+        reply = await DocumentChatService(session).legacy_doc_reply(
+            student, body.message, _rag_service(request), _agent(request)
+        )
+    finally:
+        await slot.release()
     return LegacyReplyResponse(reply=reply)

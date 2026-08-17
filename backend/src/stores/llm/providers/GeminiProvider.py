@@ -107,6 +107,32 @@ class GeminiProvider(LLMInterface):
         chat_history.append(self.construct_prompt(response.text, GeminiEnums.SYSTEM.value))
         return response.text
 
+    async def generate_text_stream_async(
+        self,
+        prompt: str,
+        chat_history: list = None,
+        generation_max_tokens: int = None,
+        temperature: float = None,
+    ):
+        """Yield native Gemini content chunks as the provider produces them."""
+        if not self.client or not self.generation_model_id:
+            return
+        generation_max_tokens = generation_max_tokens or self.default_generation_max_tokens
+        temperature = temperature if temperature is not None else self.default_temperature
+        contents = list(chat_history or [])
+        contents.append(self.construct_prompt(prompt, GeminiEnums.USER.value))
+        stream = await self.client.aio.models.generate_content_stream(
+            model=self.generation_model_id,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                max_output_tokens=generation_max_tokens,
+                temperature=temperature,
+            ),
+        )
+        async for response in stream:
+            if response and response.text:
+                yield response.text
+
     def embed_text(self, text: Union[str, List[str]], document_type: str = None):
         if not self.client:
             self.logger.error("Gemini client was not set")

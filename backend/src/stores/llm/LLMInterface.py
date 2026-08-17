@@ -37,6 +37,23 @@ class LLMInterface(ABC):
             chat_history, generation_max_tokens, temperature,
         )
 
+    async def generate_text_stream_async(
+        self,
+        prompt: str,
+        chat_history: list | None = None,
+        generation_max_tokens: int = None,
+        temperature: float = None,
+    ):
+        """Yield provider deltas, with a one-chunk compatibility fallback."""
+        text = await self.generate_text_async(
+            prompt,
+            chat_history or [],
+            generation_max_tokens,
+            temperature,
+        )
+        if text:
+            yield text
+
     async def embed_text_async(self, text: Union[str, List[str]],
                                document_type: str = None):
         """Async version of embed_text.

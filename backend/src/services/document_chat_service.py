@@ -6,7 +6,7 @@ import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional, Sequence
+from typing import AsyncIterator, List, Optional, Sequence
 
 import aiofiles
 from fastapi import UploadFile, status
@@ -17,6 +17,8 @@ from db.models import (
     ConversationKind,
     DocumentFile,
     DocumentFileStatus,
+    GenerationStatus,
+    GroundingStatus,
     Message,
     MessageRole,
     User,
@@ -43,6 +45,16 @@ from services.file_service import (
 )
 from services.ingestion_service import detect_pdf_encrypted, ingest_file
 from services.rag_service import RAGService, collection_for_conversation
+from services.answer_result import AnswerResult, result_from_generation
+from services.ephemeral_store import EphemeralStore
+from services.generation_control import (
+    GenerationCancelled,
+    await_cancellable,
+    iter_cancellable,
+)
+from services.storage_service import get_storage
+from services.retention_service import document_expiry_for_current_term
+from services.telemetry_service import TelemetryService
 from stores.agent import AgentInterface
 
 logger = logging.getLogger("docmind.doc_chat")
@@ -102,6 +114,9 @@ class DocumentChatService:
         conv = Conversation(
             owner_id=owner.id, kind=ConversationKind.DOC, title=f"Chat {count + 1}"
         )
+        conv.expires_at = await document_expiry_for_current_term(
+            self._session, datetime.now(timezone.utc)
+        )
         await self._conversations.add(conv)
 
         files, jobs = [], []
@@ -152,11 +167,11 @@ class DocumentChatService:
         # stops answering from removed documents. Runs before the request
         # commits: a failure rolls the row delete back so removal can be retried.
         await rag.delete_material(collection_for_conversation(conv.id), file_id)
-        if target.storage_path and os.path.exists(target.storage_path):
-            try:
-                os.unlink(target.storage_path)
-            except OSError:
-                logger.warning("Failed to delete %s", target.storage_path)
+        await get_storage().delete(
+            backend=target.storage_backend,
+            key=target.storage_key,
+            local_path=target.storage_path,
+        )
 
     async def list_files(
         self, owner: User, conv_id: str
@@ -195,11 +210,11 @@ class DocumentChatService:
         conv = await self._load_owned(owner, conv_id)
         files = await self._files.list_for_conversation(conv.id)
         for f in files:
-            if f.storage_path and os.path.exists(f.storage_path):
-                try:
-                    os.unlink(f.storage_path)
-                except OSError:
-                    pass
+            await get_storage().delete(
+                backend=f.storage_backend,
+                key=f.storage_key,
+                local_path=f.storage_path,
+            )
         await rag.delete_collection(collection_for_conversation(conv.id))
         await self._conversations.delete(conv)
 
@@ -259,7 +274,12 @@ class DocumentChatService:
                 limit=settings.AGENT_RETRIEVAL_LIMIT,
                 threshold=settings.AGENT_RETRIEVAL_THRESHOLD,
             )
-            answer = result.text
+            answer_result = result_from_generation(
+                result.text or "", result.retrieved, source_kind="document_file"
+            ) if result.retrieved else AnswerResult(
+                text=result.text or "",
+                grounding_status="no_context" if result.used_retrieval else "ungrounded",
+            )
             logger.info(
                 "agent.doc_chat conv=%s used_retrieval=%s planner_query=%r hits=%d",
                 conv.id,
@@ -268,12 +288,19 @@ class DocumentChatService:
                 len(result.retrieved),
             )
         else:
-            answer = await rag.answer(collection, text, limit=5, threshold=0.3)
+            answer_result = await rag.answer(collection, text, limit=5, threshold=0.3)
 
         reply = Message(
-            conversation_id=conv.id, role=MessageRole.DOC, text=answer or ""
+            conversation_id=conv.id,
+            role=MessageRole.DOC,
+            text=answer_result.text,
+            citations=answer_result.citations,
+            grounding_status=GroundingStatus(answer_result.grounding_status),
         )
         await self._messages.add(reply)
+        await TelemetryService(self._session).record(
+            message_id=reply.id, subject_id=None, result=answer_result, state="complete"
+        )
 
         conv.updated_at = datetime.now(timezone.utc)
 
@@ -281,6 +308,190 @@ class DocumentChatService:
             userMessage=_message_response(user_msg),
             reply=_message_response(reply),
         )
+
+    async def stream_message(
+        self,
+        owner: User,
+        conv_id: str,
+        text: str,
+        rag: RAGService,
+        agent: Optional[AgentInterface],
+        store: EphemeralStore,
+    ) -> AsyncIterator[tuple[str, dict]]:
+        """Validate before headers are sent, then return the event iterator."""
+        conv = await self._load_owned(owner, conv_id)
+        if await self._files.count_still_processing(conv.id) > 0:
+            raise APIError(
+                ErrorCode.FILES_NOT_READY,
+                status.HTTP_409_CONFLICT,
+                "Some files are still being processed. Please wait.",
+            )
+        if not text.strip():
+            raise APIError(
+                ErrorCode.VALIDATION_ERROR,
+                status.HTTP_400_BAD_REQUEST,
+                "Message cannot be empty.",
+            )
+
+        history_turns = get_settings().AGENT_HISTORY_TURNS
+        history = (
+            await self._recent_history(conv.id, history_turns)
+            if agent is not None and history_turns > 0
+            else None
+        )
+        return self._stream_prepared(conv, text, rag, agent, store, history)
+
+    async def _stream_prepared(
+        self,
+        conv: Conversation,
+        text: str,
+        rag: RAGService,
+        agent: Optional[AgentInterface],
+        store: EphemeralStore,
+        history: Optional[list[dict]],
+    ) -> AsyncIterator[tuple[str, dict]]:
+        """Persist a draft reply, then forward provider deltas to the client."""
+
+        user_msg = await self._messages.add(
+            Message(conversation_id=conv.id, role=MessageRole.USER, text=text)
+        )
+        reply = await self._messages.add(
+            Message(
+                conversation_id=conv.id,
+                role=MessageRole.DOC,
+                text="",
+                generation_status=GenerationStatus.GENERATING,
+            )
+        )
+        conv.updated_at = datetime.now(timezone.utc)
+        await self._session.commit()
+        yield "message.created", {
+            "userMessage": _message_response(user_msg).model_dump(mode="json"),
+            "reply": _message_response(reply).model_dump(mode="json"),
+        }
+
+        result: AnswerResult | None = None
+        try:
+            collection = collection_for_conversation(conv.id)
+            if agent is not None:
+                settings = get_settings()
+                agent_kwargs = {
+                    "collection_name": collection,
+                    "query": text,
+                    "rag_service": rag,
+                    "history": history,
+                    "limit": settings.AGENT_RETRIEVAL_LIMIT,
+                    "threshold": settings.AGENT_RETRIEVAL_THRESHOLD,
+                }
+                if hasattr(agent, "answer_stream"):
+                    agent_result = None
+                    source = agent.answer_stream(**agent_kwargs)
+                    async for kind, payload in iter_cancellable(
+                        source, store=store, reply_id=reply.id
+                    ):
+                        if kind == "delta":
+                            yield "answer.delta", {
+                                "replyId": reply.id,
+                                "delta": payload,
+                            }
+                        else:
+                            agent_result = payload
+                    if agent_result is None:
+                        raise RuntimeError("Agent completed without a result")
+                else:
+                    agent_result = await await_cancellable(
+                        agent.answer(**agent_kwargs),
+                        store=store,
+                        reply_id=reply.id,
+                    )
+                result = (
+                    result_from_generation(
+                        agent_result.text or "",
+                        agent_result.retrieved,
+                        source_kind="document_file",
+                    )
+                    if agent_result.retrieved
+                    else AnswerResult(
+                        text=agent_result.text or "",
+                        grounding_status=(
+                            "no_context" if agent_result.used_retrieval else "ungrounded"
+                        ),
+                    )
+                )
+                if not hasattr(agent, "answer_stream") and result.text:
+                    yield "answer.delta", {"replyId": reply.id, "delta": result.text}
+            else:
+                source = rag.answer_stream(collection, text, limit=5, threshold=0.3)
+                async for kind, payload in iter_cancellable(
+                    source, store=store, reply_id=reply.id
+                ):
+                    if kind == "delta":
+                        yield "answer.delta", {"replyId": reply.id, "delta": payload}
+                    else:
+                        result = payload
+
+            if result is None:
+                raise RuntimeError("Generation completed without a result")
+            completed = await self._messages.complete_if_generating(
+                reply.id,
+                text=result.text,
+                citations=result.citations,
+                grounding_status=GroundingStatus(result.grounding_status),
+            )
+            if not completed:
+                await self._session.refresh(reply)
+                await self._session.commit()
+                yield "answer.completed", {
+                    "reply": _message_response(reply).model_dump(mode="json")
+                }
+                return
+            reply.text = result.text
+            reply.citations = result.citations
+            reply.grounding_status = GroundingStatus(result.grounding_status)
+            reply.generation_status = GenerationStatus.COMPLETE
+            await TelemetryService(self._session).record(
+                message_id=reply.id, subject_id=None, result=result, state="complete"
+            )
+            await self._session.commit()
+            yield "answer.citations", {
+                "replyId": reply.id,
+                "citations": result.citations,
+                "groundingStatus": result.grounding_status,
+            }
+            yield "answer.completed", {
+                "reply": _message_response(reply).model_dump(mode="json")
+            }
+        except GenerationCancelled:
+            await self._messages.cancel_if_generating(reply.id)
+            await self._session.refresh(reply)
+            await self._session.commit()
+            yield "answer.completed", {
+                "reply": _message_response(reply).model_dump(mode="json")
+            }
+        except asyncio.CancelledError:
+            await self._messages.cancel_if_generating(reply.id)
+            await self._session.commit()
+            raise
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Document answer stream failed reply=%s", reply.id)
+            failed = await self._messages.fail_if_generating(reply.id)
+            if not failed:
+                await self._session.refresh(reply)
+                await self._session.commit()
+                yield "answer.completed", {
+                    "reply": _message_response(reply).model_dump(mode="json")
+                }
+                return
+            reply.generation_status = GenerationStatus.FAILED
+            await TelemetryService(self._session).record(
+                message_id=reply.id, subject_id=None, state="failed", error_code="GENERATION_FAILED"
+            )
+            await self._session.commit()
+            yield "answer.failed", {
+                "replyId": reply.id,
+                "code": "GENERATION_FAILED",
+                "message": str(exc),
+            }
 
     # Convenience helper for the back-compat ``POST /chat/doc`` route —
     # creates a throwaway conversation, uploads nothing, just calls the LLM.
@@ -307,7 +518,7 @@ class DocumentChatService:
                 or "No indexed files are associated with this session."
             )
         answer = await rag.answer(collection, text, limit=3)
-        return answer or "No indexed files are associated with this session."
+        return answer.text or "No indexed files are associated with this session."
 
     async def _recent_history(
         self, conv_id: str, limit: int
@@ -368,12 +579,29 @@ class DocumentChatService:
                 status.HTTP_422_UNPROCESSABLE_ENTITY,
                 "Encrypted PDFs are not supported.",
             )
+        storage_backend = settings.STORAGE_BACKEND
+        storage_key = str(storage)
+        if storage_backend == "s3":
+            storage_key = f"document-files/{conv_id}/{random_suffix(24)}{ext}"
+            try:
+                await get_storage().upload(
+                    str(storage), storage_key,
+                    (upload.content_type or "application/octet-stream").lower(),
+                )
+            except Exception:
+                try:
+                    os.unlink(storage)
+                except FileNotFoundError:
+                    pass
+                raise
         record = DocumentFile(
             conversation_id=conv_id,
             name=upload.filename or "file",
             size_bytes=total,
             mime=(upload.content_type or "application/octet-stream").lower(),
             storage_path=str(storage),
+            storage_key=storage_key,
+            storage_backend=storage_backend,
             status=DocumentFileStatus.PROCESSING,
         )
         try:
@@ -385,6 +613,10 @@ class DocumentChatService:
                 os.unlink(storage)
             except FileNotFoundError:
                 pass
+            if storage_backend == "s3":
+                await get_storage().delete(
+                    backend="s3", key=storage_key, local_path=None
+                )
             raise
         job = {
             "file_id": record.id,
@@ -411,6 +643,9 @@ def _message_response(msg: Message) -> MessageResponse:
         role=msg.role.value,
         text=msg.text,
         createdAt=msg.created_at,
+        citations=msg.citations or [],
+        generationStatus=msg.generation_status.value,
+        groundingStatus=msg.grounding_status.value if msg.grounding_status else None,
     )
 
 
@@ -447,6 +682,12 @@ async def index_doc_file_job(
                 await DocumentFileRepository(session).set_status(
                     file_id, DocumentFileStatus.READY
                 )
+                record = await DocumentFileRepository(session).get(file_id)
+        if record and record.storage_backend == "s3":
+            try:
+                os.unlink(path)
+            except FileNotFoundError:
+                pass
     except Exception:  # noqa: BLE001
         logger.exception("Indexing failed for doc file %s", file_id)
         # Surface the failure so the file doesn't stay stuck in PROCESSING.

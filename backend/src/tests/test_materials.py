@@ -25,6 +25,41 @@ async def test_list_materials_for_instructor(client, seed):
     assert any(m["name"] == "Week 1" for m in resp.json())
 
 
+async def test_instructor_preview_streams_real_events(client, seed):
+    sup, _viewer = await _subject_with_super(seed)
+    await seed.material("mat-sub", name="Preview source")
+    resp = await client.post(
+        "/api/subjects/mat-sub/test-bot/stream",
+        json={"message": "Explain the topic"},
+        headers=auth_header(sup),
+    )
+    assert resp.status_code == 200
+    assert "event: message.created" in resp.text
+    assert "event: answer.delta" in resp.text
+    assert "event: answer.citations" in resp.text
+    assert "event: answer.completed" in resp.text
+
+
+async def test_s3_material_download_redirects_to_short_lived_url(client, seed, db, monkeypatch):
+    sup, _viewer = await _subject_with_super(seed)
+    material = await seed.material("mat-sub", name="Cloud lecture")
+    material.storage_backend = "s3"
+    material.storage_key = "materials/mat-sub/cloud.pdf"
+    await db.commit()
+
+    class FakeStorage:
+        def download_url(self, **_kwargs):
+            return "https://objects.example/signed"
+
+    monkeypatch.setattr("services.material_service.get_storage", lambda: FakeStorage())
+    resp = await client.get(
+        f"/api/subjects/mat-sub/materials/{material.id}/download",
+        headers=auth_header(sup),
+    )
+    assert resp.status_code == 307
+    assert resp.headers["location"] == "https://objects.example/signed"
+
+
 async def test_upload_indexes_and_marks_processed(client, seed, pdf_bytes, monkeypatch):
     sup, _viewer = await _subject_with_super(seed)
 

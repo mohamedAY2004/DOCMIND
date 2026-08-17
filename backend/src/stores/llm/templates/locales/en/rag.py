@@ -32,7 +32,7 @@ footer_prompt = Template(
     "\n".join(
         [
             "Based only on the documents above, answer the student's question.",
-            "When you state a fact, cite the source filename (and section) it came",
-            "from, e.g. (Lecture03.pdf, Third Normal Form).",
+            "When you state a fact, cite its numbered document marker, for example [1].",
+            "Use only markers shown above. Never invent or cite an unknown marker.",
         ])
 )

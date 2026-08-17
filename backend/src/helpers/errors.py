@@ -17,6 +17,7 @@ import logging
 from typing import Any, Optional
 
 from fastapi import FastAPI, Request, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -89,7 +90,7 @@ def install_exception_handlers(app: FastAPI) -> None:
             content=_envelope(
                 ErrorCode.VALIDATION_ERROR,
                 "Request body failed validation.",
-                details={"errors": exc.errors()},
+                details={"errors": jsonable_encoder(exc.errors())},
             ),
         )
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 from fastapi import status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models import FeedbackValue, MessageRole, User
+from db.models import FeedbackReason, FeedbackValue, MessageRole, User
 from helpers.errors import APIError, ErrorCode
 from repositories.activity_repository import ActivityRepository
 from repositories.conversation_repository import ConversationRepository
@@ -45,11 +45,13 @@ class FeedbackService:
         return message, conv
 
     async def upsert(
-        self, caller: User, message_id: str, value: FeedbackValue
+        self, caller: User, message_id: str, value: FeedbackValue,
+        reason: FeedbackReason | None = None, comment: str | None = None,
     ) -> FeedbackResponse:
         message, conv = await self._assert_can_feedback(caller, message_id)
         fb = await self._feedback.upsert(
-            message_id=message_id, user_id=caller.id, value=value
+            message_id=message_id, user_id=caller.id, value=value,
+            reason=reason, comment=comment,
         )
         if value == FeedbackValue.DOWN:
             await self._activity.record(
@@ -67,6 +69,8 @@ class FeedbackService:
             messageId=fb.message_id,
             feedback=fb.feedback.value,
             createdAt=fb.created_at,
+            reason=fb.reason.value if fb.reason else None,
+            comment=fb.comment,
         )
 
     async def delete(self, caller: User, message_id: str) -> None:

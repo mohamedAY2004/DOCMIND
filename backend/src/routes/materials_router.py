@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from typing import List, Optional
 
 from fastapi import (
@@ -13,7 +14,8 @@ from fastapi import (
     UploadFile,
     status,
 )
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
+from starlette.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,7 +27,11 @@ from repositories.material_repository import MaterialRepository
 from repositories.subject_repository import SubjectRepository
 from schemas.material import MaterialResponse, UpdateMaterialRequest
 from services.material_service import MaterialService, index_material_job
+from services.answer_result import AnswerResult, result_from_generation
+from services.ephemeral_store import store_for
+from services.generation_control import GenerationSlot
 from services.rag_service import RAGService, collection_for_subject
+from services.sse import encode_sse
 from stores.agent import AgentInterface
 
 logger = logging.getLogger("docmind.materials")
@@ -129,17 +135,19 @@ async def download_material(
     material_id: str,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_role(UserRole.INSTRUCTOR, UserRole.ADMIN)),
-) -> FileResponse:
+) -> Response:
     """Download a previously uploaded material file.
 
     Allowed for any instructor on the roster (super or viewer) and admins,
     including on archived semesters — downloading old content is the only
     action that remains available once a term is archived.
     """
-    path, filename, media_type = await MaterialService(session).get_download(
+    target, filename, media_type, is_remote = await MaterialService(session).get_download(
         user, subject_id, material_id
     )
-    return FileResponse(path, media_type=media_type, filename=filename)
+    if is_remote:
+        return RedirectResponse(target, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+    return FileResponse(target, media_type=media_type, filename=filename)
 
 
 # -------------------- instructor test-bot --------------------
@@ -151,6 +159,90 @@ class _TestBotRequest(BaseModel):
 
 class _TestBotResponse(BaseModel):
     reply: str
+
+
+@router.post("/{subject_id}/test-bot/stream")
+async def stream_test_bot(
+    subject_id: str,
+    body: _TestBotRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_role(UserRole.INSTRUCTOR, UserRole.ADMIN)),
+) -> StreamingResponse:
+    """Stream the stateless instructor preview through the production RAG path."""
+    if not get_settings().STREAMING_CHAT:
+        raise APIError(ErrorCode.NOT_FOUND, status.HTTP_404_NOT_FOUND, "Streaming chat is disabled.")
+    subjects = SubjectRepository(session)
+    subject = await subjects.get(subject_id)
+    if subject is None:
+        raise APIError(ErrorCode.NOT_FOUND, status.HTTP_404_NOT_FOUND, "Subject not found.")
+    if user.role != UserRole.ADMIN and not await subjects.is_instructor_of(subject_id, user.id):
+        raise APIError(ErrorCode.FORBIDDEN, status.HTTP_403_FORBIDDEN, "You are not assigned to this subject.")
+    if await subjects.semester_state_for_subject(subject_id) is SemesterState.ARCHIVED:
+        raise APIError(ErrorCode.FORBIDDEN, status.HTTP_403_FORBIDDEN, "This semester is archived; the assistant is offline and cannot be tested.")
+    if await MaterialRepository(session).count_processed(subject_id) == 0:
+        raise APIError(ErrorCode.SUBJECT_NOT_READY, status.HTTP_409_CONFLICT, "This subject has no indexed materials yet. Upload and wait for processing to finish.")
+
+    reply_id = "preview_" + uuid.uuid4().hex[:20]
+    subject_name = f"{subject.course_code} - {subject.title}"
+    rag = _rag_service(request)
+    agent = _agent(request)
+    store = store_for(request.app)
+    slot = await GenerationSlot.acquire(store, user.id)
+
+    async def events():
+        try:
+            yield encode_sse("message.created", {"reply": {"id": reply_id, "role": "assistant", "text": "", "citations": [], "generationStatus": "generating", "groundingStatus": None}})
+            result = None
+            collection = collection_for_subject(subject_id)
+            if agent is not None and hasattr(agent, "answer_stream"):
+                settings = get_settings()
+                agent_result = None
+                async for kind, payload in agent.answer_stream(
+                    collection_name=collection,
+                    query=body.message,
+                    rag_service=rag,
+                    history=None,
+                    subject_name=subject_name,
+                    limit=settings.AGENT_RETRIEVAL_LIMIT,
+                    threshold=settings.AGENT_RETRIEVAL_THRESHOLD,
+                ):
+                    if kind == "delta":
+                        yield encode_sse("answer.delta", {"replyId": reply_id, "delta": payload})
+                    else:
+                        agent_result = payload
+                if agent_result is not None:
+                    result = (
+                        result_from_generation(agent_result.text, agent_result.retrieved, source_kind="material")
+                        if agent_result.retrieved
+                        else AnswerResult(
+                            text=agent_result.text,
+                            grounding_status="no_context" if agent_result.used_retrieval else "ungrounded",
+                        )
+                    )
+            else:
+                async for kind, payload in rag.answer_stream(
+                    collection,
+                    body.message,
+                    limit=5,
+                    threshold=0.3,
+                    subject_name=subject_name,
+                ):
+                    if kind == "delta":
+                        yield encode_sse("answer.delta", {"replyId": reply_id, "delta": payload})
+                    else:
+                        result = payload
+            if result is None:
+                raise RuntimeError("Generation completed without a result")
+            yield encode_sse("answer.citations", {"replyId": reply_id, "citations": result.citations, "groundingStatus": result.grounding_status})
+            yield encode_sse("answer.completed", {"reply": {"id": reply_id, "role": "assistant", "text": result.text, "citations": result.citations, "generationStatus": "complete", "groundingStatus": result.grounding_status}})
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Instructor preview generation failed")
+            yield encode_sse("answer.failed", {"replyId": reply_id, "code": "GENERATION_FAILED", "message": str(exc)})
+        finally:
+            await slot.release()
+
+    return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @router.post(
@@ -203,23 +295,27 @@ async def test_bot(
     collection = collection_for_subject(subject_id)
     rag = _rag_service(request)
     agent = _agent(request)
+    slot = await GenerationSlot.acquire(store_for(request.app), user.id)
 
-    if agent is not None:
-        settings = get_settings()
-        result = await agent.answer(
-            collection_name=collection,
-            query=body.message,
-            rag_service=rag,
-            history=None,
-            subject_name=subject_name,
-            limit=settings.AGENT_RETRIEVAL_LIMIT,
-            threshold=settings.AGENT_RETRIEVAL_THRESHOLD,
-        )
-        answer = result.text or ""
-    else:
-        answer = await rag.answer(
-            collection, body.message, limit=5, threshold=0.3,
-            subject_name=subject_name,
-        )
+    try:
+        if agent is not None:
+            settings = get_settings()
+            result = await agent.answer(
+                collection_name=collection,
+                query=body.message,
+                rag_service=rag,
+                history=None,
+                subject_name=subject_name,
+                limit=settings.AGENT_RETRIEVAL_LIMIT,
+                threshold=settings.AGENT_RETRIEVAL_THRESHOLD,
+            )
+            answer = result.text or ""
+        else:
+            answer = (await rag.answer(
+                collection, body.message, limit=5, threshold=0.3,
+                subject_name=subject_name,
+            )).text
+    finally:
+        await slot.release()
 
     return _TestBotResponse(reply=answer)

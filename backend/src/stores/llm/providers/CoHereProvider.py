@@ -94,6 +94,28 @@ class CoHereProvider(LLMInterface):
             return None
 
         return response.text
+
+    async def generate_text_stream_async(
+        self,
+        prompt: str,
+        chat_history: list = None,
+        generation_max_tokens: int = None,
+        temperature: float = None,
+    ):
+        """Yield native Cohere text-generation events."""
+        if not self.async_client or not self.generation_model_id:
+            return
+        stream = self.async_client.chat_stream(
+            model=self.generation_model_id,
+            chat_history=list(chat_history or []),
+            message=self.process_text(prompt),
+            temperature=(temperature if temperature is not None else self.default_generation_temperature),
+            max_tokens=(generation_max_tokens or self.default_generation_max_output_tokens),
+        )
+        async for event in stream:
+            text = getattr(event, "text", None)
+            if text:
+                yield text
     
     def embed_text(self, text: Union[str, List[str]], document_type: str = None):
         if not self.client:

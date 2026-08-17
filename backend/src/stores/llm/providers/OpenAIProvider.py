@@ -99,6 +99,41 @@ class OpenAIProvider(LLMInterface):
         chat_history.append(self.construct_prompt(content, self.enums.ASSISTANT.value))
         return content
 
+    async def generate_text_stream_async(
+        self, prompt: str, chat_history: list = None,
+        generation_max_tokens: int = None, temperature: float = None,
+    ):
+        """Stream native OpenAI completion deltas without buffering."""
+        if not self.async_client or not self.generation_model_id:
+            return
+        generation_max_tokens = generation_max_tokens if generation_max_tokens is not None else self.default_generation_max_tokens
+        temperature = temperature if temperature is not None else self.default_temperature
+        messages = list(chat_history or [])
+        messages.append(self.construct_prompt(prompt, self.enums.USER.value))
+        stream = await self.async_client.chat.completions.create(
+            model=self.generation_model_id,
+            messages=messages,
+            max_tokens=generation_max_tokens,
+            temperature=temperature,
+            stream=True,
+        )
+        reasoning_parts = []
+        emitted_content = False
+        async for event in stream:
+            if not event.choices:
+                continue
+            delta = event.choices[0].delta
+            content = getattr(delta, "content", None)
+            if content:
+                emitted_content = True
+                yield content
+            elif not emitted_content:
+                reasoning = getattr(delta, "reasoning", None)
+                if reasoning:
+                    reasoning_parts.append(reasoning)
+        if not emitted_content and reasoning_parts:
+            yield "".join(reasoning_parts)
+
     def process_text(self, text:str):
         return text.strip()[:self.default_input_max_characters]    
 
@@ -144,13 +179,9 @@ class OpenAIProvider(LLMInterface):
             return None
 
         return [d.embedding for d in response.data]
-    
+
     def construct_prompt(self, prompt: str, role: str):
-       return{
-        "role": role,
-        "content": self.process_text(prompt)
-       }
-    
-
-
-    
+        return {
+            "role": role,
+            "content": self.process_text(prompt),
+        }

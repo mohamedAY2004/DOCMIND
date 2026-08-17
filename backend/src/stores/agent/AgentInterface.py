@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import AsyncIterator, List, Optional
 
 
 @dataclass
@@ -78,3 +78,10 @@ class AgentInterface(ABC):
         false the agent always searches the whole subject collection.
         """
         raise NotImplementedError
+
+    async def answer_stream(self, **kwargs) -> AsyncIterator[tuple[str, str | AgentResult]]:
+        """Stream an agent result; strategies may override with native deltas."""
+        result = await self.answer(**kwargs)
+        if result.text:
+            yield "delta", result.text
+        yield "result", result

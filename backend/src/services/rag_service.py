@@ -7,13 +7,15 @@ and tutor chat.
 from __future__ import annotations
 
 import logging
+import time
 import uuid
-from typing import List, Optional
+from typing import AsyncIterator, List, Optional
 
 from stores.llm.LLMEnums import DocumentTypeEnum
 
 from services.ingestion_service import IngestedChunk
 from services.mmr import mmr_select
+from services.answer_result import AnswerResult, result_from_generation
 
 logger = logging.getLogger("docmind.rag")
 
@@ -250,14 +252,16 @@ class RAGService:
         history: Optional[list[dict]] = None,
         subject_name: str = "",
         subject_manifest: str = "",
-    ) -> str:
+    ) -> AnswerResult:
+        started_at = time.perf_counter()
         retrieved = await self.search(
             collection_name, query, limit=limit, threshold=threshold
         )
         if not retrieved:
-            return (
+            return AnswerResult.no_context(
                 "I could not find any relevant information in the indexed materials "
-                "to answer this question."
+                "to answer this question.",
+                started_at=started_at,
             )
 
         system_prompt = self.build_system_prompt(subject_name, subject_manifest)
@@ -274,4 +278,70 @@ class RAGService:
 
         full_prompt = "\n\n".join([docs_block, footer, query])
         reply = await self._generation.generate_text_async(prompt=full_prompt, chat_history=chat_history)
-        return reply or ""
+        source_kind = "document_file" if collection_name.startswith("doc_") else "material"
+        return result_from_generation(
+            reply or "",
+            retrieved,
+            source_kind=source_kind,
+            started_at=started_at,
+        )
+
+    async def answer_stream(
+        self,
+        collection_name: str,
+        query: str,
+        *,
+        limit: int = 5,
+        threshold: float = 0.5,
+        history: Optional[list[dict]] = None,
+        subject_name: str = "",
+        subject_manifest: str = "",
+    ) -> AsyncIterator[tuple[str, str | AnswerResult]]:
+        """Yield provider deltas followed by one validated ``AnswerResult``."""
+        started_at = time.perf_counter()
+        retrieved = await self.search(
+            collection_name, query, limit=limit, threshold=threshold
+        )
+        if not retrieved:
+            result = AnswerResult.no_context(
+                "I could not find any relevant information in the indexed materials "
+                "to answer this question.",
+                started_at=started_at,
+            )
+            yield "delta", result.text
+            yield "result", result
+            return
+
+        system_prompt = self.build_system_prompt(subject_name, subject_manifest)
+        docs_block = self.build_docs_block(retrieved)
+        footer = self._templates.get(group="rag", key="footer_prompt")
+        chat_history = [
+            self._generation.construct_prompt(
+                prompt=system_prompt, role=self._generation.enums.SYSTEM.value
+            )
+        ]
+        if history:
+            chat_history.extend(history)
+        full_prompt = "\n\n".join([docs_block, footer, query])
+
+        pieces: list[str] = []
+        first_token_ms: int | None = None
+        async for delta in self._generation.generate_text_stream_async(
+            prompt=full_prompt, chat_history=chat_history
+        ):
+            if not delta:
+                continue
+            if first_token_ms is None:
+                first_token_ms = max(0, round((time.perf_counter() - started_at) * 1000))
+            pieces.append(delta)
+            yield "delta", delta
+
+        source_kind = "document_file" if collection_name.startswith("doc_") else "material"
+        result = result_from_generation(
+            "".join(pieces),
+            retrieved,
+            source_kind=source_kind,
+            started_at=started_at,
+        )
+        object.__setattr__(result, "time_to_first_token_ms", first_token_ms)
+        yield "result", result

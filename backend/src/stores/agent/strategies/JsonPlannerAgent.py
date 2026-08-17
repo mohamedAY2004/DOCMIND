@@ -29,7 +29,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import List, Optional
+from typing import AsyncIterator, List, Optional
 
 from ..AgentEnums import AgentActionEnum
 from ..AgentInterface import AgentInterface, AgentResult
@@ -161,6 +161,117 @@ class JsonPlannerAgent(AgentInterface):
             text=text or "",
             used_retrieval=True,
             planner_query=planner_query,
+            retrieved=list(retrieved),
+            sources_filter=applied_filter,
+        )
+
+    async def answer_stream(
+        self,
+        *,
+        collection_name: str,
+        query: str,
+        rag_service,
+        history: Optional[list[dict]] = None,
+        subject_name: str = "",
+        subject_manifest: str = "",
+        material_index: Optional[list[tuple[str, str]]] = None,
+        source_filter_enabled: bool = False,
+        limit: int = 5,
+        threshold: float = 0.3,
+    ) -> AsyncIterator[tuple[str, str | AgentResult]]:
+        """Run the planner first, then stream the selected synthesis branch."""
+        decision = await self._plan(
+            query=query,
+            history=history,
+            subject_name=subject_name,
+            subject_manifest=subject_manifest,
+        )
+        planner_query = decision.get("query") or query
+        retrieved = []
+        applied_filter: list[str] = []
+
+        if decision["action"] == AgentActionEnum.ANSWER.value:
+            system_prompt = (
+                self._templates.get(
+                    group="agent",
+                    key="direct_answer_prompt",
+                    variables={
+                        "subject_name": subject_name,
+                        "subject_manifest": subject_manifest,
+                    },
+                )
+                or "You are a helpful academic assistant. Answer concisely."
+            )
+            prompt = query
+            used_retrieval = False
+            planner_query_result = None
+        else:
+            applied_filter = self._resolve_sources(
+                decision.get("sources"),
+                material_index=material_index,
+                enabled=source_filter_enabled,
+            )
+            retrieved = await rag_service.search(
+                collection_name,
+                planner_query,
+                limit=limit,
+                threshold=threshold,
+                material_ids=applied_filter or None,
+            )
+            if not retrieved and applied_filter:
+                applied_filter = []
+                retrieved = await rag_service.search(
+                    collection_name,
+                    planner_query,
+                    limit=limit,
+                    threshold=threshold,
+                    material_ids=None,
+                )
+            used_retrieval = True
+            planner_query_result = planner_query
+            if retrieved:
+                system_prompt = rag_service.build_system_prompt(
+                    subject_name, subject_manifest
+                )
+                prompt = "\n\n".join([
+                    rag_service.build_docs_block(retrieved),
+                    self._templates.get(group="rag", key="footer_prompt"),
+                    query,
+                ])
+            else:
+                system_prompt = (
+                    self._templates.get(
+                        group="agent",
+                        key="no_context_prompt",
+                        variables={
+                            "subject_name": subject_name,
+                            "subject_manifest": subject_manifest,
+                        },
+                    )
+                    or (
+                        "No relevant documents were found. Answer from general "
+                        "knowledge if you can; otherwise politely say you do not "
+                        "have enough information."
+                    )
+                )
+                prompt = query
+
+        chat_history = self._build_chat_history(
+            system_prompt=system_prompt,
+            history=history,
+        )
+        pieces: list[str] = []
+        async for delta in self._generation.generate_text_stream_async(
+            prompt=prompt,
+            chat_history=chat_history,
+        ):
+            if delta:
+                pieces.append(delta)
+                yield "delta", delta
+        yield "result", AgentResult(
+            text="".join(pieces),
+            used_retrieval=used_retrieval,
+            planner_query=planner_query_result,
             retrieved=list(retrieved),
             sources_filter=applied_filter,
         )

@@ -1,9 +1,10 @@
 """Tutor-chat business logic (spec §8.1)."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Optional
+from typing import AsyncIterator, Optional
 
 from fastapi import status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.models import (
     Conversation,
     ConversationKind,
+    GenerationStatus,
+    GroundingStatus,
     Message,
     MessageRole,
     SemesterState,
@@ -31,6 +34,15 @@ from schemas.chat import (
     MessageResponse,
 )
 from services.rag_service import RAGService, collection_for_subject
+from services.answer_result import AnswerResult, result_from_generation
+from services.ephemeral_store import EphemeralStore
+from services.generation_control import (
+    GenerationCancelled,
+    await_cancellable,
+    iter_cancellable,
+)
+from services.retention_service import tutor_expiry_for_subject
+from services.telemetry_service import TelemetryService
 from stores.agent import AgentInterface
 
 logger = logging.getLogger("docmind.tutor_chat")
@@ -38,6 +50,7 @@ logger = logging.getLogger("docmind.tutor_chat")
 
 class TutorChatService:
     def __init__(self, session: AsyncSession) -> None:
+        self._session = session
         self._conversations = ConversationRepository(session)
         self._messages = MessageRepository(session)
         self._subjects = SubjectRepository(session)
@@ -158,6 +171,9 @@ class TutorChatService:
             subject_id=subject_id,
             title=f"Chat {count + 1}",
         )
+        conv.expires_at = await tutor_expiry_for_subject(
+            self._session, subject_id, datetime.now(timezone.utc)
+        )
         await self._conversations.add(conv)
         return _conv_response(conv, 0)
 
@@ -262,7 +278,12 @@ class TutorChatService:
                 limit=settings.AGENT_RETRIEVAL_LIMIT,
                 threshold=settings.AGENT_RETRIEVAL_THRESHOLD,
             )
-            answer = result.text
+            answer_result = result_from_generation(
+                result.text or "", result.retrieved, source_kind="material"
+            ) if result.retrieved else AnswerResult(
+                text=result.text or "",
+                grounding_status="no_context" if result.used_retrieval else "ungrounded",
+            )
             logger.info(
                 "agent.tutor_chat conv=%s used_retrieval=%s planner_query=%r hits=%d sources=%s",
                 conv.id,
@@ -272,7 +293,7 @@ class TutorChatService:
                 result.sources_filter,
             )
         else:
-            answer = await rag.answer(
+            answer_result = await rag.answer(
                 collection,
                 text,
                 limit=5,
@@ -281,9 +302,19 @@ class TutorChatService:
                 subject_manifest=subject_manifest,
             )
         reply = Message(
-            conversation_id=conv.id, role=MessageRole.ASSISTANT, text=answer or ""
+            conversation_id=conv.id,
+            role=MessageRole.ASSISTANT,
+            text=answer_result.text,
+            citations=answer_result.citations,
+            grounding_status=GroundingStatus(answer_result.grounding_status),
         )
         await self._messages.add(reply)
+        await TelemetryService(self._session).record(
+            message_id=reply.id,
+            subject_id=conv.subject_id,
+            result=answer_result,
+            state="complete",
+        )
 
         conv.updated_at = datetime.now(timezone.utc)
 
@@ -291,6 +322,219 @@ class TutorChatService:
             userMessage=_message_response(user_msg),
             reply=_message_response(reply),
         )
+
+    async def stream_message(
+        self,
+        owner: User,
+        conv_id: str,
+        text: str,
+        rag: RAGService,
+        agent: Optional[AgentInterface],
+        store: EphemeralStore,
+    ) -> AsyncIterator[tuple[str, dict]]:
+        """Validate before headers are sent, then return the event iterator."""
+        conv = await self._load_owned(owner, conv_id)
+        if not text.strip():
+            raise APIError(
+                ErrorCode.VALIDATION_ERROR,
+                status.HTTP_400_BAD_REQUEST,
+                "Message cannot be empty.",
+            )
+        subject_id = conv.subject_id or ""
+        await self._ensure_subject_ready(subject_id)
+        await self._ensure_student_enrolled(owner, subject_id)
+        await self._ensure_subject_interactive(owner, subject_id)
+        subject = await self._subjects.get(subject_id)
+        subject_name = f"{subject.course_code} — {subject.title}" if subject else "Unknown"
+        subject_manifest, material_index = await self._build_corpus(subject_id)
+        history_turns = get_settings().AGENT_HISTORY_TURNS
+        history = (
+            await self._recent_history(conv.id, history_turns)
+            if agent is not None and history_turns > 0
+            else None
+        )
+        return self._stream_prepared(
+            conv,
+            text,
+            rag,
+            agent,
+            store,
+            subject_name,
+            subject_manifest,
+            material_index,
+            history,
+        )
+
+    async def _stream_prepared(
+        self,
+        conv: Conversation,
+        text: str,
+        rag: RAGService,
+        agent: Optional[AgentInterface],
+        store: EphemeralStore,
+        subject_name: str,
+        subject_manifest: str,
+        material_index: list[tuple[str, str]],
+        history: Optional[list[dict]],
+    ) -> AsyncIterator[tuple[str, dict]]:
+        subject_id = conv.subject_id or ""
+
+        user_msg = await self._messages.add(
+            Message(conversation_id=conv.id, role=MessageRole.USER, text=text)
+        )
+        reply = await self._messages.add(
+            Message(
+                conversation_id=conv.id,
+                role=MessageRole.ASSISTANT,
+                text="",
+                generation_status=GenerationStatus.GENERATING,
+            )
+        )
+        conv.updated_at = datetime.now(timezone.utc)
+        await self._session.commit()
+        yield "message.created", {
+            "userMessage": _message_response(user_msg).model_dump(mode="json"),
+            "reply": _message_response(reply).model_dump(mode="json"),
+        }
+
+        result: AnswerResult | None = None
+        try:
+            collection = collection_for_subject(subject_id)
+            if agent is not None:
+                settings = get_settings()
+                agent_kwargs = {
+                    "collection_name": collection,
+                    "query": text,
+                    "rag_service": rag,
+                    "history": history,
+                    "subject_name": subject_name,
+                    "subject_manifest": subject_manifest,
+                    "material_index": material_index,
+                    "source_filter_enabled": settings.AGENT_SOURCE_FILTER_ENABLED,
+                    "limit": settings.AGENT_RETRIEVAL_LIMIT,
+                    "threshold": settings.AGENT_RETRIEVAL_THRESHOLD,
+                }
+                if hasattr(agent, "answer_stream"):
+                    agent_result = None
+                    source = agent.answer_stream(**agent_kwargs)
+                    async for kind, payload in iter_cancellable(
+                        source, store=store, reply_id=reply.id
+                    ):
+                        if kind == "delta":
+                            yield "answer.delta", {
+                                "replyId": reply.id,
+                                "delta": payload,
+                            }
+                        else:
+                            agent_result = payload
+                    if agent_result is None:
+                        raise RuntimeError("Agent completed without a result")
+                else:
+                    agent_result = await await_cancellable(
+                        agent.answer(**agent_kwargs),
+                        store=store,
+                        reply_id=reply.id,
+                    )
+                result = (
+                    result_from_generation(
+                        agent_result.text or "",
+                        agent_result.retrieved,
+                        source_kind="material",
+                    )
+                    if agent_result.retrieved
+                    else AnswerResult(
+                        text=agent_result.text or "",
+                        grounding_status=(
+                            "no_context" if agent_result.used_retrieval else "ungrounded"
+                        ),
+                    )
+                )
+                if not hasattr(agent, "answer_stream") and result.text:
+                    yield "answer.delta", {"replyId": reply.id, "delta": result.text}
+            else:
+                source = rag.answer_stream(
+                    collection,
+                    text,
+                    limit=5,
+                    threshold=0.3,
+                    subject_name=subject_name,
+                    subject_manifest=subject_manifest,
+                )
+                async for kind, payload in iter_cancellable(
+                    source, store=store, reply_id=reply.id
+                ):
+                    if kind == "delta":
+                        yield "answer.delta", {"replyId": reply.id, "delta": payload}
+                    else:
+                        result = payload
+            if result is None:
+                raise RuntimeError("Generation completed without a result")
+            completed = await self._messages.complete_if_generating(
+                reply.id,
+                text=result.text,
+                citations=result.citations,
+                grounding_status=GroundingStatus(result.grounding_status),
+            )
+            if not completed:
+                await self._session.refresh(reply)
+                await self._session.commit()
+                yield "answer.completed", {
+                    "reply": _message_response(reply).model_dump(mode="json")
+                }
+                return
+            reply.text = result.text
+            reply.citations = result.citations
+            reply.grounding_status = GroundingStatus(result.grounding_status)
+            reply.generation_status = GenerationStatus.COMPLETE
+            await TelemetryService(self._session).record(
+                message_id=reply.id,
+                subject_id=subject_id,
+                result=result,
+                state="complete",
+            )
+            await self._session.commit()
+            yield "answer.citations", {
+                "replyId": reply.id,
+                "citations": result.citations,
+                "groundingStatus": result.grounding_status,
+            }
+            yield "answer.completed", {
+                "reply": _message_response(reply).model_dump(mode="json")
+            }
+        except GenerationCancelled:
+            await self._messages.cancel_if_generating(reply.id)
+            await self._session.refresh(reply)
+            await self._session.commit()
+            yield "answer.completed", {
+                "reply": _message_response(reply).model_dump(mode="json")
+            }
+        except asyncio.CancelledError:
+            await self._messages.cancel_if_generating(reply.id)
+            await self._session.commit()
+            raise
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Tutor answer stream failed reply=%s", reply.id)
+            failed = await self._messages.fail_if_generating(reply.id)
+            if not failed:
+                await self._session.refresh(reply)
+                await self._session.commit()
+                yield "answer.completed", {
+                    "reply": _message_response(reply).model_dump(mode="json")
+                }
+                return
+            reply.generation_status = GenerationStatus.FAILED
+            await TelemetryService(self._session).record(
+                message_id=reply.id,
+                subject_id=subject_id,
+                state="failed",
+                error_code="GENERATION_FAILED",
+            )
+            await self._session.commit()
+            yield "answer.failed", {
+                "replyId": reply.id,
+                "code": "GENERATION_FAILED",
+                "message": str(exc),
+            }
 
     async def legacy_subject_reply(
         self,
@@ -328,14 +572,14 @@ class TutorChatService:
                 threshold=settings.AGENT_RETRIEVAL_THRESHOLD,
             )
             return result.text or ""
-        return await rag.answer(
+        return (await rag.answer(
             collection,
             text,
             limit=5,
             threshold=0.3,
             subject_name=subject_name,
             subject_manifest=subject_manifest,
-        )
+        )).text
 
     async def _recent_history(
         self, conv_id: str, limit: int
@@ -372,4 +616,7 @@ def _message_response(msg: Message) -> MessageResponse:
         role=msg.role.value,
         text=msg.text,
         createdAt=msg.created_at,
+        citations=msg.citations or [],
+        generationStatus=msg.generation_status.value,
+        groundingStatus=msg.grounding_status.value if msg.grounding_status else None,
     )

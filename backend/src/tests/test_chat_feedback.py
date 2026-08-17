@@ -43,7 +43,7 @@ async def test_feedback_on_user_message_rejected(client, seed):
 
     resp = await client.post(
         f"/api/chat/messages/{user_msg.id}/feedback",
-        json={"feedback": "down"},
+        json={"feedback": "down", "reason": "incorrect"},
         headers=auth_header(student),
     )
     assert resp.status_code == 400
@@ -64,7 +64,7 @@ async def test_delete_feedback_round_trip(client, seed):
     _conv, reply = await _owned_assistant_message(seed, student)
     await client.post(
         f"/api/chat/messages/{reply.id}/feedback",
-        json={"feedback": "down"},
+        json={"feedback": "down", "reason": "incorrect"},
         headers=auth_header(student),
     )
     resp = await client.delete(
@@ -94,3 +94,14 @@ async def test_feedback_requires_student(client, seed):
         headers=auth_header(instr),
     )
     assert resp.status_code == 403
+
+
+async def test_negative_feedback_requires_reason(client, seed):
+    student = await seed.student(username="fb_reason")
+    _conv, reply = await _owned_assistant_message(seed, student)
+    resp = await client.post(
+        f"/api/chat/messages/{reply.id}/feedback",
+        json={"feedback": "down"},
+        headers=auth_header(student),
+    )
+    assert resp.status_code == 400
