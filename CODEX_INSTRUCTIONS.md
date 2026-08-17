@@ -75,8 +75,8 @@ The repo root mixes current guidance with one-off review artifacts. A new team
 can't tell which is which.
 
 1. Create `docs/archive/`.
-2. `git mv` these three files into it: `BACKEND_DEEP_REVIEW.md`,
-   `CODEX_REVIEW.md`, `RAG_PIPELINE_CHANGES.md`.
+2. Archive the three snapshots as `docs/archive/BACKEND_DEEP_REVIEW.md`,
+   `docs/archive/CODEX_REVIEW.md`, and `docs/archive/RAG_PIPELINE_CHANGES.md`.
 3. Add a 3-line `docs/archive/README.md` saying these are historical
    review/changelog snapshots, not current guidance.
 4. **Keep at root:** `README.md`, `CLAUDE.md`, `PILOT_DEPLOYMENT.md` (current
