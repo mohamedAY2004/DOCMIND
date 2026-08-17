@@ -11,6 +11,7 @@ Alembic owns the schema — no DDL is executed here.
 """
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 import json
 import logging
 
@@ -59,29 +60,8 @@ logger = logging.getLogger("docmind")
 
 settings = get_settings()
 
-app = FastAPI(
-    title=settings.APP_NAME,
-    version=settings.APP_VERSION,
-    description=settings.APP_DESCRIPTION,
-)
-
-app.add_middleware(RateLimitMiddleware)
-app.add_middleware(CSRFMiddleware)
-app.add_middleware(RequestIDMiddleware)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["Authorization", "Content-Type", "X-Request-Id", "X-CSRF-Token"],
-    expose_headers=["X-Request-Id"],
-)
-
-install_exception_handlers(app)
-
-
-@app.on_event("startup")
-async def _startup() -> None:
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     settings.validate_production()
     from services.ephemeral_store import build_store
     app.state.ephemeral_store = await build_store(settings.REDIS_URL)
@@ -177,19 +157,41 @@ async def _startup() -> None:
     app.state.agent_client = app.agent_client
     app.state.rerank_client = app.rerank_client
 
+    try:
+        yield
+    finally:
+        ephemeral = getattr(app.state, "ephemeral_store", None)
+        if ephemeral is not None:
+            await ephemeral.close()
+        if getattr(app, "db_pool", None) is not None:
+            await app.db_pool.close()
+        if getattr(app, "vectordb_client", None) is not None:
+            await app.vectordb_client.disconnect()
+        engine = getattr(app.state, "engine", None)
+        if engine is not None:
+            await engine.dispose()
 
-@app.on_event("shutdown")
-async def _shutdown() -> None:
-    ephemeral = getattr(app.state, "ephemeral_store", None)
-    if ephemeral is not None:
-        await ephemeral.close()
-    if getattr(app, "db_pool", None) is not None:
-        await app.db_pool.close()
-    if getattr(app, "vectordb_client", None) is not None:
-        await app.vectordb_client.disconnect()
-    engine = getattr(app.state, "engine", None)
-    if engine is not None:
-        await engine.dispose()
+
+app = FastAPI(
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
+    description=settings.APP_DESCRIPTION,
+    lifespan=lifespan,
+)
+
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(CSRFMiddleware)
+app.add_middleware(RequestIDMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-Id", "X-CSRF-Token"],
+    expose_headers=["X-Request-Id"],
+)
+
+install_exception_handlers(app)
 
 
 # -------------------- routers --------------------

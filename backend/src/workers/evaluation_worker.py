@@ -109,13 +109,12 @@ def _summarize(rows: list[dict]) -> dict:
 
 
 async def _main(once: bool) -> None:
-    from main import _shutdown, _startup, app
+    from main import app, lifespan
     from routes.chat_tutor_router import _rag
     from services.ephemeral_store import store_for
     from starlette.requests import Request
 
-    await _startup()
-    try:
+    async with lifespan(app):
         scope = {"type": "http", "app": app, "headers": [], "method": "GET", "path": "/", "query_string": b"", "server": ("worker", 0), "client": ("worker", 0), "scheme": "http"}
         rag = _rag(Request(scope))
         store = store_for(app)
@@ -132,8 +131,6 @@ async def _main(once: bool) -> None:
                 return
             if not worked:
                 await store.dequeue("evaluation:runs", timeout_seconds=5)
-    finally:
-        await _shutdown()
 
 
 if __name__ == "__main__":

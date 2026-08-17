@@ -12,10 +12,9 @@ from services.storage_service import get_storage
 
 
 async def run(delete: bool) -> int:
-    from main import _shutdown, _startup, app
-    await _startup()
-    count = 0
-    try:
+    from main import app, lifespan
+    async with lifespan(app):
+        count = 0
         async with app.state.session_maker() as session:
             rows = await expired_conversations(session)
             for conversation in rows:
@@ -34,8 +33,6 @@ async def run(delete: bool) -> int:
             if delete:
                 await session.commit()
         return count
-    finally:
-        await _shutdown()
 
 
 if __name__ == "__main__":
