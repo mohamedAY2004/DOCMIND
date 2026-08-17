@@ -12,7 +12,7 @@ import {
   MoreVertical,
 } from 'lucide-react'
 import AdminLayout from '../../components/layout/AdminLayout'
-import { primaryButtonCompactClass, primaryChipActiveClass } from '../../constants/themeClasses'
+import { primaryButtonCompactClass } from '../../constants/themeClasses'
 import Pagination from '../../components/ui/Pagination'
 import SubjectFormModal from '../../components/admin/SubjectFormModal'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'

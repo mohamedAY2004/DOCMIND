@@ -21,7 +21,6 @@ import {
   getSemesters,
   getUsers,
 } from '../../services/adminService'
-import { generateFeedbackReport } from '../../utils/generateFeedbackReport'
 import { stagger, fadeUp, adminCardClass } from '../../utils/motion'
 
 function unwrapList(res) {
@@ -156,6 +155,7 @@ function SubjectFeedback() {
         : null
 
     try {
+      const { generateFeedbackReport } = await import('../../utils/generateFeedbackReport')
       await generateFeedbackReport(filteredFeedback, filteredSubjects, {
         semester: semesterLabel,
         subject: expandedSubject?.title,

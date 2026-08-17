@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import docmindLogo from '../assets/docmind_logo_dark.png'
+import docmindLogo from '../assets/docmind_logo_dark_256.png'
 
 const BRAND = { primary: [13, 110, 115], dark: [15, 28, 29], muted: [138, 163, 165] }
 

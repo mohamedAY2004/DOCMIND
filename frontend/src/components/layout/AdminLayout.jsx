@@ -11,6 +11,7 @@ import {
   Lock,
   GraduationCap,
   MessageSquare,
+  Gauge,
 } from 'lucide-react'
 import useAuth from '../../hooks/useAuth'
 import { TOP_CHROME_ROW_MIN_CLASS } from '../../constants/layoutChrome'
@@ -25,6 +26,7 @@ const NAV_ITEMS = [
   { to: '/admin/semesters', icon: CalendarDays, label: 'Manage Semesters' },
   { to: '/admin/feedback', icon: MessageSquare, label: 'Feedback & Insights' },
   { to: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
+  { to: '/admin/quality', icon: Gauge, label: 'Tutor Quality' },
   { to: '/admin/system-access', icon: Lock, label: 'System access' },
 ]
 

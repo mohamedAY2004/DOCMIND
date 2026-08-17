@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { AppLayout, AppTopBar } from '../components/layout'
 import TestStudentBotModal from '../components/chat/TestStudentBotModal'
+import EvaluationPanel from '../components/instructor/EvaluationPanel'
 import PrimaryButton from '../components/ui/PrimaryButton'
 import UploadZone from '../components/ui/UploadZone'
 import PageFooter from '../components/ui/PageFooter'
@@ -560,6 +561,7 @@ function InstructorSubject() {
               </ul>
             )}
           </motion.section>
+          {isSuper && <EvaluationPanel subjectId={subjectId} />}
         </div>
       </div>
 

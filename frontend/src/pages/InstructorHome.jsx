@@ -31,7 +31,6 @@ function InstructorHome() {
   useEffect(() => {
     if (!userId) return
     let cancelled = false
-    setLoading(true)
 
     // Semesters fail soft → grouping degrades to per-semesterId sections.
     Promise.all([
