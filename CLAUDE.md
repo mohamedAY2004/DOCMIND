@@ -35,12 +35,13 @@ cd backend/src && pip install -r requirements.txt && uvicorn main:app --reload -
 alembic revision --autogenerate -m "add <name>"
 alembic upgrade head
 
-# Tests (deps are NOT in requirements.txt — install them explicitly)
-cd backend/src && pip install pytest==8.* pytest-asyncio==0.23.* httpx==0.27.*
+# Tests (from backend/src; see tests/README.md)
+cd backend/src && pip install -r requirements-test.txt
+# Tests need PostgreSQL+pgvector on host port 5433; startup details are in tests/README.md
 pytest -q
 pytest tests/test_file_service.py::test_name   # single test
 ```
-Tests are intentionally thin right now (`tests/test_errors.py`, `tests/test_file_service.py`); DB-dependent tests are a planned follow-up.
+The suite has about 30 integration test files covering every non-legacy endpoint against real PostgreSQL with faked LLM providers; see `backend/src/tests/README.md` for harness details.
 
 ### Frontend (`frontend/`)
 ```bash
@@ -102,4 +103,4 @@ Clean Architecture per feature under `lib/features/<feature>/` with `data/` (dat
 
 Ingestion: parse PDF/PPTX (PyMuPDF, python-pptx, pypdf) → chunk → embed → vector store. Query: (optional JSON-Planner agent decides whether to retrieve) → embed question → similarity search → (optional cross-encoder rerank) → build prompt with context → LLM response. Entry services: `ingestion_service.py`, `rag_service.py`, `document_chat_service.py`, `tutor_chat_service.py`.
 
-**Optional reranking** (`stores/rerank/`, same factory pattern, `RERANK_*` env vars, OFF by default): when `RERANK_ENABLED=true`, `RAGService.search` over-fetches `limit * RERANK_OVERFETCH` candidates and a cross-encoder truncates back to `limit`. The `LOCAL_CROSS_ENCODER` backend needs the optional dep `pip install sentence-transformers` (kept out of `requirements.txt` to keep the image lean); it lazy-imports so the off-path never loads torch. Reranker faults soft-degrade to vector order — they never error a chat turn.
+**Optional reranking** (`stores/rerank/`, same factory pattern, `RERANK_*` env vars, OFF by default): when `RERANK_ENABLED=true`, `RAGService.search` over-fetches `limit * RERANK_OVERFETCH` candidates and a cross-encoder truncates back to `limit`. The `LOCAL_CROSS_ENCODER` backend uses `sentence-transformers`, which is pinned in `backend/src/requirements.txt`; it lazy-imports so the off-path never loads torch. Reranker faults soft-degrade to vector order — they never error a chat turn.
