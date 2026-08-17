@@ -126,6 +126,7 @@ def app(session_maker):
     from stores.llm.templates.TemplateParser import TemplateParser
 
     from tests.fakes import FakeLLM, FakeVectorDB
+    from services.ephemeral_store import EphemeralStore
 
     fake_llm = FakeLLM()
     fastapi_app.state.session_maker = session_maker
@@ -134,6 +135,7 @@ def app(session_maker):
     fastapi_app.state.vectordb_client = FakeVectorDB()
     fastapi_app.state.template_parser = TemplateParser(language="en")
     fastapi_app.state.agent_client = None
+    fastapi_app.state.ephemeral_store = EphemeralStore()
     return fastapi_app
 
 

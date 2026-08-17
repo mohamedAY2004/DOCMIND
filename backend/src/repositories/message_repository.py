@@ -4,10 +4,11 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional, Sequence
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
 from db.models import (
     Conversation,
+    GenerationStatus,
     Message,
     MessageRole,
     Subject,
@@ -28,6 +29,54 @@ class MessageRepository(BaseRepository[Message]):
         await self.session.flush()
         return msg
 
+    async def complete_if_generating(
+        self,
+        message_id: str,
+        *,
+        text: str,
+        citations: list[dict],
+        grounding_status,
+    ) -> bool:
+        result = await self.session.execute(
+            update(Message)
+            .where(
+                Message.id == message_id,
+                Message.generation_status == GenerationStatus.GENERATING,
+            )
+            .values(
+                text=text,
+                citations=citations,
+                grounding_status=grounding_status,
+                generation_status=GenerationStatus.COMPLETE,
+            )
+            .returning(Message.id)
+        )
+        return result.scalar_one_or_none() is not None
+
+    async def fail_if_generating(self, message_id: str) -> bool:
+        result = await self.session.execute(
+            update(Message)
+            .where(
+                Message.id == message_id,
+                Message.generation_status == GenerationStatus.GENERATING,
+            )
+            .values(generation_status=GenerationStatus.FAILED)
+            .returning(Message.id)
+        )
+        return result.scalar_one_or_none() is not None
+
+    async def cancel_if_generating(self, message_id: str) -> bool:
+        result = await self.session.execute(
+            update(Message)
+            .where(
+                Message.id == message_id,
+                Message.generation_status == GenerationStatus.GENERATING,
+            )
+            .values(generation_status=GenerationStatus.CANCELLED)
+            .returning(Message.id)
+        )
+        return result.scalar_one_or_none() is not None
+
     async def list_for_conversation(
         self, conv_id: str, offset: int, limit: int
     ) -> tuple[Sequence[Message], int]:
@@ -39,7 +88,7 @@ class MessageRepository(BaseRepository[Message]):
             await self.session.execute(
                 select(Message)
                 .where(Message.conversation_id == conv_id)
-                .order_by(Message.created_at.asc())
+                .order_by(Message.sort_id.asc())
                 .offset(offset)
                 .limit(limit)
             )
@@ -56,7 +105,7 @@ class MessageRepository(BaseRepository[Message]):
         result = await self.session.execute(
             select(Message)
             .where(Message.conversation_id == conv_id)
-            .order_by(Message.created_at.desc())
+            .order_by(Message.sort_id.desc())
             .limit(limit)
         )
         return list(reversed(result.scalars().all()))
@@ -112,16 +161,16 @@ class MessageRepository(BaseRepository[Message]):
         return [(row.day, int(row.convs or 0), int(row.questions or 0)) for row in result]
 
     async def previous_user_message(
-        self, conv_id: str, before: datetime
+        self, conv_id: str, before_sort_id: int
     ) -> Optional[Message]:
         result = await self.session.execute(
             select(Message)
             .where(
                 Message.conversation_id == conv_id,
                 Message.role == MessageRole.USER,
-                Message.created_at < before,
+                Message.sort_id < before_sort_id,
             )
-            .order_by(Message.created_at.desc())
+            .order_by(Message.sort_id.desc())
             .limit(1)
         )
         return result.scalar_one_or_none()

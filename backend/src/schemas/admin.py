@@ -31,6 +31,9 @@ class FeedbackRowResponse(BaseModel):
     question: str
     aiResponse: str
     feedback: Literal["up", "down"]
+    reason: Optional[str] = None
+    comment: Optional[str] = None
+    evaluationCaseId: Optional[str] = None
     timestamp: datetime
 
 

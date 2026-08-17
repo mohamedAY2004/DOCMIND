@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import enum
 import uuid
+from typing import Optional
 
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -13,6 +14,15 @@ from ..base import Base, TimestampMixin, pg_enum
 class FeedbackValue(str, enum.Enum):
     UP = "up"
     DOWN = "down"
+
+
+class FeedbackReason(str, enum.Enum):
+    INCORRECT = "incorrect"
+    UNSUPPORTED = "unsupported"
+    OUTDATED = "outdated"
+    UNCLEAR = "unclear"
+    INCOMPLETE = "incomplete"
+    OTHER = "other"
 
 
 def _new_feedback_id() -> str:
@@ -31,4 +41,11 @@ class Feedback(Base, TimestampMixin):
     )
     feedback: Mapped[FeedbackValue] = mapped_column(
         pg_enum(FeedbackValue, name="feedback_value"), nullable=False
+    )
+    reason: Mapped[Optional[FeedbackReason]] = mapped_column(
+        pg_enum(FeedbackReason, name="feedback_reason"), nullable=True
+    )
+    comment: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    evaluation_case_id: Mapped[Optional[str]] = mapped_column(
+        String(40), ForeignKey("evaluation_cases.id", ondelete="SET NULL"), nullable=True
     )

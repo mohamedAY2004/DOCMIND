@@ -116,6 +116,37 @@ class Settings(BaseSettings):
     JWT_SECRET: str = "change-me-in-production"
     JWT_ALG: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 720  # 12 hours, per spec §2.1
+    ACCESS_COOKIE_MINUTES: int = 15
+    REFRESH_COOKIE_DAYS: int = 7
+    COOKIE_SECURE: bool = False
+    COOKIE_SAMESITE: str = "lax"
+    LOCAL_AUTH_ENABLED: bool = True
+    PORTAL_SSO: bool = False
+    PORTAL_SSO_URL: str = "http://localhost:8080/sso"
+    PORTAL_SSO_SECRET: str = "change-me-portal-secret"
+    REDIS_URL: Optional[str] = None
+    ENVIRONMENT: str = "development"
+    STRUCTURED_CITATIONS: bool = True
+    STREAMING_CHAT: bool = True
+    SUBJECT_READINESS: bool = True
+    STORAGE_BACKEND: str = "local"
+    S3_ENDPOINT_URL: Optional[str] = None
+    S3_BUCKET: Optional[str] = None
+    S3_REGION: str = "us-east-1"
+    S3_ACCESS_KEY_ID: Optional[str] = None
+    S3_SECRET_ACCESS_KEY: Optional[str] = None
+    RETENTION_DELETE_ENABLED: bool = False
+    RETENTION_INTERVAL_SECONDS: int = 86400
+    EVALUATION_CASE_RETRIES: int = 3
+    EVALUATION_RUN_STALE_MINUTES: int = 15
+    AUTH_RATE_LIMIT: int = 10
+    AUTH_RATE_WINDOW_SECONDS: int = 60
+    CHAT_RATE_LIMIT: int = 60
+    CHAT_RATE_WINDOW_SECONDS: int = 60
+    UPLOAD_RATE_LIMIT: int = 20
+    UPLOAD_RATE_WINDOW_SECONDS: int = 3600
+    MAX_CONCURRENT_GENERATIONS: int = 2
+    GENERATION_SLOT_TTL_SECONDS: int = 600
     BCRYPT_ROUNDS: int = 12
     # Throttle the per-request ``last_active`` write: only update when the stored
     # timestamp is at least this many seconds stale, to keep read endpoints from
@@ -149,6 +180,27 @@ class Settings(BaseSettings):
         if isinstance(v, str) and v.strip() == "":
             return None
         return v
+
+    def validate_production(self) -> None:
+        if self.ENVIRONMENT.lower() != "production":
+            return
+        if self.JWT_SECRET in {
+            "change-me-in-production", "CHANGE_ME_32_BYTES_OF_ENTROPY"
+        } or len(self.JWT_SECRET) < 32:
+            raise RuntimeError("Production JWT_SECRET must be non-default and at least 32 characters.")
+        if self.PORTAL_SSO and (
+            self.PORTAL_SSO_SECRET == "change-me-portal-secret"
+            or len(self.PORTAL_SSO_SECRET) < 32
+        ):
+            raise RuntimeError("Production PORTAL_SSO_SECRET must be non-default and at least 32 characters.")
+        if not self.COOKIE_SECURE:
+            raise RuntimeError("COOKIE_SECURE must be true in production.")
+        if not self.REDIS_URL:
+            raise RuntimeError("REDIS_URL is required in production.")
+        if self.STORAGE_BACKEND != "s3":
+            raise RuntimeError("STORAGE_BACKEND must be s3 in production.")
+        if not self.S3_BUCKET:
+            raise RuntimeError("S3_BUCKET is required when STORAGE_BACKEND=s3.")
 
     model_config = SettingsConfigDict(env_file=_ENV_FILE, extra="ignore")
 

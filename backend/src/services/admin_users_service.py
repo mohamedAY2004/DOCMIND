@@ -8,11 +8,13 @@ from typing import Optional
 from fastapi import status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models import User, UserRole, UserStatus
+from db.models import ConversationKind, User, UserRole, UserStatus
 from helpers.auth import hash_password
 from helpers.errors import APIError, ErrorCode
 from helpers.pagination import Page, PaginationParams
 from repositories.activity_repository import ActivityRepository
+from repositories.conversation_repository import ConversationRepository
+from repositories.document_file_repository import DocumentFileRepository
 from repositories.subject_repository import SubjectRepository
 from repositories.user_repository import UserRepository
 from schemas.user import (
@@ -22,6 +24,8 @@ from schemas.user import (
     UserResponse,
 )
 from services.activity_logger import ActivityLogger
+from services.rag_service import collection_for_conversation
+from services.storage_service import get_storage
 
 
 def _to_response(u: User) -> UserResponse:
@@ -39,6 +43,7 @@ def _to_response(u: User) -> UserResponse:
 
 class AdminUsersService:
     def __init__(self, session: AsyncSession) -> None:
+        self._session = session
         self._users = UserRepository(session)
         self._subjects = SubjectRepository(session)
         self._activity = ActivityLogger(ActivityRepository(session))
@@ -185,7 +190,7 @@ class AdminUsersService:
         )
         return _to_response(user)
 
-    async def delete(self, actor: User, user_id: str) -> None:
+    async def delete(self, actor: User, user_id: str, vectordb_client=None) -> None:
         if actor.id == user_id:
             raise APIError(
                 ErrorCode.CANNOT_DISABLE_SELF,
@@ -197,6 +202,23 @@ class AdminUsersService:
             raise APIError(
                 ErrorCode.NOT_FOUND, status.HTTP_404_NOT_FOUND, "User not found."
             )
+        # Private uploads and vector collections are external to the relational
+        # cascade, so remove them before deleting the user row.
+        conversations = await ConversationRepository(self._session).all_for_owner(
+            user_id, kind=ConversationKind.DOC
+        )
+        files = DocumentFileRepository(self._session)
+        for conversation in conversations:
+            for document in await files.list_for_conversation(conversation.id):
+                await get_storage().delete(
+                    backend=document.storage_backend,
+                    key=document.storage_key,
+                    local_path=document.storage_path,
+                )
+            if vectordb_client is not None:
+                collection = collection_for_conversation(conversation.id)
+                if await vectordb_client.is_collection_exists(collection):
+                    await vectordb_client.delete_collection(collection_name=collection)
         await self._activity.record(
             action="User deleted",
             actor=actor,

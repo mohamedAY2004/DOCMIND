@@ -3,9 +3,10 @@ from __future__ import annotations
 
 import enum
 import uuid
+from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..base import Base, TimestampMixin, pg_enum
@@ -34,3 +35,6 @@ class Conversation(Base, TimestampMixin):
         ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True
     )
     title: Mapped[str] = mapped_column(String(120), nullable=False, default="New Chat")
+    expires_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )

@@ -6,9 +6,11 @@ from this package; nothing else does.
 from .activity import Activity
 from .conversation import Conversation, ConversationKind
 from .document_file import DocumentFile, DocumentFileStatus
-from .feedback import Feedback, FeedbackValue
+from .feedback import Feedback, FeedbackReason, FeedbackValue
+from .evaluation import EvaluationCase, EvaluationResult, EvaluationRun, EvaluationRunStatus, GenerationTelemetry
 from .material import Material, MaterialStatus
-from .message import Message, MessageRole
+from .message import GenerationStatus, GroundingStatus, Message, MessageRole
+from .refresh_session import RefreshSession
 from .semester import Semester, SemesterState, derive_semester_state
 from .subject import Subject
 from .subject_instructor import InstructorSubjectRole, SubjectInstructor
@@ -25,10 +27,19 @@ __all__ = [
     "DocumentFileStatus",
     "Feedback",
     "FeedbackValue",
+    "FeedbackReason",
+    "EvaluationCase",
+    "EvaluationResult",
+    "EvaluationRun",
+    "EvaluationRunStatus",
+    "GenerationTelemetry",
     "Material",
     "MaterialStatus",
     "Message",
     "MessageRole",
+    "GenerationStatus",
+    "GroundingStatus",
+    "RefreshSession",
     "Semester",
     "SemesterState",
     "derive_semester_state",

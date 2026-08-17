@@ -8,6 +8,7 @@ from sqlalchemy import func, or_, select, update
 from db.models import (
     Conversation,
     Feedback,
+    FeedbackReason,
     FeedbackValue,
     Message,
     MessageRole,
@@ -21,6 +22,9 @@ from .base import BaseRepository
 class FeedbackRepository(BaseRepository[Feedback]):
     model = Feedback
 
+    async def get(self, feedback_id: str) -> Optional[Feedback]:
+        return await self.session.get(Feedback, feedback_id)
+
     async def get_by_message(self, message_id: str) -> Optional[Feedback]:
         result = await self.session.execute(
             select(Feedback).where(Feedback.message_id == message_id)
@@ -28,16 +32,22 @@ class FeedbackRepository(BaseRepository[Feedback]):
         return result.scalar_one_or_none()
 
     async def upsert(
-        self, *, message_id: str, user_id: str, value: FeedbackValue
+        self, *, message_id: str, user_id: str, value: FeedbackValue,
+        reason: FeedbackReason | None = None, comment: str | None = None,
     ) -> Feedback:
         existing = await self.get_by_message(message_id)
         if existing is None:
-            fb = Feedback(message_id=message_id, user_id=user_id, feedback=value)
+            fb = Feedback(
+                message_id=message_id, user_id=user_id, feedback=value,
+                reason=reason, comment=comment,
+            )
             self.session.add(fb)
             await self.session.flush()
             return fb
         await self.session.execute(
-            update(Feedback).where(Feedback.id == existing.id).values(feedback=value)
+            update(Feedback).where(Feedback.id == existing.id).values(
+                feedback=value, reason=reason, comment=comment
+            )
         )
         await self.session.refresh(existing)
         return existing
@@ -114,6 +124,9 @@ class FeedbackRepository(BaseRepository[Feedback]):
                 question_subq.label("question"),
                 Message.text.label("ai_response"),
                 Feedback.feedback,
+                Feedback.reason,
+                Feedback.comment,
+                Feedback.evaluation_case_id,
                 Feedback.created_at,
             )
             .join(Message, Message.id == Feedback.message_id)
@@ -171,6 +184,9 @@ class FeedbackRepository(BaseRepository[Feedback]):
                 "feedback": row.feedback.value
                 if hasattr(row.feedback, "value")
                 else row.feedback,
+                "reason": row.reason.value if row.reason else None,
+                "comment": row.comment,
+                "evaluationCaseId": row.evaluation_case_id,
                 "timestamp": row.created_at,
             }
 

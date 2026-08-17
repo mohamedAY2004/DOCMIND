@@ -57,6 +57,15 @@ class ConversationRepository(BaseRepository[Conversation]):
             stmt = stmt.where(Conversation.subject_id == subject_id)
         return int((await self.session.execute(stmt)).scalar() or 0)
 
+    async def all_for_owner(
+        self, owner_id: str, *, kind: ConversationKind | None = None
+    ) -> Sequence[Conversation]:
+        stmt = select(Conversation).where(Conversation.owner_id == owner_id)
+        if kind is not None:
+            stmt = stmt.where(Conversation.kind == kind)
+        result = await self.session.execute(stmt.order_by(Conversation.created_at))
+        return result.scalars().all()
+
     async def add(self, conv: Conversation) -> Conversation:
         self.session.add(conv)
         await self.session.flush()

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import FeedbackValue, User, UserRole, UserStatus
@@ -109,10 +109,13 @@ async def reset_user_password(
 )
 async def delete_user(
     user_id: str,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     admin: User = Depends(require_role(UserRole.ADMIN)),
 ) -> None:
-    await AdminUsersService(session).delete(admin, user_id)
+    await AdminUsersService(session).delete(
+        admin, user_id, request.app.state.vectordb_client
+    )
 
 
 @users_router.get("/{user_id}/subjects", response_model=List[SubjectResponse])

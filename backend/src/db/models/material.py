@@ -31,6 +31,8 @@ class Material(Base, TimestampMixin):
     size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
     mime: Mapped[str] = mapped_column(String(120), nullable=False)
     storage_path: Mapped[str] = mapped_column(String(1024), nullable=False)
+    storage_key: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    storage_backend: Mapped[str] = mapped_column(String(20), nullable=False, default="local")
     status: Mapped[MaterialStatus] = mapped_column(
         pg_enum(MaterialStatus, name="material_status"),
         nullable=False,
