@@ -113,11 +113,9 @@ function ProcessingState({
             fill="none"
             strokeWidth="5"
             strokeLinecap="round"
-            className="stroke-dm-primary"
+            className="stroke-dm-primary [stroke-dasharray:326.7256359733385] transition-[stroke-dashoffset] duration-[40ms] ease-out"
             style={{
-              strokeDasharray: CIRCUMFERENCE,
               strokeDashoffset: dashOffset,
-              transition: `stroke-dashoffset ${TICK_MS + 10}ms ease-out`,
             }}
           />
         </svg>

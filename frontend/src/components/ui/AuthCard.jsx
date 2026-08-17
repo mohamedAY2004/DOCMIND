@@ -10,20 +10,12 @@ function AuthCard({ children, className = '' }) {
   return (
     <div className={screenClass}>
       <div
-        className="pointer-events-none absolute inset-0"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_50%_45%_at_50%_50%,rgb(var(--dm-primary)/0.12)_0%,transparent_70%)]"
         aria-hidden
-        style={{
-          background:
-            'radial-gradient(ellipse 50% 45% at 50% 50%, rgb(var(--dm-primary) / 0.12) 0%, transparent 70%)',
-        }}
       />
       <div
-        className="pointer-events-none absolute inset-0"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_100%_100%_at_50%_50%,transparent_50%,var(--dm-backdrop-vignette)_100%)]"
         aria-hidden
-        style={{
-          background:
-            'radial-gradient(ellipse 100% 100% at 50% 50%, transparent 50%, var(--dm-backdrop-vignette) 100%)',
-        }}
       />
       <motion.div
         className={[cardClass, className].filter(Boolean).join(' ')}
