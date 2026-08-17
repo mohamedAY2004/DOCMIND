@@ -1,0 +1,46 @@
+x-backend: &backend
+  build:
+    context: ./backend
+  env_file:
+    - ./backend/src/.env
+  restart: unless-stopped
+
+services:
+  migrations:
+    <<: *backend
+    restart: "no"
+    command: ["alembic", "upgrade", "head"]
+
+  api:
+    <<: *backend
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    ports:
+      - "8000:8000"
+
+  evaluation-worker:
+    <<: *backend
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    command: ["python", "-m", "workers.evaluation_worker"]
+
+  retention-worker:
+    <<: *backend
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    command: ["python", "-m", "workers.retention_worker"]
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: /api
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
