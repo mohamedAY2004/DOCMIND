@@ -21,7 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from db.session import create_engine_and_sessionmaker
 from helpers.config import get_settings
 from helpers.errors import install_exception_handlers
-from helpers.middleware import RequestIDMiddleware
+from helpers.middleware import CSRFMiddleware, RateLimitMiddleware, RequestIDMiddleware
 from routes.admin_router import (
     activity_router,
     analytics_router,
@@ -33,9 +33,12 @@ from routes.auth_router import router as auth_router
 from routes.chat_doc_router import legacy_router as chat_doc_compat_router
 from routes.chat_doc_router import router as chat_doc_router
 from routes.chat_feedback_router import router as chat_feedback_router
+from routes.chat_feedback_router import content_router as citation_content_router
 from routes.chat_tutor_router import legacy_router as chat_tutor_compat_router
 from routes.chat_tutor_router import router as chat_tutor_router
 from routes.health import router as health_router
+from routes.evaluation_router import admin_router as admin_evaluation_router
+from routes.evaluation_router import router as evaluation_router
 from routes.legacy_router import legacy_router as legacy_api_v1_router
 from routes.materials_router import router as materials_router
 from routes.subjects_router import (
@@ -62,21 +65,26 @@ app = FastAPI(
     description=settings.APP_DESCRIPTION,
 )
 
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(CSRFMiddleware)
+app.add_middleware(RequestIDMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["Authorization", "Content-Type", "X-Request-Id"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-Id", "X-CSRF-Token"],
     expose_headers=["X-Request-Id"],
 )
-app.add_middleware(RequestIDMiddleware)
 
 install_exception_handlers(app)
 
 
 @app.on_event("startup")
 async def _startup() -> None:
+    settings.validate_production()
+    from services.ephemeral_store import build_store
+    app.state.ephemeral_store = await build_store(settings.REDIS_URL)
     # ----- asyncpg pool (LEGACY /api/v1/data and /api/v1/nlp routes) -----
     async def _init_conn(conn: asyncpg.Connection) -> None:
         await conn.set_type_codec(
@@ -172,6 +180,9 @@ async def _startup() -> None:
 
 @app.on_event("shutdown")
 async def _shutdown() -> None:
+    ephemeral = getattr(app.state, "ephemeral_store", None)
+    if ephemeral is not None:
+        await ephemeral.close()
     if getattr(app, "db_pool", None) is not None:
         await app.db_pool.close()
     if getattr(app, "vectordb_client", None) is not None:
@@ -195,11 +206,14 @@ app.include_router(admin_subjects_router, prefix="/api")
 app.include_router(semesters_router, prefix="/api")
 app.include_router(admin_semesters_router, prefix="/api")
 app.include_router(materials_router, prefix="/api")
+app.include_router(evaluation_router, prefix="/api")
+app.include_router(admin_evaluation_router, prefix="/api")
 app.include_router(chat_doc_router, prefix="/api")
 app.include_router(chat_doc_compat_router, prefix="/api")
 app.include_router(chat_tutor_router, prefix="/api")
 app.include_router(chat_tutor_compat_router, prefix="/api")
 app.include_router(chat_feedback_router, prefix="/api")
+app.include_router(citation_content_router, prefix="/api")
 app.include_router(users_router, prefix="/api")
 app.include_router(subjects_stats_router, prefix="/api")
 app.include_router(feedback_router, prefix="/api")

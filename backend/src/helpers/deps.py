@@ -53,6 +53,7 @@ def _parse_bearer(credentials: HTTPAuthorizationCredentials | None) -> str:
 
 
 async def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     session: AsyncSession = Depends(get_session),
 ) -> User:
@@ -61,7 +62,17 @@ async def get_current_user(
     Raises ``401 UNAUTHENTICATED`` on any failure. Never returns ``403`` for
     auth problems — spec §2.1 is explicit about this.
     """
-    token = _parse_bearer(credentials)
+    token = (
+        _parse_bearer(credentials)
+        if credentials is not None
+        else request.cookies.get("docmind_access")
+    )
+    if not token:
+        raise APIError(
+            ErrorCode.UNAUTHENTICATED,
+            status.HTTP_401_UNAUTHORIZED,
+            "Missing authentication credentials.",
+        )
     try:
         payload = decode_access_token(token)
     except JWTError as e:
@@ -204,6 +215,7 @@ def require_student() -> Callable[[User], User]:
 
 
 def get_logout_claims(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
 ) -> tuple[str, datetime]:
     """Return ``(jti, expires_at)`` from the caller's token for /auth/logout.
@@ -211,7 +223,17 @@ def get_logout_claims(
     The blocklist row should live exactly until the token would have expired, so
     we derive ``expires_at`` from the token's own ``exp`` claim here (the route
     only ever had the ``jti`` before, which made the expiry meaningless)."""
-    token = _parse_bearer(credentials)
+    token = (
+        _parse_bearer(credentials)
+        if credentials is not None
+        else request.cookies.get("docmind_access")
+    )
+    if not token:
+        raise APIError(
+            ErrorCode.UNAUTHENTICATED,
+            status.HTTP_401_UNAUTHORIZED,
+            "Missing authentication credentials.",
+        )
     try:
         payload = decode_access_token(token)
     except JWTError as e:

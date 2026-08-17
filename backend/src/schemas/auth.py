@@ -29,3 +29,31 @@ class LoginResponse(BaseModel):
 
 class MeResponse(BaseModel):
     user: UserSummary
+
+
+class BrowserSessionResponse(BaseModel):
+    user: UserSummary
+    redirect: str
+
+
+class SSOStartResponse(BaseModel):
+    state: str
+    portalUrl: str
+    expiresIn: int
+
+
+class PortalTicketRequest(BaseModel):
+    state: str = Field(..., min_length=20, max_length=200)
+    userId: str = Field(..., min_length=1, max_length=64)
+    issuedAt: int
+    signature: str = Field(..., min_length=64, max_length=64)
+
+
+class PortalTicketResponse(BaseModel):
+    code: str
+    expiresIn: int
+
+
+class SSOExchangeRequest(BaseModel):
+    state: str = Field(..., min_length=20, max_length=200)
+    code: str = Field(..., min_length=20, max_length=200)
