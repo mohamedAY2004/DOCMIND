@@ -28,6 +28,19 @@ jobs:
       # The service port is published on the runner's IPv4 loopback. Avoid
       # Ubuntu resolving localhost to ::1 before the mapped service address.
       TEST_DATABASE_URL: postgresql+asyncpg://admin:pass123@127.0.0.1:5432/docmind_test
+      # Alembic and the application settings read DATABASE_URL directly.
+      DATABASE_URL: postgresql+asyncpg://admin:pass123@127.0.0.1:5432/docmind_test
+      APP_NAME: docmind-api
+      APP_VERSION: 1.0.0-ci
+      APP_DESCRIPTION: DocMind backend CI
+      APP_AUTHOR: DocMind
+      FILE_ALLOWED_TYPES: '["text/plain","application/pdf"]'
+      FILE_MAX_SIZE: "50"
+      FILE_DEFAULT_CHUNK_SIZE: "512000"
+      GENERATION_BACKEND: GEMINI
+      EMBEDDING_BACKEND: GEMINI
+      AGENT_ENABLED: "false"
+      RERANK_ENABLED: "false"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -61,6 +74,8 @@ jobs:
 
           asyncio.run(main())
           PY
+      - name: Validate backend configuration
+        run: python -c "from helpers.config import get_settings; get_settings()"
       - name: Run backend tests
         run: pytest tests -q -p no:cacheprovider
 
