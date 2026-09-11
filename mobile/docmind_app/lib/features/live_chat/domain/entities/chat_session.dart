@@ -1,8 +1,5 @@
 /// Describes the origin of the knowledge that the AI is reasoning over.
-enum KnowledgeSourceType {
-  document,
-  subject,
-}
+enum KnowledgeSourceType { document, subject }
 
 /// An active chat session linked to a knowledge source.
 ///
@@ -23,4 +20,3 @@ class ChatSession {
   /// Human-readable label shown in the app bar (e.g. file name or subject name).
   final String? displayName;
 }
-

@@ -4,8 +4,5 @@ class LoginRequest {
   final String username;
   final String password;
 
-  Map<String, dynamic> toJson() => {
-        'username': username,
-        'password': password,
-      };
+  Map<String, dynamic> toJson() => {'username': username, 'password': password};
 }

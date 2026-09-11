@@ -39,68 +39,95 @@ class DocumentTrainingProgressPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = Get.find<DocumentChatController>();
 
-    return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              AppColors.screenBackgroundGradientTop,
-              AppColors.screenBackgroundGradientCenter,
-              AppColors.screenBackgroundGradientBottom,
-            ],
-            stops: [0.0, 0.5, 1.0],
+    return PopScope(
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) controller.stopPolling();
+      },
+      child: Scaffold(
+        body: Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                AppColors.screenBackgroundGradientTop,
+                AppColors.screenBackgroundGradientCenter,
+                AppColors.screenBackgroundGradientBottom,
+              ],
+              stops: [0.0, 0.5, 1.0],
+            ),
           ),
-        ),
-        child: Stack(
-          children: [
-            // Decorative glow
-            Positioned(
-              left: 40,
-              top: 78,
-              child: Container(
-                width: 259,
-                height: 259,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFF2B7FFF).withValues(alpha: 0.05),
+          child: Stack(
+            children: [
+              // Decorative glow
+              Positioned(
+                left: 40,
+                top: 78,
+                child: Container(
+                  width: 259,
+                  height: 259,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF2B7FFF).withValues(alpha: 0.05),
+                  ),
                 ),
               ),
-            ),
 
-            // Main content below app bar
-            Positioned(
-              top: _appBarHeight + MediaQuery.of(context).padding.top,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: _contentPaddingH,
-                  vertical: _contentPaddingTop,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // File + progress card
-                    _buildFileCard(controller),
-                    const SizedBox(height: 16),
-                    // Start AI Chat button
-                    _buildStartChatButton(controller),
-                    const SizedBox(height: 16),
-                    // AI-Powered Learning info card
-                    const _AiInfoCard(),
-                  ],
+              // Main content below app bar
+              Positioned(
+                top: _appBarHeight + MediaQuery.of(context).padding.top,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: _contentPaddingH,
+                    vertical: _contentPaddingTop,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // File + progress card
+                      _buildFileCard(controller),
+                      const SizedBox(height: 16),
+                      // Start AI Chat button
+                      _buildStartChatButton(controller),
+                      Obx(
+                        () => controller.errorMessage.value == null
+                            ? const SizedBox.shrink()
+                            : Column(
+                                children: [
+                                  Text(
+                                    controller.errorMessage.value!,
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.error,
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: controller.isPolling.value
+                                        ? null
+                                        : controller.checkTraining,
+                                    child: const Text('Retry status check'),
+                                  ),
+                                ],
+                              ),
+                      ),
+                      const SizedBox(height: 16),
+                      // AI-Powered Learning info card
+                      const _AiInfoCard(),
+                    ],
+                  ),
                 ),
               ),
-            ),
 
-            // App bar overlay
-            _buildAppBar(context),
-          ],
+              // App bar overlay
+              _buildAppBar(context),
+            ],
+          ),
         ),
       ),
     );
@@ -223,7 +250,6 @@ class DocumentTrainingProgressPage extends StatelessWidget {
       child: Obx(() {
         final s = controller.session.value;
         final fileName = s?.fileName ?? '—';
-        final progress = s?.uploadProgress ?? 0.0;
         final status = s?.trainingStatus ?? TrainingStatus.initial;
 
         return Row(
@@ -296,62 +322,18 @@ class DocumentTrainingProgressPage extends StatelessWidget {
                       height: 1.43,
                     ),
                   ),
-                 // const SizedBox(height: 8),
-                  // Progress bar + percentage
-                  /*Row(
-                    children: [
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(
-                            _progressBarHeight,
-                          ),
-                          child: Stack(
-                            children: [
-                              // Track
-                              Container(
-                                height: _progressBarHeight,
-                                decoration: BoxDecoration(
-                                  color: AppColors.surfaceContainer,
-                                  borderRadius: BorderRadius.circular(
-                                    _progressBarHeight,
-                                  ),
-                                ),
-                              ),
-                              // Fill
-                              FractionallySizedBox(
-                                widthFactor: progress.clamp(0.0, 1.0),
-                                child: Container(
-                                  height: _progressBarHeight,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(
-                                      _progressBarHeight,
-                                    ),
-                                    gradient: const LinearGradient(
-                                      colors: [
-                                        Color(0xFF2B7FFF),
-                                        Color(0xFF00B8DB),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // Percentage label
-                      Text(
-                        '${(progress * 100).toInt()}%',
-                        style: const TextStyle(
-                          color: AppColors.primary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                          height: 1.33,
-                        ),
-                      ),
-                    ],
-                  ),*/
+                  const SizedBox(height: 8),
+                  LinearProgressIndicator(
+                    minHeight: _progressBarHeight,
+                    value: status == TrainingStatus.completed
+                        ? 1
+                        : status == TrainingStatus.failed
+                        ? 0
+                        : null,
+                    color: AppColors.primary,
+                    backgroundColor: AppColors.surfaceContainer,
+                    semanticsLabel: _statusLabel(status),
+                  ),
                 ],
               ),
             ),
@@ -377,8 +359,9 @@ class DocumentTrainingProgressPage extends StatelessWidget {
 
   Widget _buildStartChatButton(DocumentChatController controller) {
     return Obx(() {
-      final ready = controller.isReadyForChat.value;
-      final status = controller.session.value?.trainingStatus ?? TrainingStatus.initial;
+      final ready = controller.isReadyForChat;
+      final status =
+          controller.session.value?.trainingStatus ?? TrainingStatus.initial;
       final isPolling = controller.isPolling.value;
       final hasFailed = status == TrainingStatus.failed;
 
@@ -404,9 +387,7 @@ class DocumentTrainingProgressPage extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(_startButtonRadius),
               gradient: hasFailed
-                  ? const LinearGradient(
-                      colors: [Colors.red, Colors.redAccent],
-                    )
+                  ? const LinearGradient(colors: [Colors.red, Colors.redAccent])
                   : const LinearGradient(
                       colors: [Color(0xFF2B7FFF), Color(0xFF00B8DB)],
                     ),
@@ -434,7 +415,9 @@ class DocumentTrainingProgressPage extends StatelessWidget {
                     height: 16,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.white),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppColors.white,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -447,14 +430,10 @@ class DocumentTrainingProgressPage extends StatelessWidget {
                     ),
                   ),
                 ] else if (hasFailed) ...[
-                  const Icon(
-                    Icons.refresh,
-                    color: AppColors.white,
-                    size: 16,
-                  ),
+                  const Icon(Icons.refresh, color: AppColors.white, size: 16),
                   const SizedBox(width: 8),
                   Text(
-                    'Upload Failed — Tap to Retry',
+                    'Processing failed',
                     style: TextStyle(
                       color: AppColors.textOnSurface,
                       fontSize: 14,
@@ -494,7 +473,7 @@ class DocumentTrainingProgressPage extends StatelessWidget {
       TrainingStatus.uploading => 'Uploading…',
       TrainingStatus.processing => 'Processing document…',
       TrainingStatus.completed => 'Ready to chat',
-      TrainingStatus.failed => 'Failed — please retry',
+      TrainingStatus.failed => 'Processing failed — upload the file again',
     };
   }
 }
@@ -555,7 +534,9 @@ class _AiInfoCard extends StatelessWidget {
                 // Bullet list
                 const _BulletItem(text: 'Ask questions about specific topics'),
                 SizedBox(height: 6),
-                const _BulletItem(text: 'Get instant summaries and explanations'),
+                const _BulletItem(
+                  text: 'Get instant summaries and explanations',
+                ),
                 SizedBox(height: 6),
                 const _BulletItem(text: 'Understand complex concepts easily'),
               ],

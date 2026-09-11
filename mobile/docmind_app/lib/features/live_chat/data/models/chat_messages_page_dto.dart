@@ -17,7 +17,8 @@ class ChatMessagesPageDto {
 
   factory ChatMessagesPageDto.fromJson(Map<String, dynamic> json) {
     return ChatMessagesPageDto(
-      items: (json['items'] as List<dynamic>?)
+      items:
+          (json['items'] as List<dynamic>?)
               ?.map((e) => ChatMessageDto.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],

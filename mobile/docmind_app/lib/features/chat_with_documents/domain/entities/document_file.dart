@@ -1,9 +1,5 @@
 /// Processing status for an uploaded document file.
-enum DocumentFileStatus {
-  processing,
-  completed,
-  failed,
-}
+enum DocumentFileStatus { processing, completed, failed }
 
 /// Domain entity for a document file.
 class DocumentFile {

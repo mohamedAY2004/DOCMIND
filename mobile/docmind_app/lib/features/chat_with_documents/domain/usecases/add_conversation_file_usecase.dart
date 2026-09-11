@@ -1,3 +1,5 @@
+import 'package:fpdart/fpdart.dart';
+import '../../../../core/domain/failure.dart';
 import 'dart:io';
 
 import '../entities/document_file.dart';
@@ -9,7 +11,7 @@ class AddConversationFileUseCase {
 
   final DocumentChatRepository _repository;
 
-  Future<DocumentFile> call({
+  Future<Either<Failure, DocumentFile>> call({
     required String conversationId,
     required File file,
     void Function(int sent, int total)? onProgress,

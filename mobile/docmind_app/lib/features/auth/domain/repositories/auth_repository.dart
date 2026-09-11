@@ -1,15 +1,15 @@
+import 'package:fpdart/fpdart.dart';
+import '../../../../core/domain/failure.dart';
 import '../entities/auth_session.dart';
 
 /// Auth repository contract.
 abstract class AuthRepository {
-  Future<AuthSession> login({
+  Future<Either<Failure, AuthSession>> login({
     required String username,
     required String password,
   });
 
-  Future<AuthSession?> getSavedSession();
+  Future<Either<Failure, AuthSession?>> getSavedSession();
 
-  Future<void> clearSession();
-
-  Future<void> logout();
+  Future<Either<Failure, void>> logout();
 }

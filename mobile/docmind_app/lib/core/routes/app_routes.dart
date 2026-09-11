@@ -1,4 +1,5 @@
 import 'package:get/get.dart';
+import '../bindings/app_binding.dart';
 
 import '../../features/auth/presentation/pages/sign_in_page.dart';
 import '../../features/chat_with_documents/presentation/pages/document_chat_entry_page.dart';
@@ -39,42 +40,56 @@ abstract final class AppPages {
 
   static final List<GetPage<dynamic>> pages = [
     // Auth
-    GetPage(name: AppRoutes.signIn, page: () => const SignInPage()),
+    GetPage(
+      name: AppRoutes.signIn,
+      binding: SignInBinding(),
+      page: () => const SignInPage(),
+    ),
 
     // Home
-    GetPage(name: AppRoutes.home, page: () => const HomePage()),
+    GetPage(
+      name: AppRoutes.home,
+      binding: HomeBinding(),
+      page: () => const HomePage(),
+    ),
 
     // Chat with Documents
     GetPage(
       name: AppRoutes.chatWithDocuments,
+      binding: DocumentBinding(),
       page: () => const DocumentChatEntryPage(),
     ),
     GetPage(
       name: AppRoutes.documentFileSelection,
+      binding: DocumentBinding(),
       page: () => const DocumentFileSelectionPage(),
     ),
     GetPage(
       name: AppRoutes.documentTrainingProgress,
+      binding: DocumentBinding(),
       page: () => const DocumentTrainingProgressPage(),
     ),
     GetPage(
       name: AppRoutes.documentLiveChat,
+      binding: LiveChatBinding(),
       page: () => const LiveChatPage(),
     ),
     GetPage(
       name: AppRoutes.liveChat,
+      binding: LiveChatBinding(),
       page: () => const LiveChatPage(),
     ),
 
     // Other features (placeholders)
     GetPage(
       name: AppRoutes.subjectTutors,
+      binding: SubjectTutorsBinding(),
       page: () => const SubjectTutorsPage(),
     ),
     GetPage(
       name: AppRoutes.profile,
+      binding: ProfileBinding(),
       page: () => const ProfilePage(),
     ),
   ];
 }
-

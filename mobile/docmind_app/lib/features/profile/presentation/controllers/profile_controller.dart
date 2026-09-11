@@ -2,18 +2,19 @@ import 'package:get/get.dart';
 
 import '../../../../core/routes/app_routes.dart';
 import '../../../../core/theme/theme_service.dart';
-import '../../../auth/data/repositories/auth_repository_impl.dart';
 import '../../../auth/domain/usecases/get_saved_session_usecase.dart';
 import '../../../auth/domain/usecases/logout_usecase.dart';
 
 /// Manages Profile & Settings screen state.
 ///
 /// Holds reactive toggle states and user info.
-/// TODO(backend): Replace static user data with real auth user object.
 class ProfileController extends GetxController {
-  final ThemeService _themeService = Get.find();
+  ProfileController(this._themeService, this._getSession, this._logout);
+  final ThemeService _themeService;
+  final GetSavedSessionUseCase _getSession;
+  final LogoutUseCase _logout;
 
-  // ── User info (fake — replace with real auth user) ───────────────
+  // User info from the saved authenticated session.
   final userName = 'User'.obs;
   final userEmail = ''.obs;
   final userPlan = 'Student'.obs;
@@ -30,8 +31,12 @@ class ProfileController extends GetxController {
   }
 
   Future<void> _loadProfile() async {
-    final useCase = GetSavedSessionUseCase(AuthRepositoryImpl());
-    final session = await useCase();
+    final result = await _getSession();
+    if (isClosed) return;
+    final session = result.fold((failure) {
+      Get.snackbar('Profile', failure.message);
+      return null;
+    }, (session) => session);
     if (session != null) {
       userName.value = session.user.name.isNotEmpty
           ? session.user.name
@@ -57,8 +62,12 @@ class ProfileController extends GetxController {
     // TODO(nav): Navigate to Help & Support screen when implemented.
   }
 
-  void signOut() {
-    final useCase = LogoutUseCase(AuthRepositoryImpl());
-    useCase().whenComplete(() => Get.offAllNamed(AppRoutes.signIn));
+  Future<void> signOut() async {
+    final result = await _logout();
+    if (isClosed) return;
+    result.fold(
+      (failure) => Get.snackbar('Sign out', failure.message),
+      (_) => Get.offAllNamed(AppRoutes.signIn),
+    );
   }
 }

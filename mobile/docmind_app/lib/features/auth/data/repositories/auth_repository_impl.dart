@@ -1,5 +1,7 @@
+import 'package:fpdart/fpdart.dart';
+import '../../../../core/domain/failure.dart';
+import '../../../../core/network/repository_call.dart';
 import '../../domain/entities/auth_session.dart';
-import '../../domain/errors/auth_failure.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_local_data_source.dart';
 import '../datasources/auth_remote_data_source.dart';
@@ -8,22 +10,18 @@ import '../models/login_request.dart';
 
 /// Auth repository implementation.
 class AuthRepositoryImpl implements AuthRepository {
-  AuthRepositoryImpl({
-    AuthRemoteDataSource? remoteDataSource,
-    AuthLocalDataSource? localDataSource,
-  })  : _remote = remoteDataSource ?? AuthRemoteDataSource(),
-        _local = localDataSource ?? AuthLocalDataSource();
+  const AuthRepositoryImpl(this._remote, this._local);
 
   final AuthRemoteDataSource _remote;
   final AuthLocalDataSource _local;
 
   @override
-  Future<AuthSession> login({
+  Future<Either<Failure, AuthSession>> login({
     required String username,
     required String password,
-  }) async {
+  }) => repositoryCall(() async {
     if (username.trim().isEmpty || password.trim().isEmpty) {
-      throw const AuthFailure('Username and password are required.');
+      throw const ValidationFailure('Username and password are required.');
     }
 
     final response = await _remote.login(
@@ -47,23 +45,21 @@ class AuthRepositoryImpl implements AuthRepository {
     );
 
     return session;
-  }
+  });
 
   @override
-  Future<AuthSession?> getSavedSession() async {
-    final stored = await _local.getSession();
-    return stored?.toEntity();
-  }
+  Future<Either<Failure, AuthSession?>> getSavedSession() =>
+      repositoryCall(() async {
+        final stored = await _local.getSession();
+        return stored?.toEntity();
+      });
 
   @override
-  Future<void> clearSession() => _local.clearSession();
-
-  @override
-  Future<void> logout() async {
+  Future<Either<Failure, void>> logout() => repositoryCall(() async {
     final token = await _local.getToken();
     if (token != null && token.isNotEmpty) {
-      await _remote.logout(token: token);
+      await _remote.logout();
     }
     await _local.clearSession();
-  }
+  });
 }

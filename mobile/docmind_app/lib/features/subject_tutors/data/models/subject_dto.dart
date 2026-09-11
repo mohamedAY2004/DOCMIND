@@ -29,11 +29,13 @@ class SubjectDto {
       courseCode: json['courseCode'] as String? ?? '',
       semesterId: json['semesterId'] as String? ?? '',
       pdfCount: json['pdfCount'] as String? ?? '',
-      instructorIds: (json['instructorIds'] as List<dynamic>?)
+      instructorIds:
+          (json['instructorIds'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           const [],
-      studentIds: (json['studentIds'] as List<dynamic>?)
+      studentIds:
+          (json['studentIds'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           const [],

@@ -16,7 +16,8 @@ class CreateConversationResponseDto {
       conversation: DocumentConversationDto.fromJson(
         json['conversation'] as Map<String, dynamic>? ?? {},
       ),
-      files: (json['files'] as List<dynamic>?)
+      files:
+          (json['files'] as List<dynamic>?)
               ?.map((e) => DocumentFileDto.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],

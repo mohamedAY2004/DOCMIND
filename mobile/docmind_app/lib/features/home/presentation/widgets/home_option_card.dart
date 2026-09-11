@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../domain/entities/home_option.dart';
+import 'home_option_style.dart';
 
 /// Layout constants matching Figma.
 const double _cardHeight = 75.0;

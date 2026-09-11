@@ -1,3 +1,5 @@
+import 'package:fpdart/fpdart.dart';
+import '../../../../core/domain/failure.dart';
 import '../entities/subject.dart';
 import '../repositories/subjects_repository.dart';
 
@@ -10,5 +12,6 @@ class GetSubjectsUseCase {
 
   final SubjectsRepository _repository;
 
-  Future<List<Subject>> call() => _repository.getStudentSubjects();
+  Future<Either<Failure, List<Subject>>> call() =>
+      _repository.getStudentSubjects();
 }

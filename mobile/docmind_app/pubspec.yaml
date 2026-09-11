@@ -17,9 +17,8 @@ dependencies:
   flutter_svg: ^2.0.10+1
   file_picker: ^8.1.7
   # For Api calls
-  logger: ^2.6.0  # for logging purpose
+  fpdart: ^1.2.0
   dio: ^5.9.2
-  pretty_dio_logger: ^1.4.0
   shared_preferences: ^2.3.2
 
 dev_dependencies:

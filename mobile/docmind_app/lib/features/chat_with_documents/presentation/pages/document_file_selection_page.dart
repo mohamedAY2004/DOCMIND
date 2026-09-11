@@ -289,11 +289,7 @@ class DocumentFileSelectionPage extends StatelessWidget {
             right: -8,
             top: -8,
             child: Center(
-              child: Image.asset(
-                AppAssets.docmindLogo,
-                width: 28,
-                height: 28,
-              ),
+              child: Image.asset(AppAssets.docmindLogo, width: 28, height: 28),
             ),
           ),
         ],

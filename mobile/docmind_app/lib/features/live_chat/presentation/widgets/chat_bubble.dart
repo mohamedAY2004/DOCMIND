@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_assets.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../domain/entities/chat_message.dart';
+import 'message_details.dart';
 
 /// Layout constants for chat bubbles matching Figma node 4:450.
 const double _bubbleRadius = 16.0;
@@ -118,6 +119,8 @@ class _ChatBubbleState extends State<ChatBubble>
                   height: 1.625,
                 ),
               ),
+              if (!widget.message.isThinking)
+                MessageDetails(message: widget.message),
               const SizedBox(height: 8),
               Text(
                 _formatTime(widget.message.timestamp),
@@ -206,6 +209,8 @@ class _ChatBubbleState extends State<ChatBubble>
                     height: 1.625,
                   ),
                 ),
+              if (!widget.message.isThinking)
+                MessageDetails(message: widget.message),
               const SizedBox(height: 8),
               Text(
                 _formatTime(widget.message.timestamp),

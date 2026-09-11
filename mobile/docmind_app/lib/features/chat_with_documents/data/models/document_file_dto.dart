@@ -1,9 +1,5 @@
 /// Processing status for an uploaded document file.
-enum FileProcessingStatus {
-  processing,
-  completed,
-  failed,
-}
+enum FileProcessingStatus { processing, completed, failed }
 
 /// Data Transfer Object for a document file from the API.
 class DocumentFileDto {

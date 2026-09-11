@@ -1,3 +1,5 @@
+import 'package:fpdart/fpdart.dart';
+import '../../../../core/domain/failure.dart';
 import '../entities/auth_session.dart';
 import '../repositories/auth_repository.dart';
 
@@ -7,7 +9,7 @@ class LoginUseCase {
 
   final AuthRepository _repository;
 
-  Future<AuthSession> call({
+  Future<Either<Failure, AuthSession>> call({
     required String username,
     required String password,
   }) {

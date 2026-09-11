@@ -15,9 +15,6 @@ const double _profileCardRadius = 16.0;
 const double _avatarSize = 64.0;
 const double _avatarRadius = 24.0;
 const double _avatarIconSize = 32.0;
-const double _infoIconBoxSize = 28.0;
-const double _infoIconBoxRadius = 12.0;
-const double _infoIconSize = 12.0;
 const double _sectionCardRadius = 16.0;
 const double _settingsRowHeight = 60.0;
 const double _settingsIconBoxSize = 36.0;
@@ -33,12 +30,12 @@ class ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeService = Get.find<ThemeService>();
-    final controller = Get.put(ProfileController());
+    final controller = Get.find<ProfileController>();
 
     // Obx wrapper to rebuild on theme changes
     return Obx(() {
       // Access the reactive variable to register observer
-      final isDark = themeService.isDarkMode.value;
+      themeService.isDarkMode.value;
 
       return Scaffold(
         body: Container(
@@ -233,15 +230,15 @@ class ProfilePage extends StatelessWidget {
                       ],
                     ),
                   ),
-                 // const SizedBox(height: 16),
+                  // const SizedBox(height: 16),
                   // Divider (Figma 4:933)
-                 /* Container(
+                  /* Container(
                     height: 1,
                     color: AppColors.primary.withValues(alpha: 0.1),
                   ),
                   const SizedBox(height: 8),*/
                   // Email row (Figma 4:935)
-                 /* Obx(
+                  /* Obx(
                     () => _buildInfoRow(
                       icon: Icons.mail_outline,
                       text: controller.userEmail.value,
@@ -249,7 +246,7 @@ class ProfilePage extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),*/
                   // Joined date row (Figma 4:942)
-                 /* Obx(
+                  /* Obx(
                     () => _buildInfoRow(
                       icon: Icons.calendar_today_outlined,
                       text: controller.joinedDate.value,
@@ -261,34 +258,6 @@ class ProfilePage extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildInfoRow({required IconData icon, required String text}) {
-    return Row(
-      children: [
-        Container(
-          width: _infoIconBoxSize,
-          height: _infoIconBoxSize,
-          decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(_infoIconBoxRadius),
-          ),
-          child: Center(
-            child: Icon(icon, size: _infoIconSize, color: AppColors.primary),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          text,
-          style: TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 12,
-            fontWeight: FontWeight.w400,
-            height: 1.33,
-          ),
-        ),
-      ],
     );
   }
 
@@ -344,7 +313,7 @@ class ProfilePage extends StatelessWidget {
                     showDivider: true,
                   ),
                   // Notifications (Figma 4:999)
-                 /* _buildToggleRow(
+                  /* _buildToggleRow(
                     icon: Icons.notifications_outlined,
                     title: 'Notifications',
                     subtitle: 'Manage notification preferences',

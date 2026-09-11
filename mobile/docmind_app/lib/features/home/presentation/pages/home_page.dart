@@ -32,7 +32,6 @@ class HomePage extends StatelessWidget {
       // read reactive value so Obx rebuilds when theme changes
       final _ = themeService.isDarkMode.value;
       return GetBuilder<HomeController>(
-        init: HomeController(),
         builder: (controller) {
           return Scaffold(
             body: Container(

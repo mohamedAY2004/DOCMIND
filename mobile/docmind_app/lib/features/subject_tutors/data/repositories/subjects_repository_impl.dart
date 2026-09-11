@@ -1,4 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:fpdart/fpdart.dart';
+import '../../../../core/domain/failure.dart';
+import '../../../../core/network/repository_call.dart';
 
 import '../../domain/entities/subject.dart';
 import '../../domain/entities/tutor_conversation.dart';
@@ -7,49 +9,30 @@ import '../../domain/repositories/subjects_repository.dart';
 import '../datasources/subjects_remote_data_source.dart';
 
 class SubjectsRepositoryImpl implements SubjectsRepository {
-  SubjectsRepositoryImpl({SubjectsRemoteDataSource? remote})
-      : _remote = remote ?? SubjectsRemoteDataSource();
+  const SubjectsRepositoryImpl(this._remote);
 
   final SubjectsRemoteDataSource _remote;
 
-  static const _palette = [
-    [Color(0xFF2B7FFF), Color(0xFF00B8DB)],
-    [Color(0xFF00C950), Color(0xFF00BC7D)],
-    [Color(0xFFAD46FF), Color(0xFFF6339A)],
-    [Color(0xFFFF6900), Color(0xFFFE9A00)],
-  ];
+  @override
+  Future<Either<Failure, List<Subject>>> getStudentSubjects() =>
+      repositoryCall(() async {
+        final dtos = await _remote.getStudentSubjects();
 
-  static const _icons = [
-    Icons.calculate_outlined,
-    Icons.science_outlined,
-    Icons.account_tree_outlined,
-    Icons.hub_outlined,
-  ];
+        return dtos
+            .map(
+              (dto) => Subject(
+                id: dto.id,
+                name: dto.title,
+                description: dto.description,
+              ),
+            )
+            .toList();
+      });
 
   @override
-  Future<List<Subject>> getStudentSubjects() async {
-    final dtos = await _remote.getStudentSubjects();
-
-    return dtos.asMap().entries.map((entry) {
-      final index = entry.key;
-      final dto = entry.value;
-      final palette = _palette[index % _palette.length];
-      final icon = _icons[index % _icons.length];
-
-      return Subject(
-        id: dto.id,
-        name: dto.title,
-        description: dto.description,
-        gradientColors: palette,
-        icon: icon,
-      );
-    }).toList();
-  }
-
-  @override
-  Future<TutorConversation> createTutorConversation({
+  Future<Either<Failure, TutorConversation>> createTutorConversation({
     required String subjectId,
-  }) async {
+  }) => repositoryCall(() async {
     final dto = await _remote.createTutorConversation(subjectId: subjectId);
 
     return TutorConversation(
@@ -60,14 +43,14 @@ class SubjectsRepositoryImpl implements SubjectsRepository {
       updatedAt: dto.updatedAt,
       messageCount: dto.messageCount,
     );
-  }
+  });
 
   @override
-  Future<TutorConversationPage> getTutorConversations({
+  Future<Either<Failure, TutorConversationPage>> getTutorConversations({
     required String subjectId,
     int page = 1,
     int pageSize = 20,
-  }) async {
+  }) => repositoryCall(() async {
     final pageDto = await _remote.getTutorConversations(
       subjectId: subjectId,
       page: page,
@@ -94,5 +77,5 @@ class SubjectsRepositoryImpl implements SubjectsRepository {
       total: pageDto.total,
       totalPages: pageDto.totalPages,
     );
-  }
+  });
 }

@@ -23,10 +23,6 @@ class AuthUserModel {
     );
   }
 
-  AuthUser toEntity() => AuthUser(
-        id: id,
-        username: username,
-        name: name,
-        role: role,
-      );
+  AuthUser toEntity() =>
+      AuthUser(id: id, username: username, name: name, role: role);
 }

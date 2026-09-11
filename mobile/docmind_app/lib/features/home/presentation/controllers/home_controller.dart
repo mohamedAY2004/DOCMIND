@@ -1,7 +1,6 @@
 import 'package:get/get.dart';
 
 import '../../../../core/routes/app_routes.dart';
-import '../../../auth/data/repositories/auth_repository_impl.dart';
 import '../../../auth/domain/usecases/get_saved_session_usecase.dart';
 import '../../domain/entities/home_option.dart';
 import '../../domain/usecases/get_home_options_usecase.dart';
@@ -12,7 +11,9 @@ import '../../domain/usecases/get_home_options_usecase.dart';
 /// and exposes the resulting option list for the UI.
 class HomeController extends GetxController {
   // ── Dependencies ────────────────────────────────────────────────
-  final GetHomeOptionsUseCase _getHomeOptions = GetHomeOptionsUseCase();
+  HomeController(this._getHomeOptions, this._getSession);
+  final GetHomeOptionsUseCase _getHomeOptions;
+  final GetSavedSessionUseCase _getSession;
 
   // ── State ───────────────────────────────────────────────────────
   final options = <HomeOption>[].obs;
@@ -32,8 +33,12 @@ class HomeController extends GetxController {
   }
 
   Future<void> _loadUser() async {
-    final useCase = GetSavedSessionUseCase(AuthRepositoryImpl());
-    final session = await useCase();
+    final result = await _getSession();
+    if (isClosed) return;
+    final session = result.fold((failure) {
+      Get.snackbar('Profile', failure.message);
+      return null;
+    }, (session) => session);
     if (session != null) {
       userName.value = session.user.name.isNotEmpty
           ? session.user.name

@@ -1,3 +1,5 @@
+import 'package:fpdart/fpdart.dart';
+import '../../../../core/domain/failure.dart';
 import '../repositories/document_chat_repository.dart';
 
 /// Use case for deleting a document conversation.
@@ -6,7 +8,7 @@ class DeleteDocumentConversationUseCase {
 
   final DocumentChatRepository _repository;
 
-  Future<void> call(String conversationId) async {
-    await _repository.deleteConversation(conversationId);
+  Future<Either<Failure, void>> call(String conversationId) async {
+    return _repository.deleteConversation(conversationId);
   }
 }

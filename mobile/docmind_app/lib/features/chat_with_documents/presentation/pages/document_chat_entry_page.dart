@@ -36,7 +36,6 @@ class DocumentChatEntryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetBuilder<DocumentChatController>(
-      init: DocumentChatController(),
       builder: (controller) {
         return Scaffold(
           body: Container(
@@ -87,9 +86,7 @@ class DocumentChatEntryPage extends StatelessWidget {
                         ),
                         _buildStartButton(controller),
                         const SizedBox(height: 12),
-                        Expanded(
-                          child: Obx(() => _buildContent(controller)),
-                        ),
+                        Expanded(child: Obx(() => _buildContent(controller))),
                       ],
                     ),
                   ),
@@ -253,9 +250,7 @@ class DocumentChatEntryPage extends StatelessWidget {
     if (controller.isLoadingConversations.value &&
         controller.conversations.isEmpty) {
       return const Center(
-        child: CircularProgressIndicator(
-          color: AppColors.primary,
-        ),
+        child: CircularProgressIndicator(color: AppColors.primary),
       );
     }
 
@@ -280,7 +275,8 @@ class DocumentChatEntryPage extends StatelessWidget {
       onRefresh: () => controller.loadConversations(refresh: true),
       child: ListView.builder(
         padding: const EdgeInsets.only(bottom: 16),
-        itemCount: controller.conversations.length + 
+        itemCount:
+            controller.conversations.length +
             (controller.hasMoreConversations.value ? 1 : 0),
         itemBuilder: (context, index) {
           if (index == controller.conversations.length) {
@@ -306,7 +302,8 @@ class DocumentChatEntryPage extends StatelessWidget {
           final conversation = controller.conversations[index];
           return _ConversationListItem(
             conversation: conversation,
-            onTap: () => controller.navigateToLiveChatForConversation(conversation),
+            onTap: () =>
+                controller.navigateToLiveChatForConversation(conversation),
             onDelete: () => _confirmDelete(controller, conversation),
           );
         },
@@ -321,9 +318,7 @@ class DocumentChatEntryPage extends StatelessWidget {
     Get.dialog(
       AlertDialog(
         backgroundColor: AppColors.formCardBackground,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           'Delete Conversation',
           style: TextStyle(color: AppColors.textOnSurface),
@@ -359,7 +354,6 @@ class DocumentChatEntryPage extends StatelessWidget {
     );
   }
 
-
   // ── Error State ──────────────────────────────────────────────────
 
   Widget _buildErrorState(DocumentChatController controller) {
@@ -367,18 +361,11 @@ class DocumentChatEntryPage extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.start,
       children: [
         const SizedBox(height: 32),
-        const Icon(
-          Icons.error_outline,
-          color: AppColors.hintText,
-          size: 48,
-        ),
+        const Icon(Icons.error_outline, color: AppColors.hintText, size: 48),
         const SizedBox(height: 12),
         Text(
           controller.conversationsError.value ?? 'Failed to load conversations',
-          style: TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 14,
-          ),
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),
@@ -501,11 +488,7 @@ class _ConversationListItem extends StatelessWidget {
           color: Colors.red.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(_conversationItemRadius),
         ),
-        child: const Icon(
-          Icons.delete_outline,
-          color: Colors.red,
-          size: 24,
-        ),
+        child: const Icon(Icons.delete_outline, color: Colors.red, size: 24),
       ),
       confirmDismiss: (direction) async {
         onDelete();

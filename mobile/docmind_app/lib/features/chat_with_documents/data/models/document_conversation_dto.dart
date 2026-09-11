@@ -21,9 +21,11 @@ class DocumentConversationDto {
       id: json['id'] as String? ?? '',
       title: json['title'] as String? ?? '',
       subjectId: json['subjectId'] as String?,
-      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ??
+      createdAt:
+          DateTime.tryParse(json['createdAt'] as String? ?? '') ??
           DateTime.now(),
-      updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? '') ??
+      updatedAt:
+          DateTime.tryParse(json['updatedAt'] as String? ?? '') ??
           DateTime.now(),
       messageCount: json['messageCount'] as int? ?? 0,
     );

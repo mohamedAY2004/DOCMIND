@@ -1,3 +1,5 @@
+import 'package:fpdart/fpdart.dart';
+import '../../../../core/domain/failure.dart';
 import '../entities/auth_session.dart';
 import '../repositories/auth_repository.dart';
 
@@ -6,5 +8,5 @@ class GetSavedSessionUseCase {
 
   final AuthRepository _repository;
 
-  Future<AuthSession?> call() => _repository.getSavedSession();
+  Future<Either<Failure, AuthSession?>> call() => _repository.getSavedSession();
 }

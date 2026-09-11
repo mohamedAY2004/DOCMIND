@@ -2,9 +2,7 @@ import 'package:get/get.dart';
 
 import '../../../../core/routes/app_routes.dart';
 import '../../../live_chat/domain/entities/chat_session.dart';
-import '../../data/repositories/subjects_repository_impl.dart';
 import '../../domain/entities/subject.dart';
-import '../../domain/errors/subjects_failure.dart';
 // conversation creation is handled lazily by the chat controller now
 import '../../domain/usecases/get_subjects_usecase.dart';
 
@@ -13,8 +11,8 @@ import '../../domain/usecases/get_subjects_usecase.dart';
 /// Loads subjects on init and navigates to [LiveChatPage] when a subject is tapped.
 class SubjectTutorsController extends GetxController {
   // ── Dependencies ────────────────────────────────────────────────
-  final _repository = SubjectsRepositoryImpl();
-  late final _getSubjects = GetSubjectsUseCase(_repository);
+  SubjectTutorsController(this._getSubjects);
+  final GetSubjectsUseCase _getSubjects;
 
   // ── State ───────────────────────────────────────────────────────
   final subjects = <Subject>[].obs;
@@ -35,15 +33,13 @@ class SubjectTutorsController extends GetxController {
   Future<void> _loadSubjects() async {
     isLoading.value = true;
     errorMessage.value = null;
-    try {
-      subjects.value = await _getSubjects();
-    } on SubjectsFailure catch (e) {
-      errorMessage.value = e.message;
-    } catch (_) {
-      errorMessage.value = 'Failed to load subjects. Please try again.';
-    } finally {
-      isLoading.value = false;
-    }
+    final result = await _getSubjects();
+    if (isClosed) return;
+    result.fold(
+      (failure) => errorMessage.value = failure.message,
+      subjects.assignAll,
+    );
+    isLoading.value = false;
   }
 
   Future<void> selectSubject(Subject subject) async {
@@ -62,9 +58,6 @@ class SubjectTutorsController extends GetxController {
   }
 
   void onHistoryTapped() {
-    Get.snackbar(
-      'Coming soon',
-      'Previous subject chats will appear here.',
-    );
+    Get.snackbar('Coming soon', 'Previous subject chats will appear here.');
   }
 }

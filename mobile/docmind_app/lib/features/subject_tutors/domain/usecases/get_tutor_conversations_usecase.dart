@@ -1,3 +1,5 @@
+import 'package:fpdart/fpdart.dart';
+import '../../../../core/domain/failure.dart';
 import '../entities/tutor_conversation_page.dart';
 import '../repositories/subjects_repository.dart';
 
@@ -6,7 +8,7 @@ class GetTutorConversationsUseCase {
 
   final SubjectsRepository _repository;
 
-  Future<TutorConversationPage> call({
+  Future<Either<Failure, TutorConversationPage>> call({
     required String subjectId,
     int page = 1,
     int pageSize = 20,

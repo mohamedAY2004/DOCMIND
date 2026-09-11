@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import 'features/auth/data/datasources/auth_local_data_source.dart';
+import 'core/bindings/app_binding.dart';
+import 'features/auth/domain/usecases/get_saved_session_usecase.dart';
 
 import 'core/routes/app_routes.dart';
 import 'core/theme/app_theme.dart';
@@ -16,19 +17,20 @@ Future<void> main() async {
     themeService.isDarkMode.value ? ThemeMode.dark : ThemeMode.light,
   );
 
-  final local = AuthLocalDataSource();
-  final hasSession = await local.hasSession();
+  AppBinding().dependencies();
+  final savedSession = await Get.find<GetSavedSessionUseCase>()();
+  final hasSession = savedSession.fold(
+    (_) => false,
+    (session) => session != null,
+  );
 
-  runApp(DocMindApp(
-    initialRoute: hasSession ? AppRoutes.home : AppRoutes.signIn,
-  ));
+  runApp(
+    DocMindApp(initialRoute: hasSession ? AppRoutes.home : AppRoutes.signIn),
+  );
 }
 
 class DocMindApp extends StatelessWidget {
-  const DocMindApp({
-    super.key,
-    this.initialRoute = AppRoutes.signIn,
-  });
+  const DocMindApp({super.key, this.initialRoute = AppRoutes.signIn});
 
   final String initialRoute;
 
@@ -36,16 +38,19 @@ class DocMindApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final themeService = Get.find<ThemeService>();
 
-    return Obx(() => GetMaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'DocMind',
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
-      themeMode: themeService.isDarkMode.value
-          ? ThemeMode.dark
-          : ThemeMode.light,
-      initialRoute: initialRoute,
-      getPages: AppPages.pages,
-    ));
+    return Obx(
+      () => GetMaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'DocMind',
+        theme: AppTheme.light,
+        darkTheme: AppTheme.dark,
+        themeMode: themeService.isDarkMode.value
+            ? ThemeMode.dark
+            : ThemeMode.light,
+        initialRoute: initialRoute,
+        initialBinding: AppBinding(),
+        getPages: AppPages.pages,
+      ),
+    );
   }
 }

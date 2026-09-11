@@ -34,7 +34,6 @@ class SignInPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetBuilder<SignInController>(
-      init: SignInController(),
       builder: (controller) {
         return Scaffold(
           body: Container(

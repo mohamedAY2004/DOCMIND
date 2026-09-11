@@ -31,7 +31,6 @@ class LiveChatPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetBuilder<LiveChatController>(
-      init: LiveChatController(),
       builder: (controller) {
         return Scaffold(
           body: Container(
@@ -67,6 +66,7 @@ class LiveChatPage extends StatelessWidget {
                     child: _buildMessageList(controller),
                   ),
                 ),
+                _buildSendError(controller),
                 _buildInputBar(controller),
               ],
             ),
@@ -80,16 +80,17 @@ class LiveChatPage extends StatelessWidget {
 
   Widget _buildAppBar(BuildContext context, LiveChatController controller) {
     final topPadding = MediaQuery.of(context).padding.top;
-    final isDocumentChat = controller.session.sourceType == KnowledgeSourceType.document;
-    final docController = isDocumentChat &&
-        Get.isRegistered<DocumentChatController>()
-      ? Get.find<DocumentChatController>()
-      : null;
+    final isDocumentChat =
+        controller.session.sourceType == KnowledgeSourceType.document;
+    final docController =
+        isDocumentChat && Get.isRegistered<DocumentChatController>()
+        ? Get.find<DocumentChatController>()
+        : null;
     final displayName = isDocumentChat
-      ? (docController?.session.value?.fileName ??
-        controller.session.displayName ??
-        'Chat')
-      : (controller.session.displayName ?? 'Chat');
+        ? (docController?.session.value?.fileName ??
+              controller.session.displayName ??
+              'Chat')
+        : (controller.session.displayName ?? 'Chat');
 
     return Container(
       height: _appBarHeight + topPadding,
@@ -116,7 +117,9 @@ class LiveChatPage extends StatelessWidget {
         children: [
           // Back button for document chats, History icon for tutor chats
           GestureDetector(
-            onTap: () => isDocumentChat ? Get.back() : _showHistorySheet(context, controller),
+            onTap: () => isDocumentChat
+                ? Get.back()
+                : _showHistorySheet(context, controller),
             child: Container(
               width: _backButtonSize,
               height: _backButtonSize,
@@ -166,11 +169,8 @@ class LiveChatPage extends StatelessWidget {
           ),
           if (isDocumentChat)
             GestureDetector(
-              onTap: () => _showDocumentOptionsSheet(
-                context,
-                controller,
-                docController,
-              ),
+              onTap: () =>
+                  _showDocumentOptionsSheet(context, controller, docController),
               child: SizedBox(
                 width: _backButtonSize,
                 height: _backButtonSize,
@@ -269,9 +269,7 @@ class LiveChatPage extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.surfaceContainer,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: AppColors.primary.withValues(alpha: 0.2),
-          ),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
         ),
         child: Row(
           children: [
@@ -350,8 +348,9 @@ class LiveChatPage extends StatelessWidget {
                     TextButton.icon(
                       onPressed: () async {
                         await docController.pickFile();
-                        await docController
-                            .addSelectedFileToConversation(conversationId);
+                        await docController.addSelectedFileToConversation(
+                          conversationId,
+                        );
                       },
                       icon: Icon(Icons.add, color: AppColors.primary, size: 18),
                       label: Text(
@@ -445,10 +444,11 @@ class LiveChatPage extends StatelessWidget {
                               ),
                               const SizedBox(width: 8),
                               GestureDetector(
-                                onTap: () => docController.deleteConversationFile(
-                                  conversationId: conversationId,
-                                  fileId: file.id,
-                                ),
+                                onTap: () =>
+                                    docController.deleteConversationFile(
+                                      conversationId: conversationId,
+                                      fileId: file.id,
+                                    ),
                                 child: Icon(
                                   Icons.delete_outline,
                                   color: Colors.red.withValues(alpha: 0.8),
@@ -471,9 +471,7 @@ class LiveChatPage extends StatelessWidget {
   }
 
   String _formatFileMeta(DocumentFile file) {
-    final size = file.sizeBytes == null
-        ? ''
-        : _formatBytes(file.sizeBytes!);
+    final size = file.sizeBytes == null ? '' : _formatBytes(file.sizeBytes!);
     final status = switch (file.status) {
       DocumentFileStatus.completed => 'Ready',
       DocumentFileStatus.processing => 'Processing',
@@ -536,7 +534,9 @@ class LiveChatPage extends StatelessWidget {
                 height: MediaQuery.of(context).size.height,
                 decoration: BoxDecoration(
                   color: AppColors.formCardBackground,
-                  borderRadius: const BorderRadius.horizontal(left: Radius.circular(20)),
+                  borderRadius: const BorderRadius.horizontal(
+                    left: Radius.circular(20),
+                  ),
                 ),
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                 child: Column(
@@ -593,7 +593,8 @@ class LiveChatPage extends StatelessWidget {
 
                         return ListView.separated(
                           controller: scroll,
-                          itemCount: controller.history.length +
+                          itemCount:
+                              controller.history.length +
                               (controller.historyHasMore.value ? 1 : 0),
                           separatorBuilder: (_, __) => const Divider(
                             color: Color(0x1A0F9197),
@@ -658,8 +659,10 @@ class LiveChatPage extends StatelessWidget {
       },
       transitionBuilder: (context, anim1, anim2, child) {
         return SlideTransition(
-          position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
-              .animate(CurvedAnimation(parent: anim1, curve: Curves.easeOut)),
+          position: Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: anim1, curve: Curves.easeOut)),
           child: child,
         );
       },
@@ -674,43 +677,88 @@ class LiveChatPage extends StatelessWidget {
   Widget _buildMessageList(LiveChatController controller) {
     return Obx(() {
       final msgs = controller.messages;
-
-      if (msgs.isEmpty) {
+      final loading = controller.isLoadingMessages.value;
+      final error = controller.messagesError.value;
+      if (msgs.isEmpty && loading) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      if (msgs.isEmpty && error == null) {
         return Center(
           child: Padding(
             padding: const EdgeInsets.all(32),
             child: Text(
               'Start a conversation by typing a message below.',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-              ),
+              style: TextStyle(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
             ),
           ),
         );
       }
-
       return ListView.builder(
         padding: const EdgeInsets.symmetric(
           horizontal: _messagePaddingH,
           vertical: 24,
         ),
         reverse: true,
-        itemCount: msgs.length,
+        itemCount: msgs.length + 1,
         itemBuilder: (context, index) {
-          final msgIndex = msgs.length - 1 - index;
-
-          if (msgIndex < 0 || msgIndex >= msgs.length) {
-            return const SizedBox.shrink();
+          if (index == msgs.length) {
+            return Column(
+              children: [
+                if (error != null)
+                  Text(
+                    error,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                if (controller.hasOlderMessages.value || error != null)
+                  TextButton(
+                    onPressed: loading
+                        ? null
+                        : () => controller.loadMessages(older: msgs.isNotEmpty),
+                    child: Text(
+                      loading
+                          ? 'Loading…'
+                          : error != null
+                          ? 'Retry loading history'
+                          : 'Load older messages',
+                    ),
+                  ),
+              ],
+            );
           }
-
-          return ChatBubble(message: msgs[msgIndex]);
+          final message = msgs[msgs.length - 1 - index];
+          return ChatBubble(key: ValueKey(message.id), message: message);
         },
       );
     });
   }
+
+  Widget _buildSendError(LiveChatController controller) => Obx(() {
+    final error = controller.sendError.value;
+    if (error == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              error,
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+          if (controller.lastFailedText.value != null)
+            TextButton(
+              onPressed: controller.isSending.value
+                  ? null
+                  : controller.retrySend,
+              child: const Text('Retry'),
+            ),
+        ],
+      ),
+    );
+  });
 
   // ── Input Bar (Figma 4:552) ──────────────────────────────────────
 
@@ -775,7 +823,9 @@ class LiveChatPage extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Obx(() {
-              final sending = controller.isSending.value;
+              final sending =
+                  controller.isSending.value ||
+                  controller.isLoadingMessages.value;
               return GestureDetector(
                 onTap: sending ? null : controller.sendMessage,
                 child: AnimatedOpacity(

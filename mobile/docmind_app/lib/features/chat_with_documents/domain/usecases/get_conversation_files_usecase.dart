@@ -1,3 +1,5 @@
+import 'package:fpdart/fpdart.dart';
+import '../../../../core/domain/failure.dart';
 import '../entities/document_file.dart';
 import '../repositories/document_chat_repository.dart';
 
@@ -7,7 +9,9 @@ class GetConversationFilesUseCase {
 
   final DocumentChatRepository _repository;
 
-  Future<List<DocumentFile>> call({required String conversationId}) {
+  Future<Either<Failure, List<DocumentFile>>> call({
+    required String conversationId,
+  }) {
     return _repository.getConversationFiles(conversationId: conversationId);
   }
 }

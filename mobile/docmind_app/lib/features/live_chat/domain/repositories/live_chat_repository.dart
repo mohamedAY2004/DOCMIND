@@ -1,27 +1,19 @@
-import '../entities/chat_message.dart';
+import 'package:fpdart/fpdart.dart';
+import '../../../../core/domain/failure.dart';
+import '../entities/chat_messages_page.dart';
 import '../entities/chat_session.dart';
-
-class ChatMessagesPage {
-  const ChatMessagesPage({
-    required this.items,
-    required this.page,
-    required this.pageSize,
-    required this.total,
-    required this.totalPages,
-  });
-
-  final List<ChatMessage> items;
-  final int page;
-  final int pageSize;
-  final int total;
-  final int totalPages;
-}
+import '../entities/chat_turn.dart';
 
 abstract class LiveChatRepository {
-  Future<ChatMessagesPage> getConversationMessages({
+  Future<Either<Failure, ChatMessagesPage>> getConversationMessages({
     required String conversationId,
     required KnowledgeSourceType sourceType,
     int page = 1,
-    int pageSize = 20,
+    int pageSize = 50,
+  });
+  Future<Either<Failure, ChatTurn>> sendMessage({
+    required String conversationId,
+    required String message,
+    required KnowledgeSourceType sourceType,
   });
 }

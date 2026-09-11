@@ -36,7 +36,6 @@ class SubjectTutorsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetBuilder<SubjectTutorsController>(
-      init: SubjectTutorsController(),
       builder: (controller) {
         return Scaffold(
           body: Container(
@@ -72,9 +71,7 @@ class SubjectTutorsPage extends StatelessWidget {
                 Column(
                   children: [
                     _buildAppBar(context, controller),
-                    Expanded(
-                      child: _buildBody(controller),
-                    ),
+                    Expanded(child: _buildBody(controller)),
                   ],
                 ),
               ],
@@ -119,11 +116,7 @@ class SubjectTutorsPage extends StatelessWidget {
               width: _backButtonSize,
               height: _backButtonSize,
               child: Center(
-                child: Icon(
-                  Icons.arrow_back,
-                  color: onSurfaceColor,
-                  size: 16,
-                ),
+                child: Icon(Icons.arrow_back, color: onSurfaceColor, size: 16),
               ),
             ),
           ),
@@ -229,14 +222,15 @@ class SubjectTutorsPage extends StatelessWidget {
             _buildSubtitleRow(),
             const SizedBox(height: 16),
             // Subject cards
-            ...controller.subjects.map(
-              (subject) => Padding(
+            ...controller.subjects.indexed.map(
+              (entry) => Padding(
                 padding: const EdgeInsets.only(bottom: _cardSpacing),
                 child: _SubjectCard(
-                  subject: subject,
+                  subject: entry.$2,
+                  appearance: entry.$1,
                   onTap: () {
                     if (controller.isCreating.value) return;
-                    controller.selectSubject(subject);
+                    controller.selectSubject(entry.$2);
                   },
                 ),
               ),
@@ -343,7 +337,26 @@ class SubjectTutorsPage extends StatelessWidget {
 // ── Subject Card (Figma 22:948) ──────────────────────────────────────
 
 class _SubjectCard extends StatelessWidget {
-  const _SubjectCard({required this.subject, required this.onTap});
+  const _SubjectCard({
+    required this.subject,
+    required this.onTap,
+    required this.appearance,
+  });
+
+  final int appearance;
+  static const _palette = [
+    [Color(0xFF2B7FFF), Color(0xFF00B8DB)],
+    [Color(0xFF00C950), Color(0xFF00BC7D)],
+    [Color(0xFFAD46FF), Color(0xFFF6339A)],
+    [Color(0xFFFF6900), Color(0xFFFE9A00)],
+  ];
+
+  static const _icons = [
+    Icons.calculate_outlined,
+    Icons.science_outlined,
+    Icons.account_tree_outlined,
+    Icons.hub_outlined,
+  ];
 
   final Subject subject;
   final VoidCallback onTap;
@@ -376,7 +389,7 @@ class _SubjectCard extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: subject.gradientColors,
+                    colors: _palette[appearance % _palette.length],
                   ),
                   boxShadow: [
                     BoxShadow(
@@ -393,7 +406,7 @@ class _SubjectCard extends StatelessWidget {
                 ),
                 child: Center(
                   child: Icon(
-                    subject.icon,
+                    _icons[appearance % _icons.length],
                     color: AppColors.white,
                     size: _subjectIconInnerSize,
                   ),

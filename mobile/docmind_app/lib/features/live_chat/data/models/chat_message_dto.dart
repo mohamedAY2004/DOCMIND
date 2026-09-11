@@ -1,3 +1,5 @@
+import '../../domain/entities/chat_message.dart';
+
 class ChatMessageDto {
   const ChatMessageDto({
     required this.id,
@@ -17,12 +19,25 @@ class ChatMessageDto {
   final String generationStatus;
   final String? groundingStatus;
 
+  ChatMessage toDomain() => ChatMessage(
+    id: id,
+    content: text,
+    sender: role == 'user' ? MessageSender.user : MessageSender.ai,
+    timestamp: createdAt,
+    citations: citations
+        .map((citation) => citation.toDomain())
+        .toList(growable: false),
+    generationStatus: generationStatus,
+    groundingStatus: groundingStatus,
+  );
+
   factory ChatMessageDto.fromJson(Map<String, dynamic> json) {
     return ChatMessageDto(
       id: json['id'] as String? ?? '',
       role: json['role'] as String? ?? '',
       text: json['text'] as String? ?? '',
-      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ??
+      createdAt:
+          DateTime.tryParse(json['createdAt'] as String? ?? '') ??
           DateTime.now(),
       citations: (json['citations'] as List<dynamic>? ?? const [])
           .whereType<Map<String, dynamic>>()
@@ -58,6 +73,19 @@ class CitationDto {
   final String? section;
   final String excerpt;
   final double score;
+
+  Citation toDomain() => Citation(
+    id: id,
+    marker: marker,
+    sourceKind: sourceKind,
+    sourceId: sourceId,
+    sourceName: sourceName,
+    locationType: locationType,
+    locationNumber: locationNumber,
+    excerpt: excerpt,
+    score: score,
+    section: section,
+  );
 
   factory CitationDto.fromJson(Map<String, dynamic> json) {
     final location = json['location'] as Map<String, dynamic>? ?? const {};

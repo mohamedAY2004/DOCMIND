@@ -1,29 +1,52 @@
 import 'package:dio/dio.dart';
-import 'package:pretty_dio_logger/pretty_dio_logger.dart';
-
+import 'package:flutter/foundation.dart';
+import '../domain/failure.dart';
 import 'api_constants.dart';
+import 'sanitized_diagnostics.dart';
 
-/// Shared Dio client for all API calls.
-class DioClient {
-  DioClient._();
-
-  static final Dio _dio = Dio(
-    BaseOptions(
-      baseUrl: ApiConstants.baseUrl,
-      connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 45),
-      headers: {'Content-Type': 'application/json'},
-    ),
-  )..interceptors.add(
-      PrettyDioLogger(
-        requestHeader: true,
-        requestBody: true,
-        responseHeader: false,
-        responseBody: true,
-        error: true,
-        compact: true,
+/// The composition root provides token storage; network code owns attachment.
+abstract final class DioClient {
+  static Dio create({required Future<String?> Function() tokenProvider}) {
+    final dio = Dio(
+      BaseOptions(
+        baseUrl: ApiConstants.baseUrl,
+        connectTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(minutes: 3),
+        headers: {'Content-Type': 'application/json'},
       ),
     );
-
-  static Dio get instance => _dio;
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          if (options.path == ApiConstants.login) {
+            handler.next(options);
+            return;
+          }
+          try {
+            final token = await tokenProvider();
+            if (token == null || token.isEmpty) {
+              handler.reject(
+                DioException(
+                  requestOptions: options,
+                  error: const AuthenticationFailure(),
+                ),
+              );
+              return;
+            }
+            options.headers['Authorization'] = 'Bearer $token';
+            handler.next(options);
+          } catch (_) {
+            handler.reject(
+              DioException(
+                requestOptions: options,
+                error: const UnexpectedFailure(),
+              ),
+            );
+          }
+        },
+      ),
+    );
+    if (kDebugMode) dio.interceptors.add(SanitizedDiagnostics());
+    return dio;
+  }
 }

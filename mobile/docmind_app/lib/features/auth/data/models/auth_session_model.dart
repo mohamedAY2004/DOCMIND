@@ -15,16 +15,16 @@ class AuthSessionModel {
   final String? welcomeMessage;
 
   Map<String, dynamic> toJson() => {
-        'token': token,
-        'user': {
-          'id': user.id,
-          'username': user.username,
-          'name': user.name,
-          'role': user.role,
-        },
-        'redirect': redirect,
-        'welcomeMessage': welcomeMessage,
-      };
+    'token': token,
+    'user': {
+      'id': user.id,
+      'username': user.username,
+      'name': user.name,
+      'role': user.role,
+    },
+    'redirect': redirect,
+    'welcomeMessage': welcomeMessage,
+  };
 
   factory AuthSessionModel.fromJson(Map<String, dynamic> json) {
     return AuthSessionModel(
@@ -36,9 +36,9 @@ class AuthSessionModel {
   }
 
   AuthSession toEntity() => AuthSession(
-        token: token,
-        user: user.toEntity(),
-        redirect: redirect,
-        welcomeMessage: welcomeMessage,
-      );
+    token: token,
+    user: user.toEntity(),
+    redirect: redirect,
+    welcomeMessage: welcomeMessage,
+  );
 }

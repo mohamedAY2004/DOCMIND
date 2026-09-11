@@ -7,12 +7,12 @@ import '../theme/theme_service.dart';
 abstract final class AppColors {
   AppColors._();
 
-    static bool get _isDark {
-        if (Get.isRegistered<ThemeService>()) {
-            return Get.find<ThemeService>().isDarkMode.value;
-        }
-        return Get.isDarkMode;
+  static bool get _isDark {
+    if (Get.isRegistered<ThemeService>()) {
+      return Get.find<ThemeService>().isDarkMode.value;
     }
+    return Get.isDarkMode;
+  }
 
   // ── Screen background gradient (theme-aware) ─────────────────────
 

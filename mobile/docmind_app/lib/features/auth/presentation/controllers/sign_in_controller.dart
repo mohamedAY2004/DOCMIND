@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../core/routes/app_routes.dart';
-import '../../data/repositories/auth_repository_impl.dart';
-import '../../domain/errors/auth_failure.dart';
 import '../../domain/usecases/login_usecase.dart';
 
 /// Controller for the Regular User Sign In screen.
@@ -11,6 +9,8 @@ import '../../domain/usecases/login_usecase.dart';
 /// Holds form state, validates inputs, and orchestrates navigation
 /// after a successful authentication attempt.
 class SignInController extends GetxController {
+  SignInController(this._login);
+  final LoginUseCase _login;
   // ── Form controllers ────────────────────────────────────────────
   final usernameController = TextEditingController();
   final passwordController = TextEditingController();
@@ -41,25 +41,18 @@ class SignInController extends GetxController {
 
     isLoading.value = true;
 
-    try {
-      final useCase = LoginUseCase(AuthRepositoryImpl());
-      final session = await useCase(
-        username: usernameController.text.trim(),
-        password: passwordController.text,
-      );
-
+    final result = await _login(
+      username: usernameController.text.trim(),
+      password: passwordController.text,
+    );
+    if (isClosed) return;
+    isLoading.value = false;
+    result.fold((failure) => errorMessage.value = failure.message, (session) {
       if (session.welcomeMessage != null) {
         Get.snackbar('Welcome', session.welcomeMessage!);
       }
-
       Get.offAllNamed(AppRoutes.home);
-    } on AuthFailure catch (e) {
-      errorMessage.value = e.message;
-    } catch (_) {
-      errorMessage.value = 'An unexpected error occurred';
-    } finally {
-      isLoading.value = false;
-    }
+    });
   }
 
   // ── Lifecycle ───────────────────────────────────────────────────

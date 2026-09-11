@@ -1,3 +1,5 @@
+import 'package:fpdart/fpdart.dart';
+import '../../../../core/domain/failure.dart';
 import '../entities/conversations_page.dart';
 import '../repositories/document_chat_repository.dart';
 
@@ -7,13 +9,10 @@ class GetConversationsUseCase {
 
   final DocumentChatRepository _repository;
 
-  Future<ConversationsPage> call({
+  Future<Either<Failure, ConversationsPage>> call({
     int page = 1,
     int pageSize = 20,
   }) async {
-    return _repository.getConversations(
-      page: page,
-      pageSize: pageSize,
-    );
+    return _repository.getConversations(page: page, pageSize: pageSize);
   }
 }

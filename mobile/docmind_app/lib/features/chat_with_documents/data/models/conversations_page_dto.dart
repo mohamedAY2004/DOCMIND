@@ -18,9 +18,12 @@ class ConversationsPageDto {
 
   factory ConversationsPageDto.fromJson(Map<String, dynamic> json) {
     return ConversationsPageDto(
-      items: (json['items'] as List<dynamic>?)
-              ?.map((e) =>
-                  DocumentConversationDto.fromJson(e as Map<String, dynamic>))
+      items:
+          (json['items'] as List<dynamic>?)
+              ?.map(
+                (e) =>
+                    DocumentConversationDto.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           [],
       page: json['page'] as int? ?? 1,
