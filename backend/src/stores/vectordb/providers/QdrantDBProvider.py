@@ -1,10 +1,11 @@
 from qdrant_client import models, AsyncQdrantClient
 from ..VectorDBInterface import VectorDBInterface
+from ..errors import VectorStoreError, vector_write, validate_batch
 from ..VectorDBEnums import DistanceMethodEnum
 from typing import List, Optional
 import logging
 import uuid
-from models.db_schemes import RetrievedChunk
+from stores.vectordb.types import RetrievedChunk
 class QdrantDBProvider(VectorDBInterface):
     def __init__(self, db_path: str, distance_method: str):
         self.client = None
@@ -20,7 +21,7 @@ class QdrantDBProvider(VectorDBInterface):
         elif distance_method == DistanceMethodEnum.MANHATTAN.value:
             self.distance_method = models.Distance.MANHATTAN
         else:
-            self.logger.error(f"Invalid distance method: {distance_method}")
+            raise ValueError(f"Unsupported vector distance method: {distance_method}")
 
     async def connect(self):
         self.client = AsyncQdrantClient(path=self.db_path)
@@ -56,53 +57,32 @@ class QdrantDBProvider(VectorDBInterface):
         return False
 
     async def insert_one(self, collection_name: str, text: str, vector: list,
-                         metadata: dict = None, 
-                         record_id: str = None):
-        if not await self.is_collection_exists(collection_name):
-            self.logger.error(f"Collection {collection_name} does not exist to insert record")
-            return False
-        try:
-            _=await self.client.upsert(collection_name=collection_name,points=[models.PointStruct(id=self._to_qdrant_id(record_id), vector=vector, payload={"metadata": metadata, "text": text})])
-        except Exception as e:
-            self.logger.error(f"Error inserting record into collection {collection_name}: {e}")
-            return False
-        return True
-    async def insert_many(self, collection_name: str, texts: list, 
-                          vectors: list, metadata: list = None, 
-                          record_ids: list = None, batch_size: int = 50):
-        if metadata is None:
-            metadata = [None] * len(texts)
-        if record_ids is None:
-            self.logger.error(f"Record IDs are required to insert records")
-            return False
-        if not self.client:
-            self.logger.error(f"Client is not connected to the database")
-            return False
-        if not await self.is_collection_exists(collection_name):
-            self.logger.error(f"Collection {collection_name} does not exist to insert records")
-            return False
-        if len(texts) != len(vectors) or len(texts) != len(metadata) or len(texts) != len(record_ids):
-            self.logger.error(f"Length of texts, vectors, metadata, and record_ids must be the same")
-            return False
-        for i in range(0, len(texts), batch_size):
-            batch_end=min(i+batch_size, len(texts))
-            batch_records = [
-                models.PointStruct(id=self._to_qdrant_id(record_ids[x]), vector=vectors[x], payload={"metadata": metadata[x], "text": texts[x]})
-                 for x in  range(i,batch_end)
-                ]
-            try:
-                _=await self.client.upsert(collection_name,points=batch_records)
-            except Exception as e:
-                self.logger.error(f"Error inserting batch of records into collection {collection_name}: {e}")
-                return False
-        return True
+                         metadata: dict = None, record_id: str = None) -> None:
+        await self.insert_many(collection_name, [text], [vector], [metadata], [record_id])
 
+    async def insert_many(self, collection_name: str, texts: list, vectors: list,
+                          metadata: list = None, record_ids: list = None,
+                          batch_size: int = 50) -> None:
+        with vector_write():
+            metadata = metadata if metadata is not None else [None] * len(texts)
+            validate_batch(texts, vectors, metadata, record_ids, batch_size)
+            if not await self.is_collection_exists(collection_name):
+                raise VectorStoreError(f"Collection {collection_name} does not exist")
+            # Validate every PointStruct before starting a potentially partial remote write.
+            points = [models.PointStruct(id=self._to_qdrant_id(record_ids[i]), vector=vector,
+                       payload={"metadata": metadata[i], "text": texts[i]}) for i, vector in enumerate(vectors)]
+            for start in range(0, len(points), batch_size):
+                result = await self.client.upsert(collection_name=collection_name,
+                    points=points[start:start + batch_size], wait=True)
+                if result.status != models.UpdateStatus.COMPLETED:
+                    raise VectorStoreError("Qdrant did not confirm completed persistence")
 
     async def delete_by_material_id(self, collection_name: str, material_id: str) -> bool:
         if not await self.is_collection_exists(collection_name):
             return False
         await self.client.delete(
             collection_name=collection_name,
+            wait=True,
             points_selector=models.FilterSelector(filter=models.Filter(must=[
                 models.FieldCondition(
                     key="metadata.material_id",
@@ -134,7 +114,7 @@ class QdrantDBProvider(VectorDBInterface):
                 RetrievedChunk(
                     chunk_text=result.payload["text"],
                     score=result.score,
-                    chunk_metadata=result.payload["metadata"],
+                    chunk_metadata=result.payload.get("metadata") or {},
                     embedding=self._point_vector(result) if with_vectors else None,
                 )
                 for result in results.points
@@ -150,5 +130,7 @@ class QdrantDBProvider(VectorDBInterface):
         return list(vec) if vec is not None else None
 
     def _to_qdrant_id(self, record_id) -> str:
-        hex_str = str(record_id).zfill(32)
-        return str(uuid.UUID(hex_str))
+        try:
+            return str(uuid.UUID(str(record_id)))
+        except ValueError:
+            return str(uuid.uuid5(uuid.NAMESPACE_URL, "docmind:" + str(record_id)))

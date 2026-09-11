@@ -1,6 +1,7 @@
 from .providers import QdrantDBProvider, PgVectorProvider
 from .VectorDBEnums import VectorDBEnums
 from helpers.config import Settings
+from pathlib import Path
 
 
 class VectorDBProviderFactory:
@@ -9,10 +10,11 @@ class VectorDBProviderFactory:
 
     def create(self, provider: str):
         if provider == VectorDBEnums.QDRANT.value:
-            from controllers.BaseController import BaseController
-            base_controller = BaseController()
+            database_dir = Path(__file__).resolve().parents[2] / "assets" / "database"
+            database_path = database_dir / (self.config.VECTOR_DB_PATH or "qdrant")
+            database_path.mkdir(parents=True, exist_ok=True)
             return QdrantDBProvider(
-                db_path=base_controller.get_database_dir(database_name=self.config.VECTOR_DB_PATH),
+                db_path=str(database_path),
                 distance_method=self.config.VECTOR_DB_DISTANCE_METHOD,
             )
         elif provider == VectorDBEnums.PGVECTOR.value:
@@ -20,4 +22,4 @@ class VectorDBProviderFactory:
                 db_url=self.config.DATABASE_URL,
                 distance_method=self.config.VECTOR_DB_DISTANCE_METHOD,
             )
-        return None
+        raise ValueError(f"Unsupported vector provider: {provider}")

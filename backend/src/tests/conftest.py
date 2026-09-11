@@ -28,6 +28,15 @@ from sqlalchemy import text
 
 SRC_DIR = Path(__file__).resolve().parent.parent
 
+
+def pytest_collection_modifyitems(items):
+    """DB fixtures classify integration tests; pure tests never provision PostgreSQL."""
+    for item in items:
+        if "engine" in item.fixturenames or item.get_closest_marker("integration"):
+            item.add_marker(pytest.mark.integration)
+        else:
+            item.add_marker(pytest.mark.pure)
+
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL",
     "postgresql+asyncpg://admin:pass123@localhost:5433/docmind_test",
@@ -69,7 +78,7 @@ async def _ensure_database() -> None:
     raise RuntimeError("Could not connect to a maintenance database to create the test DB")
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def _schema() -> None:
     """Ensure the test DB exists and is migrated to head (once per session)."""
     asyncio.new_event_loop().run_until_complete(_ensure_database())

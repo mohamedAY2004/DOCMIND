@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from models.db_schemes import RetrievedChunk
+from stores.vectordb.types import RetrievedChunk
 class VectorDBInterface(ABC):
 
     @abstractmethod
@@ -28,22 +28,26 @@ class VectorDBInterface(ABC):
         pass
 
     @abstractmethod
-    async def create_collection(self, collection_name: str, 
+    async def create_collection(self, collection_name: str,
                                 embedding_size: int,
                                 do_reset: bool = False):
         pass
 
     @abstractmethod
     async def insert_one(self, collection_name: str, text: str, vector: list,
-                         metadata: dict = None, 
-                         record_id: str = None):
-        pass
+                         metadata: dict = None,
+                         record_id: str = None) -> None:
+        """Persist the record completely or raise VectorStoreError; never return False."""
 
     @abstractmethod
-    async def insert_many(self, collection_name: str, texts: list, 
-                          vectors: list, metadata: list = None, 
-                          record_ids: list = None, batch_size: int = 50):
-        pass
+    async def insert_many(self, collection_name: str, texts: list,
+                          vectors: list, metadata: list = None,
+                          record_ids: list = None, batch_size: int = 50) -> None:
+        """Persist every record or raise VectorStoreError, including partial writes.
+
+        Stable IDs must upsert on retries. Callers must discard partial material
+        writes after failure; an incomplete batch is never a successful upload.
+        """
 
     @abstractmethod
     async def search_by_vector(self, collection_name: str, vector: list, limit: int,
@@ -63,4 +67,3 @@ class VectorDBInterface(ABC):
         """Remove every chunk stamped with ``metadata.material_id`` from the
         collection, so deleting a material/file also evicts its vectors."""
         pass
-    

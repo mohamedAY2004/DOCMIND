@@ -10,7 +10,7 @@ import hashlib
 from enum import Enum
 from typing import List, Union
 
-from models.db_schemes import RetrievedChunk
+from stores.vectordb.types import RetrievedChunk
 from stores.llm.LLMInterface import LLMInterface
 from stores.rerank.RerankInterface import RerankInterface
 from stores.vectordb.VectorDBInterface import VectorDBInterface

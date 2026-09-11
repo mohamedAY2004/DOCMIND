@@ -53,3 +53,5 @@ __all__ = [
     "UserRole",
     "UserStatus",
 ]
+
+from .vector import VectorCollection, VectorEmbedding

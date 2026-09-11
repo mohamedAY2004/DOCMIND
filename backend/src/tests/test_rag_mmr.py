@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from models.db_schemes import RetrievedChunk
+from stores.vectordb.types import RetrievedChunk
 from services.mmr import mmr_select
 from services.rag_service import RAGService
 from tests.fakes import FakeLLM, FakeReranker, FakeVectorDB

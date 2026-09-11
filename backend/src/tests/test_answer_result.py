@@ -1,4 +1,4 @@
-from models.db_schemes import RetrievedChunk
+from stores.vectordb.types import RetrievedChunk
 from services.answer_result import result_from_generation
 
 

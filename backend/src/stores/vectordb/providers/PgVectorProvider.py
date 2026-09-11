@@ -3,10 +3,11 @@ import asyncpg
 import numpy as np
 from pgvector.asyncpg import register_vector
 from ..VectorDBInterface import VectorDBInterface
+from ..errors import VectorStoreError, vector_write, validate_batch
 from ..VectorDBEnums import DistanceMethodEnum
 from typing import List, Optional
 import logging
-from models.db_schemes import RetrievedChunk
+from stores.vectordb.types import RetrievedChunk
 
 
 class PgVectorProvider(VectorDBInterface):
@@ -17,53 +18,30 @@ class PgVectorProvider(VectorDBInterface):
         DistanceMethodEnum.MANHATTAN.value: "<+>",
     }
 
-    INDEX_OPS_CLASSES = {
-        DistanceMethodEnum.COSINE.value: "vector_cosine_ops",
-        DistanceMethodEnum.EUCLID.value: "vector_l2_ops",
-        DistanceMethodEnum.DOT.value: "vector_ip_ops",
-        DistanceMethodEnum.MANHATTAN.value: "vector_l1_ops",
-    }
-
     def __init__(self, db_url: str, distance_method: str):
-        self.db_url = db_url
+        self.db_url = db_url.replace("postgresql+asyncpg://", "postgresql://", 1)
         self.pool = None
         self.logger = logging.getLogger(__name__)
         self.distance_method = distance_method
-        self.distance_operator = self.DISTANCE_OPERATORS.get(distance_method, "<=>")
-        self.index_ops_class = self.INDEX_OPS_CLASSES.get(distance_method, "vector_cosine_ops")
+        if distance_method not in self.DISTANCE_OPERATORS:
+            raise ValueError(f"Unsupported vector distance method: {distance_method}")
+        self.distance_operator = self.DISTANCE_OPERATORS[distance_method]
 
     async def connect(self):
-        # The extension must exist before the pool's init callback runs register_vector,
-        # so install it via a plain connection first.
-        bootstrap = await asyncpg.connect(self.db_url)
         try:
-            await bootstrap.execute("CREATE EXTENSION IF NOT EXISTS vector")
-        finally:
-            await bootstrap.close()
-
-        self.pool = await asyncpg.create_pool(self.db_url, init=self._init_connection)
-        async with self.pool.acquire() as conn:
-            await conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS vector_collections (
-                    collection_name VARCHAR PRIMARY KEY,
-                    embedding_size INTEGER NOT NULL,
-                    distance_method VARCHAR NOT NULL DEFAULT 'cosine'
-                )
-            """)
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS vector_embeddings (
-                    id VARCHAR PRIMARY KEY,
-                    collection_name VARCHAR NOT NULL REFERENCES vector_collections(collection_name) ON DELETE CASCADE,
-                    text TEXT NOT NULL,
-                    metadata JSONB,
-                    embedding vector
-                )
-            """)
-            await conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_embeddings_collection
-                ON vector_embeddings(collection_name)
-            """)
+            self.pool = await asyncpg.create_pool(self.db_url, init=self._init_connection)
+            async with self.pool.acquire() as conn:
+                # SELECT validates required columns without mutating any schema or rows.
+                await conn.fetch("SELECT collection_name, embedding_size, distance_method FROM vector_collections LIMIT 0")
+                await conn.fetch("SELECT id, collection_name, text, metadata, embedding FROM vector_embeddings LIMIT 0")
+                valid = await conn.fetchval("""SELECT count(*)=1 FROM pg_attribute
+                    WHERE attrelid='vector_embeddings'::regclass AND attname='embedding'
+                      AND atttypid='vector'::regtype AND atttypmod=-1""")
+                if not valid:
+                    raise VectorStoreError("Vector schema is incompatible; run Alembic migrations")
+        except Exception as exc:
+            await self.disconnect()
+            raise VectorStoreError("Vector schema unavailable; run Alembic migrations before startup") from exc
 
     @staticmethod
     async def _init_connection(conn):
@@ -126,86 +104,41 @@ class PgVectorProvider(VectorDBInterface):
                 embedding_size,
                 self.distance_method,
             )
-            if embedding_size <= 2000:
-                index_name = f"idx_hnsw_{collection_name.replace('-', '_')}"
-                await self.pool.execute(f"""
-                    CREATE INDEX IF NOT EXISTS {index_name}
-                    ON vector_embeddings
-                    USING hnsw ((embedding::vector({embedding_size})) {self.index_ops_class})
-                    WHERE collection_name = '{collection_name}'
-                """)
-            else:
-                self.logger.warning(
-                    f"Embedding size {embedding_size} exceeds HNSW limit of 2000 dimensions. "
-                    f"Skipping index creation for collection '{collection_name}'. "
-                    f"Search will use sequential scan."
-                )
             return True
         return False
 
     async def insert_one(self, collection_name: str, text: str, vector: list,
-                         metadata: dict = None, record_id: str = None) -> bool:
-        if not await self.is_collection_exists(collection_name):
-            self.logger.error(f"Collection {collection_name} does not exist to insert record")
-            return False
-        try:
-            embedding = np.array(vector, dtype=np.float32)
-            await self.pool.execute(
-                """INSERT INTO vector_embeddings (id, collection_name, text, metadata, embedding)
-                   VALUES ($1, $2, $3, $4, $5)
-                   ON CONFLICT (id) DO UPDATE SET text = $3, metadata = $4, embedding = $5""",
-                str(record_id),
-                collection_name,
-                text,
-                metadata,
-                embedding,
-            )
-        except Exception as e:
-            self.logger.error(f"Error inserting record into collection {collection_name}: {e}")
-            return False
-        return True
+                         metadata: dict = None, record_id: str = None) -> None:
+        await self.insert_many(collection_name, [text], [vector], [metadata], [record_id])
 
-    async def insert_many(self, collection_name: str, texts: list,
-                          vectors: list, metadata: list = None,
-                          record_ids: list = None, batch_size: int = 50) -> bool:
-        if metadata is None:
-            metadata = [None] * len(texts)
-        if record_ids is None:
-            self.logger.error("Record IDs are required to insert records")
-            return False
-        if not self.pool:
-            self.logger.error("Client is not connected to the database")
-            return False
-        if not await self.is_collection_exists(collection_name):
-            self.logger.error(f"Collection {collection_name} does not exist to insert records")
-            return False
-        if len(texts) != len(vectors) or len(texts) != len(metadata) or len(texts) != len(record_ids):
-            self.logger.error("Length of texts, vectors, metadata, and record_ids must be the same")
-            return False
-
-        for i in range(0, len(texts), batch_size):
-            batch_end = min(i + batch_size, len(texts))
-            batch_data = [
-                (
-                    str(record_ids[x]),
-                    collection_name,
-                    texts[x],
-                    metadata[x],
-                    np.array(vectors[x], dtype=np.float32),
-                )
-                for x in range(i, batch_end)
-            ]
-            try:
-                await self.pool.executemany(
-                    """INSERT INTO vector_embeddings (id, collection_name, text, metadata, embedding)
-                       VALUES ($1, $2, $3, $4, $5)
-                       ON CONFLICT (id) DO UPDATE SET text = $3, metadata = $4, embedding = $5""",
-                    batch_data,
-                )
-            except Exception as e:
-                self.logger.error(f"Error inserting batch of records into collection {collection_name}: {e}")
-                return False
-        return True
+    async def insert_many(self, collection_name: str, texts: list, vectors: list,
+                          metadata: list = None, record_ids: list = None,
+                          batch_size: int = 50) -> None:
+        with vector_write():
+            metadata = metadata if metadata is not None else [None] * len(texts)
+            validate_batch(texts, vectors, metadata, record_ids, batch_size)
+            if not await self.is_collection_exists(collection_name):
+                raise VectorStoreError(f"Collection {collection_name} does not exist")
+            # Convert the full input before any writes, then commit every batch together.
+            rows = [(record_ids[i], collection_name, text, metadata[i],
+                     np.asarray(vectors[i], dtype=np.float32)) for i, text in enumerate(texts)]
+            async with self.pool.acquire() as conn:
+                async with conn.transaction():
+                    for start in range(0, len(rows), batch_size):
+                        await conn.executemany(
+                            """INSERT INTO vector_embeddings (id, collection_name, text, metadata, embedding)
+                               VALUES ($1, $2, $3, $4, $5)
+                               ON CONFLICT (id) DO UPDATE SET text = $3, metadata = $4, embedding = $5
+                               WHERE vector_embeddings.collection_name = EXCLUDED.collection_name""",
+                            rows[start:start + batch_size],
+                        )
+                        # Global IDs must never silently collide with another collection.
+                        persisted = await conn.fetchval(
+                            "SELECT count(*) FROM vector_embeddings WHERE collection_name=$1 AND id=ANY($2::varchar[])",
+                            collection_name, record_ids[start:start + batch_size],
+                        )
+                        if persisted != len(rows[start:start + batch_size]):
+                            raise VectorStoreError("Vector IDs collide with another collection")
 
     async def delete_by_material_id(self, collection_name: str, material_id: str) -> bool:
         if not await self.is_collection_exists(collection_name):
@@ -268,7 +201,7 @@ class PgVectorProvider(VectorDBInterface):
                 RetrievedChunk(
                     chunk_text=row["text"],
                     score=float(row["score"]),
-                    chunk_metadata=row["metadata"],
+                    chunk_metadata=row["metadata"] or {},
                     embedding=_coerce_embedding(row["embedding"]) if with_vectors else None,
                 )
                 for row in rows

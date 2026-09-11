@@ -12,6 +12,7 @@ import uuid
 from typing import AsyncIterator, List, Optional
 
 from stores.llm.LLMEnums import DocumentTypeEnum
+from stores.vectordb.errors import VectorStoreError
 
 from services.ingestion_service import IngestedChunk
 from services.mmr import mmr_select
@@ -124,13 +125,25 @@ class RAGService:
             embedding_size=self._embedding.embedding_size,
             do_reset=do_reset,
         )
-        await self._vectordb.insert_many(
-            collection_name=collection_name,
-            texts=texts,
-            vectors=vectors,
-            metadata=metas,
-            record_ids=record_ids,
-        )
+        if id_prefix is not None:
+            await self._vectordb.delete_by_material_id(collection_name, id_prefix)
+        try:
+            written = await self._vectordb.insert_many(
+                collection_name=collection_name,
+                texts=texts,
+                vectors=vectors,
+                metadata=metas,
+                record_ids=record_ids,
+            )
+            if written is False:
+                raise VectorStoreError("Vector write did not complete")
+        except Exception:
+            if id_prefix is not None:
+                try:
+                    await self._vectordb.delete_by_material_id(collection_name, id_prefix)
+                except Exception:
+                    logger.exception("Could not clean partial vectors for %s", id_prefix)
+            raise
         return len(chunks)
 
     # ------------------------------------------------------------------ #

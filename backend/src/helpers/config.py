@@ -22,12 +22,9 @@ class Settings(BaseSettings):
     APP_DESCRIPTION: str
     APP_AUTHOR: str
 
-    # ==================== Files (legacy RAG pipeline) ====================
-    FILE_ALLOWED_TYPES: list
-    FILE_MAX_SIZE: int
-    FILE_DEFAULT_CHUNK_SIZE: int
-
     # ==================== DocMind upload limits ====================
+    # Streaming disk-write buffer shared by the official upload services.
+    FILE_DEFAULT_CHUNK_SIZE: int = 512000
     # Materials (instructor uploads): PDF only, up to 50 MiB (spec §7.2).
     UPLOAD_MATERIAL_MAX_MB: int = 50
     # Document chat uploads (student): PDF only, up to 25 MiB and max 5 files.
