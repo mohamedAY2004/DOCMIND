@@ -1,3 +1,5 @@
+import { toast } from 'sonner'
+import { collectPages } from '../../services/pageResponse'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
@@ -27,13 +29,6 @@ const QUICK_NAV = [
   { to: '/admin/analytics', icon: BarChart3, label: 'Analytics', desc: 'System-wide usage insights and charts' },
 ]
 
-function unwrapList(res) {
-  if (!res) return []
-  if (Array.isArray(res)) return res
-  if (Array.isArray(res.items)) return res.items
-  return []
-}
-
 function AdminDashboard() {
   const [users, setUsers] = useState([])
   const [subjectStats, setSubjectStats] = useState([])
@@ -43,15 +38,15 @@ function AdminDashboard() {
   useEffect(() => {
     let cancelled = false
     Promise.all([
-      getUsers({ pageSize: 1000 }).catch(() => null),
-      getSubjectStats().catch(() => []),
-      getActivityLog(6).catch(() => []),
+      collectPages(getUsers, { pageSize: 100 }).catch((error) => { toast.error(error.message); return [] }),
+      collectPages(getSubjectStats, { pageSize: 100 }).catch((error) => { toast.error(error.message); return [] }),
+      getActivityLog(6).catch((error) => { toast.error(error.message); return [] }),
       getStudentAccess().catch(() => ({ enabled: true })),
     ]).then(([usersRes, statsRes, activityRes, accessRes]) => {
       if (cancelled) return
-      setUsers(unwrapList(usersRes))
-      setSubjectStats(unwrapList(statsRes))
-      setActivity(unwrapList(activityRes))
+      setUsers(usersRes)
+      setSubjectStats(statsRes)
+      setActivity(activityRes)
       setStudentAccessEnabled(Boolean(accessRes?.enabled))
     })
     return () => {

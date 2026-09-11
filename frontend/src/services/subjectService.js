@@ -1,4 +1,5 @@
-import apiClient, { LLM_TIMEOUT } from './apiClient'
+import { parseList } from './pageResponse'
+import apiClient from './apiClient'
 import { streamMessage } from './chatService'
 
 /**
@@ -17,14 +18,14 @@ import { streamMessage } from './chatService'
 
 export async function getStudentSubjects() {
   const { data } = await apiClient.get('/subjects/student')
-  return data
+  return parseList(data)
 }
 
 export async function getInstructorSubjects(instructorId) {
   const { data } = await apiClient.get('/subjects/instructor', {
     params: instructorId ? { instructorId } : undefined,
   })
-  return data
+  return parseList(data)
 }
 
 /**
@@ -35,7 +36,7 @@ export async function getInstructorSubjects(instructorId) {
  */
 export async function getSemesters() {
   const { data } = await apiClient.get('/semesters')
-  return data
+  return parseList(data)
 }
 
 export async function getSubjectById(subjectId) {
@@ -45,24 +46,16 @@ export async function getSubjectById(subjectId) {
 
 export async function getSubjectInstructors(subjectId) {
   const { data } = await apiClient.get(`/subjects/${subjectId}/instructors`)
-  return data
+  return parseList(data)
 }
 
-export async function getSubjectMaterials(subjectId) {
-  const { data } = await apiClient.get(`/subjects/${subjectId}/materials`)
-  return data
+export async function getSubjectMaterials(subjectId, options = {}) {
+  const { data } = await apiClient.get(`/subjects/${subjectId}/materials`, options)
+  return parseList(data)
 }
 
-export async function updateSubjectMaterial(subjectId, materialId, patch) {
-  const { data } = await apiClient.patch(
-    `/subjects/${subjectId}/materials/${materialId}`,
-    patch,
-  )
-  return data
-}
-
-export async function deleteSubjectMaterial(subjectId, materialId) {
-  await apiClient.delete(`/subjects/${subjectId}/materials/${materialId}`)
+export async function deleteSubjectMaterial(subjectId, materialId, options = {}) {
+  await apiClient.delete(`/subjects/${subjectId}/materials/${materialId}`, options)
   return { id: materialId }
 }
 
@@ -72,11 +65,12 @@ export async function deleteSubjectMaterial(subjectId, materialId) {
  * on archived terms it is the only material action that stays available.
  * GET /subjects/:subjectId/materials/:materialId/download → file blob
  */
-export async function downloadSubjectMaterial(subjectId, materialId, filename) {
+export async function downloadSubjectMaterial(subjectId, materialId, filename, { signal } = {}) {
   const { data } = await apiClient.get(
     `/subjects/${subjectId}/materials/${materialId}/download`,
-    { responseType: 'blob' },
+    { responseType: 'blob', signal },
   )
+  signal?.throwIfAborted()
   const url = window.URL.createObjectURL(data)
   const link = document.createElement('a')
   link.href = url
@@ -91,15 +85,6 @@ export async function downloadSubjectMaterial(subjectId, materialId, filename) {
  * Instructor test-bot — stateless preview of what students will see.
  * POST /subjects/:subjectId/test-bot  { message } → { reply }
  */
-export async function sendTestBotMessage(subjectId, message) {
-  const { data } = await apiClient.post(
-    `/subjects/${subjectId}/test-bot`,
-    { message },
-    LLM_TIMEOUT,
-  )
-  return data
-}
-
 export function streamTestBotMessage(subjectId, message, options = {}) {
   return streamMessage(`/subjects/${subjectId}/test-bot/stream`, message, options)
 }

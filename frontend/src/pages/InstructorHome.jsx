@@ -13,13 +13,6 @@ import { getInstructorSubjects, getSemesters } from '../services/subjectService'
 import { groupSubjectsBySemester } from '../utils/groupSubjectsBySemester'
 import { stagger, fadeUp } from '../utils/motion'
 
-function unwrapList(res) {
-  if (!res) return []
-  if (Array.isArray(res)) return res
-  if (Array.isArray(res.items)) return res.items
-  return []
-}
-
 function InstructorHome() {
   const { user, logout } = useAuth()
   const userId = user?.id ?? null
@@ -39,8 +32,8 @@ function InstructorHome() {
     ])
       .then(([subjectsRes, semestersRes]) => {
         if (cancelled) return
-        setSubjects(unwrapList(subjectsRes))
-        setSemesters(unwrapList(semestersRes))
+        setSubjects(subjectsRes)
+        setSemesters(semestersRes)
       })
       .finally(() => {
         if (!cancelled) setLoading(false)

@@ -19,13 +19,6 @@ const STATE_BADGE = {
   upcoming: { label: 'Upcoming', cls: 'bg-sky-500/15 text-sky-400 ring-sky-500/30' },
 }
 
-function unwrapList(res) {
-  if (!res) return []
-  if (Array.isArray(res)) return res
-  if (Array.isArray(res.items)) return res.items
-  return []
-}
-
 function fmtDate(iso) {
   if (!iso) return '—'
   const d = new Date(`${iso}T00:00:00`)
@@ -58,7 +51,7 @@ function ManageSemesters() {
     setLoading(true)
     try {
       const res = await getSemesters()
-      setSemesters(unwrapList(res))
+      setSemesters(res)
     } catch {
       toast.error('Could not load semesters.')
     } finally {

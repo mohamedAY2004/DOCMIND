@@ -1,11 +1,12 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useRef, useEffect } from 'react'
 import { X, Bot, Send, Square } from 'lucide-react'
 import { toast } from 'sonner'
 import ChatMessageBubble from '../ui/ChatMessageBubble'
 import ErrorBanner from '../ui/ErrorBanner'
 import TypingIndicator from './TypingIndicator'
 import useAutoScroll from '../../hooks/useAutoScroll'
-import { streamTestBotMessage } from '../../services/subjectService'
+import usePreviewChat from '../../hooks/usePreviewChat'
+import useScopedDraft from '../../hooks/useScopedDraft'
 
 const backdropClass =
   'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm transition-opacity'
@@ -28,52 +29,15 @@ const emptyStateClass =
 
 const MAX_MSG = 2000
 
-/**
- * Return a user-friendly message from a service error.
- */
-function friendlyError(err) {
-  if (err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')) {
-    return 'The response took too long. The server may be under heavy load — please try again.'
-  }
-  if (!navigator.onLine) {
-    return 'You appear to be offline. Check your connection and try again.'
-  }
-  const code = err?.response?.data?.code
-  const serverMsg = err?.response?.data?.message
-  if (code === 'SUBJECT_NOT_READY') {
-    return serverMsg || 'No indexed materials yet. Upload a PDF and wait for processing.'
-  }
-  if (code === 'NOT_FOUND') return 'Subject not found.'
-  if (serverMsg) return serverMsg
-  const status = err?.response?.status
-  if (status >= 500) return 'The server encountered an error. Please try again in a moment.'
-  return 'Something went wrong. Please try again.'
-}
-
 function TestStudentBotModal({ isOpen, onClose, subjectName, subjectId }) {
-  const [messages, setMessages] = useState([])
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [lastFailedText, setLastFailedText] = useState('')
+  const { messages, isTyping, streamingId, errorMessage: error, lastFailedText,
+    sendMessage, stopGeneration, retry: handleRetry, dismissError } = usePreviewChat(subjectId, isOpen)
+  const [input, setInput] = useScopedDraft(`${subjectId}:${isOpen}`)
+  const loading = isTyping || Boolean(streamingId)
   const messagesRef = useRef(null)
   const inputRef = useRef(null)
-  const controllerRef = useRef(null)
   const modalRef = useRef(null)
   useAutoScroll(messagesRef, [isOpen, messages, loading])
-
-  // Reset conversation when modal opens/closes
-  useEffect(() => {
-    if (isOpen) {
-      setMessages([])
-      setInput('')
-      setError('')
-      setLastFailedText('')
-      setLoading(false)
-      // Focus input after mount
-      setTimeout(() => inputRef.current?.focus(), 100)
-    }
-  }, [isOpen])
 
   // Trap focus and support Escape while the modal is open.
   useEffect(() => {
@@ -92,104 +56,17 @@ function TestStudentBotModal({ isOpen, onClose, subjectName, subjectId }) {
     window.addEventListener('keydown', handleKey)
     return () => {
       window.removeEventListener('keydown', handleKey)
-      controllerRef.current?.abort()
       previous?.focus?.()
     }
   }, [isOpen, onClose])
 
-  const doSend = useCallback(
-    async (text) => {
-      if (!text || loading) return
-      if (text.length > MAX_MSG) {
-        toast.error(`Message is too long. Max ${MAX_MSG} characters.`)
-        return
-      }
-
-      setError('')
-      setLastFailedText('')
-      const userMsg = {
-        id: `user-${Date.now()}`,
-        role: 'user',
-        text,
-      }
-      setMessages((prev) => [...prev, userMsg])
-      setInput('')
-      setLoading(true)
-
-      const botMsg = {
-        id: `bot-${Date.now()}`,
-        role: 'assistant',
-        text: '',
-        generationStatus: 'generating',
-      }
-      setMessages((prev) => [...prev, botMsg])
-      const controller = new AbortController()
-      controllerRef.current = controller
-
-      try {
-        await streamTestBotMessage(subjectId, text, {
-          signal: controller.signal,
-          onEvent: (event, data) => {
-            if (event === 'answer.delta') {
-              setMessages((prev) => prev.map((item) =>
-                item.id === botMsg.id
-                  ? { ...item, text: item.text + (data.delta || '') }
-                  : item,
-              ))
-            } else if (event === 'answer.citations') {
-              setMessages((prev) => prev.map((item) =>
-                item.id === botMsg.id
-                  ? { ...item, citations: data.citations || [], groundingStatus: data.groundingStatus }
-                  : item,
-              ))
-            } else if (event === 'answer.completed') {
-              setMessages((prev) => prev.map((item) =>
-                item.id === botMsg.id ? { ...item, ...data.reply, id: botMsg.id } : item,
-              ))
-            } else if (event === 'answer.failed') {
-              throw new Error(data.message || 'Preview generation failed.')
-            }
-          },
-        })
-        setMessages((prev) => prev.map((item) =>
-          item.id === botMsg.id ? { ...item, generationStatus: 'complete' } : item,
-        ))
-        setLastFailedText('')
-      } catch (err) {
-        if (err.name === 'AbortError') {
-          setMessages((prev) => prev.map((item) =>
-            item.id === botMsg.id ? { ...item, generationStatus: 'cancelled' } : item,
-          ))
-          setLastFailedText(text)
-          return
-        }
-        const errorText = friendlyError(err)
-        setError(errorText)
-        setLastFailedText(text)
-        setMessages((prev) => prev.filter((m) => m.id !== userMsg.id && m.id !== botMsg.id))
-      } finally {
-        controllerRef.current = null
-        setLoading(false)
-        setTimeout(() => inputRef.current?.focus(), 50)
-      }
-    },
-    [loading, subjectId],
-  )
-
-  const handleSend = useCallback(
-    (e) => {
-      e.preventDefault()
-      doSend(input.trim())
-    },
-    [input, doSend],
-  )
-
-  const handleRetry = useCallback(() => {
-    if (lastFailedText) {
-      setError('')
-      doSend(lastFailedText)
-    }
-  }, [lastFailedText, doSend])
+  const doSend = (text) => {
+    if (!text || loading) return
+    if (text.length > MAX_MSG) { toast.error(`Message is too long. Max ${MAX_MSG} characters.`); return }
+    void sendMessage(text)
+    setInput('')
+  }
+  const handleSend = (event) => { event.preventDefault(); doSend(input.trim()) }
 
   const handleBackdropClick = (e) => {
     if (e.target === e.currentTarget) onClose()
@@ -272,7 +149,7 @@ function TestStudentBotModal({ isOpen, onClose, subjectName, subjectId }) {
             message={error}
             icon
             onRetry={lastFailedText ? handleRetry : undefined}
-            onDismiss={() => { setError(''); setLastFailedText('') }}
+            onDismiss={dismissError}
           />
         )}
 
@@ -298,7 +175,7 @@ function TestStudentBotModal({ isOpen, onClose, subjectName, subjectId }) {
           />
           <button
             type={loading ? 'button' : 'submit'}
-            onClick={loading ? () => controllerRef.current?.abort() : undefined}
+            onClick={loading ? stopGeneration : undefined}
             disabled={!loading && !input.trim()}
             className="shrink-0 rounded-lg p-2 text-dm-primary hover:bg-dm-primary/10 transition-all duration-150 active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
             aria-label={loading ? 'Stop generating' : 'Send'}

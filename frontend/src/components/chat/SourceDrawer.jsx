@@ -1,25 +1,33 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ExternalLink, Loader2, X } from 'lucide-react'
+import useRequestScope from '../../hooks/useRequestScope'
 import { getCitationView, resolveApiUrl } from '../../services/chatService'
 
 export default function SourceDrawer({ source, onClose }) {
   const [view, setView] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const { capture } = useRequestScope(`${source.messageId}:${source.citation.id}`)
+  const requestVersion = useRef(0)
   const canvasRef = useRef(null)
   const drawerRef = useRef(null)
 
   const loadView = useCallback(async () => {
+    const owner = capture()
+    const version = ++requestVersion.current
+    const owns = () => owner.owns() && requestVersion.current === version
+    setView(null)
     setLoading(true)
     setError('')
     try {
-      setView(await getCitationView(source.messageId, source.citation.id))
+      const response = await getCitationView(source.messageId, source.citation.id, owner.signal)
+      if (owns()) setView(response)
     } catch (err) {
-      setError(err?.response?.data?.message || 'Could not open this source.')
+      if (owns()) setError(err?.response?.data?.message || 'Could not open this source.')
     } finally {
-      setLoading(false)
+      if (owns()) setLoading(false)
     }
-  }, [source])
+  }, [source, capture])
 
   useEffect(() => { void loadView() }, [loadView])
 
@@ -30,6 +38,7 @@ export default function SourceDrawer({ source, onClose }) {
     const render = async () => {
       try {
         const pdfjs = await import('pdfjs-dist')
+        if (cancelled) return
         pdfjs.GlobalWorkerOptions.workerSrc = new URL(
           'pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url,
         ).toString()
@@ -45,15 +54,13 @@ export default function SourceDrawer({ source, onClose }) {
         const ratio = window.devicePixelRatio || 1
         canvas.width = viewport.width * ratio
         canvas.height = viewport.height * ratio
-        canvas.style.width = `${viewport.width}px`
-        canvas.style.height = `${viewport.height}px`
         await page.render({ canvasContext: canvas.getContext('2d'), viewport, transform: ratio === 1 ? null : [ratio, 0, 0, ratio, 0, 0] }).promise
       } catch {
         if (!cancelled) setError('The signed source link expired or the PDF could not be rendered. Refresh it and try again.')
       }
     }
     void render()
-    return () => { cancelled = true; task?.destroy() }
+    return () => { cancelled = true; void task?.destroy().catch(() => {}) }
   }, [view])
 
   useEffect(() => {
@@ -89,7 +96,7 @@ export default function SourceDrawer({ source, onClose }) {
           <blockquote className="mb-4 rounded-xl border border-dm-border bg-dm-card p-3 text-sm text-dm-muted">{view?.excerpt || source.citation.excerpt}</blockquote>
           {loading && <div className="flex items-center justify-center gap-2 py-16 text-dm-muted"><Loader2 className="animate-spin" size={18} /> Loading source…</div>}
           {error && <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">{error}<button type="button" onClick={loadView} className="ml-2 underline">Refresh link</button></div>}
-          <canvas ref={canvasRef} className="mx-auto max-w-full rounded shadow-xl" aria-label="Rendered cited PDF page" />
+          <canvas ref={canvasRef} className="mx-auto h-auto w-full max-w-[760px] rounded shadow-xl" aria-label="Rendered cited PDF page" />
         </div>
       </aside>
     </div>

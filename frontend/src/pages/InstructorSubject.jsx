@@ -1,7 +1,7 @@
+import { toast } from 'sonner'
 import { useRef, useState, useCallback, useEffect, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { toast } from 'sonner'
 import {
   Cloud,
   List,
@@ -28,11 +28,8 @@ import useAuth from '../hooks/useAuth'
 import {
   getSubjectById,
   getSubjectInstructors,
-  getSubjectMaterials,
-  deleteSubjectMaterial,
-  downloadSubjectMaterial,
 } from '../services/subjectService'
-import { uploadMaterial } from '../services/uploadService'
+import useSubjectMaterials from '../hooks/useSubjectMaterials'
 import { getInstructorInitials, normalizeInstructorRow, titleCaseSlug } from '../utils/formatters'
 import { fadeUp } from '../utils/motion'
 
@@ -49,10 +46,6 @@ const itemFade = {
   hidden: { opacity: 0, x: -12 },
   visible: { opacity: 1, x: 0, transition: { duration: 0.3 } },
 }
-
-const INDEXING_POLL_MS = 4000
-const MAX_FILE_BYTES = 50 * 1024 * 1024
-const ALLOWED_EXTENSIONS = new Set(['.pdf'])
 
 function SuperInstructorContactCard({ superInstructor }) {
   if (!superInstructor) return null
@@ -94,9 +87,9 @@ function InstructorSubject() {
   const fileInputRef = useRef(null)
   const [subject, setSubject] = useState(null)
   const [instructors, setInstructors] = useState([])
-  const [materials, setMaterials] = useState([])
   const [testBotModalOpen, setTestBotModalOpen] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(null)
+  const { materials, uploadProgress, downloadingId, upload, remove: handleDelete,
+    download: handleDownload } = useSubjectMaterials(subjectId)
 
   const subjectName = subject?.title || titleCaseSlug(subjectId)
 
@@ -115,23 +108,11 @@ function InstructorSubject() {
   const isArchived = subject?.semesterState === 'archived'
   const canManage = isSuper && !isArchived
 
-  const refreshMaterials = useCallback(async () => {
-    try {
-      const list = await getSubjectMaterials(subjectId)
-      setMaterials(Array.isArray(list) ? list : list?.items || [])
-      return list
-    } catch {
-      toast.error('Could not load materials.')
-      return []
-    }
-  }, [subjectId])
-
   useEffect(() => {
     let cancelled = false
     Promise.all([
-      getSubjectById(subjectId).catch(() => null),
+      getSubjectById(subjectId).catch((error) => { toast.error(error.message); return [] }),
       getSubjectInstructors(subjectId).catch(() => []),
-      refreshMaterials(),
     ]).then(([subjectRes, instructorsRes]) => {
       if (cancelled) return
       setSubject(subjectRes)
@@ -143,16 +124,7 @@ function InstructorSubject() {
     return () => {
       cancelled = true
     }
-  }, [subjectId, refreshMaterials])
-
-  useEffect(() => {
-    const anyIndexing = materials.some((m) => m.status === 'indexing')
-    if (!anyIndexing) return
-    const t = setTimeout(() => {
-      refreshMaterials()
-    }, INDEXING_POLL_MS)
-    return () => clearTimeout(t)
-  }, [materials, refreshMaterials])
+  }, [subjectId])
 
   const isUploading = uploadProgress !== null
 
@@ -161,92 +133,11 @@ function InstructorSubject() {
     fileInputRef.current?.click()
   }, [isUploading])
 
-  const handleFileChange = useCallback(
-    async (e) => {
-      const file = e.target.files?.[0]
-      e.target.value = ''
-      if (!file) return
-
-      const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase()
-      if (!ALLOWED_EXTENSIONS.has(ext)) {
-        toast.error('Only PDF files are supported.')
-        return
-      }
-      if (file.size > MAX_FILE_BYTES) {
-        toast.error('File is larger than the 50 MB limit.')
-        return
-      }
-
-      const toastId = `upload-${Date.now()}`
-      toast.loading(`Uploading ${file.name}…`, { id: toastId })
-      setUploadProgress(0)
-
-      try {
-        const saved = await uploadMaterial(subjectId, file, {
-          onUploadProgress: (progressEvent) => {
-            const pct = progressEvent.total
-              ? Math.round((progressEvent.loaded / progressEvent.total) * 100)
-              : 0
-            setUploadProgress(pct)
-          },
-        })
-        setMaterials((prev) => [...prev, saved])
-        toast.success(`Uploaded ${file.name}. Indexing…`, { id: toastId })
-      } catch (err) {
-        const code = err?.response?.data?.code
-        let msg = 'Upload failed.'
-        if (err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')) {
-          msg = 'Upload timed out. The file may be too large or the connection is slow.'
-        } else if (!navigator.onLine) {
-          msg = 'You appear to be offline. Check your connection and try again.'
-        } else if (code === 'FILE_TOO_LARGE') {
-          msg = 'File is larger than the 50 MiB limit.'
-        } else if (code === 'UNSUPPORTED_MEDIA_TYPE') {
-          msg = 'Only PDF files are supported.'
-        } else if (code === 'CONFLICT') {
-          msg = 'A material with this name already exists.'
-        } else if (code === 'FILE_ENCRYPTED') {
-          msg = 'Encrypted or password-protected PDFs cannot be processed. Please remove the password and try again.'
-        } else if (err?.response?.data?.message) {
-          msg = err.response.data.message
-        }
-        toast.error(msg, { id: toastId })
-      } finally {
-        setUploadProgress(null)
-      }
-    },
-    [subjectId],
-  )
-
-  const [downloadingId, setDownloadingId] = useState(null)
-
-  const handleDownload = useCallback(
-    async (item) => {
-      setDownloadingId(item.id)
-      try {
-        await downloadSubjectMaterial(subjectId, item.id, item.name)
-      } catch {
-        toast.error('Could not download this material.')
-      } finally {
-        setDownloadingId(null)
-      }
-    },
-    [subjectId],
-  )
-
-  const handleDelete = useCallback(
-    async (id) => {
-      const target = materials.find((m) => m.id === id)
-      try {
-        await deleteSubjectMaterial(subjectId, id)
-        setMaterials((prev) => prev.filter((m) => m.id !== id))
-        if (target) toast('Removed ' + target.name)
-      } catch {
-        toast.error('Could not delete material.')
-      }
-    },
-    [subjectId, materials],
-  )
+  const handleFileChange = (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    void upload(file)
+  }
 
   return (
     <AppLayout
@@ -372,12 +263,8 @@ function InstructorSubject() {
                     onBrowse={handleBrowseFiles}
                   />
                   {isUploading && (
-                    <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-dm-border">
-                      <div
-                        className="h-full rounded-full bg-dm-primary transition-all duration-300 ease-out"
-                        style={{ width: `${uploadProgress}%` }}
-                      />
-                    </div>
+                    <progress value={uploadProgress} max={100} aria-label="Upload progress"
+                      className="mt-3 block h-2 w-full overflow-hidden rounded-full bg-dm-border [&::-webkit-progress-bar]:bg-dm-border [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-dm-primary [&::-moz-progress-bar]:bg-dm-primary" />
                   )}
                 </div>
               </motion.section>

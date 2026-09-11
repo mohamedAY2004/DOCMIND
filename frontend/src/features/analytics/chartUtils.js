@@ -9,13 +9,6 @@ export const TIME_RANGES = [
   { id: 90, label: 'Last 90 days' },
 ]
 
-export function unwrapList(res) {
-  if (!res) return []
-  if (Array.isArray(res)) return res
-  if (Array.isArray(res.items)) return res.items
-  return []
-}
-
 export function subjectLabel(title) {
   const t = title || ''
   return t.length > 12 ? `${t.slice(0, 12)}…` : t

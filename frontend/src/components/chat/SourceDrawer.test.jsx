@@ -19,7 +19,7 @@ describe('citation source drawer', () => {
     })
     const close = vi.fn()
     render(<SourceDrawer source={{ messageId: 'msg_1', citation: { id: 'cite_1', sourceName: 'Lecture 4', excerpt: 'Fallback', location: { type: 'page', number: 7 } } }} onClose={close} />)
-    await waitFor(() => expect(getCitationView).toHaveBeenCalledWith('msg_1', 'cite_1'))
+    await waitFor(() => expect(getCitationView).toHaveBeenCalledWith('msg_1', 'cite_1', expect.any(AbortSignal)))
     expect(screen.getByText('Grounded source excerpt')).toBeInTheDocument()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(close).toHaveBeenCalledOnce()

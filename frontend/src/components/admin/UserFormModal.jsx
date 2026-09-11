@@ -1,3 +1,4 @@
+import { collectPages } from '../../services/pageResponse'
 import { useEffect, useMemo, useState } from 'react'
 import { Loader2, Save, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
@@ -24,13 +25,6 @@ const DEFAULT_FORM = {
   email: '',
   role: 'student',
   password: '',
-}
-
-function unwrapList(res) {
-  if (!res) return []
-  if (Array.isArray(res)) return res
-  if (Array.isArray(res.items)) return res.items
-  return []
 }
 
 function errorMessage(err, fallback) {
@@ -78,9 +72,9 @@ function UserFormModal({
     if (!open) return
     let cancelled = false
     setLoadingSubjects(true)
-    listSubjects({ pageSize: 1000 })
+    collectPages(listSubjects, { pageSize: 100 })
       .then((res) => {
-        if (!cancelled) setSubjects(unwrapList(res))
+        if (!cancelled) setSubjects(res)
       })
       .catch(() => {
         if (!cancelled) setSubjects([])

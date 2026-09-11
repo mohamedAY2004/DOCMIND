@@ -1,3 +1,4 @@
+import { collectPages } from '../../services/pageResponse'
 import { useEffect, useMemo, useState } from 'react'
 import { Loader2, Save, BookPlus } from 'lucide-react'
 import { toast } from 'sonner'
@@ -21,13 +22,6 @@ const DEFAULT_FORM = {
   description: '',
   courseCode: '',
   semesterId: '',
-}
-
-function unwrapList(res) {
-  if (!res) return []
-  if (Array.isArray(res)) return res
-  if (Array.isArray(res.items)) return res.items
-  return []
 }
 
 function errorMessage(err, fallback) {
@@ -84,15 +78,15 @@ function SubjectFormModal({
     let cancelled = false
     setLoading(true)
     Promise.all([
-      getSemesters().catch(() => []),
-      getUsers({ role: 'instructor', pageSize: 1000 }).catch(() => null),
-      getUsers({ role: 'student', pageSize: 1000 }).catch(() => null),
+      getSemesters().catch((error) => { toast.error(error.message); return [] }),
+      collectPages(getUsers, { role: 'instructor', pageSize: 100 }).catch((error) => { toast.error(error.message); return [] }),
+      collectPages(getUsers, { role: 'student', pageSize: 100 }).catch((error) => { toast.error(error.message); return [] }),
     ])
       .then(([semsRes, insRes, stuRes]) => {
         if (cancelled) return
-        setSemesters(unwrapList(semsRes))
-        setInstructors(unwrapList(insRes).filter((u) => u.role === 'instructor'))
-        setStudents(unwrapList(stuRes).filter((u) => u.role === 'student'))
+        setSemesters(semsRes)
+        setInstructors(insRes.filter((u) => u.role === 'instructor'))
+        setStudents(stuRes.filter((u) => u.role === 'student'))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)

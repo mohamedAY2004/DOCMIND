@@ -1,3 +1,5 @@
+import { toast } from 'sonner'
+import { collectPages } from '../../services/pageResponse'
 import { useEffect, useState } from 'react'
 import AdminLayout from '../../components/layout/AdminLayout'
 import {
@@ -5,7 +7,6 @@ import {
   getSubjectStats,
   getSemesters,
 } from '../../services/adminService'
-import { unwrapList } from '../../features/analytics/chartUtils'
 import OverviewMetrics from '../../features/analytics/OverviewMetrics'
 import DailyUsageChart from '../../features/analytics/DailyUsageChart'
 import QuestionsPerSubjectChart from '../../features/analytics/QuestionsPerSubjectChart'
@@ -21,17 +22,17 @@ function Analytics() {
   useEffect(() => {
     let cancelled = false
     Promise.all([
-      getUsers({ pageSize: 1000 }).catch(() => null),
-      getSubjectStats({ pageSize: 1000 }).catch(() => []),
-      getSemesters().catch(() => []),
-      getUsers({ role: 'instructor', pageSize: 500 }).catch(() => null),
+      collectPages(getUsers, { pageSize: 100 }).catch((error) => { toast.error(error.message); return [] }),
+      collectPages(getSubjectStats, { pageSize: 100 }).catch((error) => { toast.error(error.message); return [] }),
+      getSemesters().catch((error) => { toast.error(error.message); return [] }),
+      collectPages(getUsers, { role: 'instructor', pageSize: 100 }).catch((error) => { toast.error(error.message); return [] }),
     ]).then(([usersRes, statsRes, semestersRes, instructorsRes]) => {
       if (cancelled) return
-      setUsers(unwrapList(usersRes))
-      setSubjectStats(unwrapList(statsRes))
-      setSemesters(unwrapList(semestersRes))
+      setUsers(usersRes)
+      setSubjectStats(statsRes)
+      setSemesters(semestersRes)
       const map = {}
-      unwrapList(instructorsRes)
+      instructorsRes
         .filter((u) => u.role === 'instructor')
         .forEach((i) => { map[i.id] = i })
       setInstructorsById(map)

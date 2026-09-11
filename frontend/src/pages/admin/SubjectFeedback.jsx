@@ -1,3 +1,4 @@
+import { collectPages } from '../../services/pageResponse'
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
@@ -22,13 +23,6 @@ import {
   getUsers,
 } from '../../services/adminService'
 import { stagger, fadeUp, adminCardClass } from '../../utils/motion'
-
-function unwrapList(res) {
-  if (!res) return []
-  if (Array.isArray(res)) return res
-  if (Array.isArray(res.items)) return res.items
-  return []
-}
 
 const selectClass =
   'rounded-xl border border-dm-border bg-dm-card py-2.5 pl-3 pr-8 text-sm text-dm-foreground focus:outline-none focus:ring-2 focus:ring-dm-primary/40 appearance-none cursor-pointer'
@@ -68,17 +62,17 @@ function SubjectFeedback() {
   useEffect(() => {
     let cancelled = false
     Promise.all([
-      getSubjectStats({ pageSize: 1000 }).catch(() => []),
-      getFeedback({ pageSize: 1000 }).catch(() => []),
-      getSemesters().catch(() => []),
-      getUsers({ role: 'instructor', pageSize: 500 }).catch(() => null),
+      collectPages(getSubjectStats, { pageSize: 100 }).catch((error) => { toast.error(error.message); return [] }),
+      collectPages(getFeedback, { pageSize: 100 }).catch((error) => { toast.error(error.message); return [] }),
+      getSemesters().catch((error) => { toast.error(error.message); return [] }),
+      collectPages(getUsers, { role: 'instructor', pageSize: 100 }).catch((error) => { toast.error(error.message); return [] }),
     ])
       .then(([statsRes, feedbackRes, semestersRes, usersRes]) => {
         if (cancelled) return
-        setSubjects(unwrapList(statsRes))
-        setFeedback(unwrapList(feedbackRes))
-        setSemesters(unwrapList(semestersRes))
-        const instructors = unwrapList(usersRes).filter(
+        setSubjects(statsRes)
+        setFeedback(feedbackRes)
+        setSemesters(semestersRes)
+        const instructors = usersRes.filter(
           (u) => u.role === 'instructor',
         )
         const map = {}

@@ -9,7 +9,7 @@ import FeedbackReasonDialog from './FeedbackReasonDialog'
 import SourceDrawer from './SourceDrawer'
 import ChatHeader from './ChatHeader'
 import ChatSidebar from './ChatSidebar'
-import useAutoScroll from '../../hooks/useAutoScroll'
+import useMessageScroll from '../../hooks/useMessageScroll'
 import useConversations from '../../hooks/useConversations'
 import useTutorChat from '../../hooks/useTutorChat'
 import {
@@ -31,7 +31,7 @@ const messagesClass = 'flex-1 min-h-0 overflow-y-auto p-4 md:p-6'
 const inputWrapClass =
   'flex shrink-0 items-end gap-3 border-t border-dm-border bg-dm-card p-4 md:px-6'
 const textareaClass =
-  'flex-1 resize-none rounded-xl border border-dm-border bg-dm-background py-3 px-4 text-dm-foreground placeholder:text-dm-muted transition-shadow duration-200 focus:outline-none focus:ring-2 focus:ring-dm-primary focus:shadow-md focus:shadow-dm-primary/10 disabled:opacity-50'
+  'max-h-40 min-h-12 [field-sizing:content] flex-1 resize-none rounded-xl border border-dm-border bg-dm-background py-3 px-4 text-dm-foreground placeholder:text-dm-muted transition-shadow duration-200 focus:outline-none focus:ring-2 focus:ring-dm-primary focus:shadow-md focus:shadow-dm-primary/10 disabled:opacity-50'
 const sendBtnClass =
   'shrink-0 rounded-lg p-2 text-dm-primary transition-all duration-150 hover:bg-dm-primary/10 hover:opacity-90 active:scale-95 disabled:opacity-40 disabled:pointer-events-none'
 function TutorChatScreen({ subjectId, subjectName, semesterState = 'active' }) {
@@ -86,14 +86,14 @@ function TutorChatScreen({ subjectId, subjectName, semesterState = 'active' }) {
   }, [])
 
   const fetcher = useCallback(
-    () => listTutorConversations(subjectId),
+    (options) => listTutorConversations(subjectId, options),
     [subjectId],
   )
 
   const {
     conversations,
-    activeId,
-    loading: conversationsLoading,
+    activeId, selectionVersion,
+    loading: conversationsLoading, hasMore: hasMoreConversations, loadMore: loadMoreConversations,
     selectConversation,
     startNewConversation,
     prependConversation,
@@ -126,8 +126,8 @@ function TutorChatScreen({ subjectId, subjectName, semesterState = 'active' }) {
     isTyping,
     streamingId,
     textareaRef,
-    loadingHistory,
-    errorMessage,
+    loadingHistory, hasOlderMessages, loadingOlder, loadOlder,
+    errorMessage, historyError, retryHistory,
     lastFailedText,
     sendMessage,
     stopGeneration,
@@ -137,13 +137,13 @@ function TutorChatScreen({ subjectId, subjectName, semesterState = 'active' }) {
     handleKeyDown,
   } = useTutorChat({
     subjectId,
-    conversationId: activeId,
+    conversationId: activeId, selectionVersion,
     onConversationCreated: handleConversationCreated,
     onFeedbackMapLoaded: handleFeedbackMapLoaded,
   })
 
   const messagesRef = useRef(null)
-  useAutoScroll(messagesRef, [messages, isTyping])
+  useMessageScroll(messagesRef, messages, isTyping, activeId)
 
   const handleNewChat = useCallback(() => {
     startNewConversation()
@@ -175,6 +175,8 @@ function TutorChatScreen({ subjectId, subjectName, semesterState = 'active' }) {
           onDeleteChat={deleteConversation}
           onRenameChat={renameConversation}
           loading={conversationsLoading}
+          hasMore={hasMoreConversations}
+          onLoadMore={loadMoreConversations}
           emptyLabel="No past conversations yet."
           disableNewChat={readOnly}
           mobileOpen={historyOpen}
@@ -194,6 +196,10 @@ function TutorChatScreen({ subjectId, subjectName, semesterState = 'active' }) {
               <WelcomeState subjectName={subjectName} />
             ) : (
               <>
+                {hasOlderMessages && <button type="button" onClick={loadOlder} disabled={loadingOlder}
+                  className="mx-auto mb-5 block rounded-lg border border-dm-border px-4 py-2 text-sm text-dm-muted hover:text-dm-foreground disabled:opacity-50">
+                  {loadingOlder ? 'Loading…' : 'Load older messages'}
+                </button>}
                 {messages.map((m) => (
                   <ChatMessageBubble
                     key={m.id}
@@ -219,7 +225,7 @@ function TutorChatScreen({ subjectId, subjectName, semesterState = 'active' }) {
           {errorMessage && (
             <ErrorBanner
               message={errorMessage}
-              onRetry={lastFailedText ? retry : undefined}
+              onRetry={lastFailedText ? retry : historyError ? retryHistory : undefined}
               onDismiss={dismissError}
             />
           )}

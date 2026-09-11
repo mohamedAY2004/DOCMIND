@@ -10,7 +10,7 @@ import ChartFilters from './ChartFilters'
 import InlineSelect from './InlineSelect'
 import { useSubjectFilters } from './useSubjectFilters'
 import CustomTooltip from './CustomTooltip'
-import { TIME_RANGES, unwrapList, useChartColors } from './chartUtils'
+import { TIME_RANGES, useChartColors } from './chartUtils'
 
 /**
  * Daily Usage Trends line chart. Time range plus semester / instructor /
@@ -32,7 +32,7 @@ function DailyUsageChart({ subjectStats, instructorsById, semesters }) {
       instructorId: instructor !== 'all' ? instructor : undefined,
       subjectId: subject !== 'all' ? subject : undefined,
     })
-      .then((res) => { if (!cancelled) setData(unwrapList(res)) })
+      .then((res) => { if (!cancelled) setData(res) })
       .catch(() => { if (!cancelled) setData([]) })
     return () => { cancelled = true }
   }, [timeRange, semester, instructor, subject])

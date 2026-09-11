@@ -1,4 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { collectPages } from '../../services/pageResponse'
+import usePageQuery from '../../hooks/usePageQuery'
+import Pagination from '../../components/ui/Pagination'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import {
@@ -26,13 +29,6 @@ import {
   updateSubject,
 } from '../../services/adminService'
 import { stagger, fadeUp, adminCardClass } from '../../utils/motion'
-
-function unwrapList(res) {
-  if (!res) return []
-  if (Array.isArray(res)) return res
-  if (Array.isArray(res.items)) return res.items
-  return []
-}
 
 function statusBadge(status) {
   return status === 'active'
@@ -281,9 +277,7 @@ function InstructorCard({
 }
 
 function ManageInstructors() {
-  const [instructors, setInstructors] = useState([])
   const [subjects, setSubjects] = useState([])
-  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [expandedId, setExpandedId] = useState(null)
 
@@ -295,36 +289,17 @@ function ManageInstructors() {
   const [assignTarget, setAssignTarget] = useState(null)
   const [unassigningId, setUnassigningId] = useState(null)
 
-  const refresh = useCallback(async () => {
-    setLoading(true)
-    try {
-      const [uRes, sRes] = await Promise.all([
-        getUsers({ role: 'instructor', pageSize: 1000 }),
-        listSubjects({ pageSize: 1000 }),
-      ])
-      setInstructors(unwrapList(uRes).filter((u) => u.role === 'instructor'))
-      setSubjects(unwrapList(sRes))
-    } catch {
-      toast.error('Could not load instructors.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
+  const [page, setPage] = useState(1)
+  const { items: instructors, setItems: setInstructors, total, totalPages, loading, refresh } = usePageQuery(getUsers, {
+    page, pageSize: 12, role: 'instructor', search: search.trim(),
+  })
   useEffect(() => {
-    refresh()
-  }, [refresh])
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return instructors
-    return instructors.filter(
-      (u) =>
-        (u.name || '').toLowerCase().includes(q) ||
-        (u.email || '').toLowerCase().includes(q) ||
-        (u.username || '').toLowerCase().includes(q),
-    )
-  }, [instructors, search])
+    const controller = new AbortController()
+    collectPages(listSubjects, { pageSize: 100, signal: controller.signal })
+      .then((items) => { if (!controller.signal.aborted) setSubjects(items) })
+      .catch((error) => { if (!controller.signal.aborted) toast.error(error.message) })
+    return () => controller.abort()
+  }, [])
 
   const openCreate = () => {
     setFormMode('create')
@@ -408,7 +383,7 @@ function ManageInstructors() {
               type="text"
               placeholder="Search instructors…"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setPage(1) }}
               className="w-full rounded-xl border border-dm-border bg-dm-card py-2.5 pl-10 pr-4 text-sm text-dm-foreground placeholder:text-dm-muted focus:outline-none focus:ring-2 focus:ring-dm-primary/40"
             />
           </div>
@@ -424,7 +399,7 @@ function ManageInstructors() {
 
         {loading ? (
           <div className="py-12 text-center text-dm-muted">Loading instructors…</div>
-        ) : filtered.length === 0 ? (
+        ) : instructors.length === 0 ? (
           <div className="py-12 text-center text-dm-muted">
             No instructors found.
           </div>
@@ -435,7 +410,7 @@ function ManageInstructors() {
             initial="hidden"
             animate="visible"
           >
-            {filtered.map((u) => (
+            {instructors.map((u) => (
               <InstructorCard
                 key={u.id}
                 instructor={u}
@@ -454,6 +429,7 @@ function ManageInstructors() {
             ))}
           </motion.div>
         )}
+        <Pagination page={page} totalPages={totalPages} totalItems={total} pageSize={12} onPageChange={setPage} />
       </motion.div>
 
       <UserFormModal

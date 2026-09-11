@@ -1,3 +1,4 @@
+import { parseList, parsePage } from './pageResponse'
 import apiClient, {
   API_BASE_URL,
   UPLOAD_TIMEOUT,
@@ -35,33 +36,27 @@ import apiClient, {
 const DEFAULT_HISTORY_PAGE_SIZE = 50
 const DEFAULT_CONV_PAGE_SIZE = 20
 
-function unwrapList(data) {
-  if (Array.isArray(data)) return data
-  if (Array.isArray(data?.items)) return data.items
-  return []
-}
-
 /* ------------------------------------------------------------------ */
 /* Document chat                                                      */
 /* ------------------------------------------------------------------ */
 
 export async function listDocConversations(opts) {
-  const { page = 1, pageSize = DEFAULT_CONV_PAGE_SIZE } = opts || {}
+  const { page = 1, pageSize = DEFAULT_CONV_PAGE_SIZE, signal } = opts || {}
   const { data } = await apiClient.get('/chat/doc/conversations', {
-    params: { page, pageSize },
+    params: { page, pageSize }, signal,
   })
-  return unwrapList(data)
+  return parsePage(data)
 }
 
 export async function getDocMessages(
   conversationId,
-  { page = 1, pageSize = DEFAULT_HISTORY_PAGE_SIZE } = {},
+  { page = 1, pageSize = DEFAULT_HISTORY_PAGE_SIZE, order = 'asc', signal } = {},
 ) {
   const { data } = await apiClient.get(
     `/chat/doc/conversations/${conversationId}/messages`,
-    { params: { page, pageSize } },
+    { params: { page, pageSize, order }, signal },
   )
-  return unwrapList(data)
+  return parsePage(data)
 }
 
 export async function deleteDocConversation(conversationId) {
@@ -77,7 +72,7 @@ export async function updateDocConversation(conversationId, title) {
   return data
 }
 
-export async function createDocConversation(files, { onUploadProgress } = {}) {
+export async function createDocConversation(files, { onUploadProgress, signal } = {}) {
   const formData = new FormData()
   const list = Array.isArray(files) ? files : [files]
   list.forEach((f) => formData.append('files', f))
@@ -85,6 +80,7 @@ export async function createDocConversation(files, { onUploadProgress } = {}) {
   const { data } = await apiClient.post('/chat/doc/conversations', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
     ...UPLOAD_TIMEOUT,
+    signal,
     ...(onUploadProgress ? { onUploadProgress } : {}),
   })
   // The API returns { conversation: { id, title, … }, files: [...] }.
@@ -95,7 +91,7 @@ export async function createDocConversation(files, { onUploadProgress } = {}) {
   return data
 }
 
-export async function addDocFile(conversationId, file, { onUploadProgress } = {}) {
+export async function addDocFile(conversationId, file, { onUploadProgress, signal } = {}) {
   const formData = new FormData()
   formData.append('file', file)
 
@@ -105,31 +101,34 @@ export async function addDocFile(conversationId, file, { onUploadProgress } = {}
     {
       headers: { 'Content-Type': 'multipart/form-data' },
       ...UPLOAD_TIMEOUT,
+    signal,
       ...(onUploadProgress ? { onUploadProgress } : {}),
     },
   )
   return data
 }
 
-export async function removeDocFile(conversationId, fileId) {
+export async function removeDocFile(conversationId, fileId, options = {}) {
   await apiClient.delete(
     `/chat/doc/conversations/${conversationId}/files/${fileId}`,
+    options,
   )
   return { id: fileId }
 }
 
-export async function listDocFiles(conversationId) {
+export async function listDocFiles(conversationId, options = {}) {
   const { data } = await apiClient.get(
     `/chat/doc/conversations/${conversationId}/files`,
+    options,
   )
-  return data
+  return parseList(data)
 }
 
-export async function sendDocMessage(conversationId, message) {
+async function sendDocMessage(conversationId, message, { signal } = {}) {
   const { data } = await apiClient.post(
     `/chat/doc/conversations/${conversationId}/messages`,
     { message },
-    LLM_TIMEOUT,
+    { ...LLM_TIMEOUT, signal },
   )
   return data
 }
@@ -143,7 +142,8 @@ export async function streamDocMessage(conversationId, message, options = {}) {
     )
   } catch (error) {
     if (!streamingDisabled(error)) throw error
-    const response = await sendDocMessage(conversationId, message)
+    const response = await sendDocMessage(conversationId, message, options)
+    options.signal?.throwIfAborted()
     dispatchBufferedReply(response, options.onEvent)
   }
 }
@@ -154,29 +154,29 @@ export async function streamDocMessage(conversationId, message, options = {}) {
 
 export async function listTutorConversations(
   subjectId,
-  { page = 1, pageSize = DEFAULT_CONV_PAGE_SIZE } = {},
+  { page = 1, pageSize = DEFAULT_CONV_PAGE_SIZE, signal } = {},
 ) {
   const { data } = await apiClient.get('/chat/tutor/conversations', {
-    params: { subjectId, page, pageSize },
+    params: { subjectId, page, pageSize }, signal,
   })
-  return unwrapList(data)
+  return parsePage(data)
 }
 
 export async function getTutorMessages(
   conversationId,
-  { page = 1, pageSize = DEFAULT_HISTORY_PAGE_SIZE } = {},
+  { page = 1, pageSize = DEFAULT_HISTORY_PAGE_SIZE, order = 'asc', signal } = {},
 ) {
   const { data } = await apiClient.get(
     `/chat/tutor/conversations/${conversationId}/messages`,
-    { params: { page, pageSize } },
+    { params: { page, pageSize, order }, signal },
   )
-  return unwrapList(data)
+  return parsePage(data)
 }
 
-export async function createTutorConversation(subjectId) {
+export async function createTutorConversation(subjectId, { signal } = {}) {
   const { data } = await apiClient.post('/chat/tutor/conversations', {
     subjectId,
-  })
+  }, { signal })
   return data
 }
 
@@ -193,11 +193,11 @@ export async function updateTutorConversation(conversationId, title) {
   return data
 }
 
-export async function sendTutorMessage(conversationId, message) {
+async function sendTutorMessage(conversationId, message, { signal } = {}) {
   const { data } = await apiClient.post(
     `/chat/tutor/conversations/${conversationId}/messages`,
     { message },
-    LLM_TIMEOUT,
+    { ...LLM_TIMEOUT, signal },
   )
   return data
 }
@@ -211,7 +211,8 @@ export async function streamTutorMessage(conversationId, message, options = {}) 
     )
   } catch (error) {
     if (!streamingDisabled(error)) throw error
-    const response = await sendTutorMessage(conversationId, message)
+    const response = await sendTutorMessage(conversationId, message, options)
+    options.signal?.throwIfAborted()
     dispatchBufferedReply(response, options.onEvent)
   }
 }
@@ -221,9 +222,10 @@ export async function cancelMessage(messageId) {
   return data
 }
 
-export async function getCitationView(messageId, citationId) {
+export async function getCitationView(messageId, citationId, signal) {
   const { data } = await apiClient.get(
     `/chat/messages/${messageId}/citations/${citationId}/view`,
+    { signal },
   )
   return data
 }

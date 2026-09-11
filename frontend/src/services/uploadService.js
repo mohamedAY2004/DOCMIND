@@ -8,7 +8,7 @@ import apiClient, { UPLOAD_TIMEOUT } from './apiClient'
  * `chatService.js` because it creates/mutates a conversation.
  */
 
-export async function uploadMaterial(subjectId, file, { name, onUploadProgress } = {}) {
+export async function uploadMaterial(subjectId, file, { name, onUploadProgress, signal } = {}) {
   const formData = new FormData()
   formData.append('file', file)
   if (name) formData.append('name', name)
@@ -19,6 +19,7 @@ export async function uploadMaterial(subjectId, file, { name, onUploadProgress }
     {
       headers: { 'Content-Type': 'multipart/form-data' },
       ...UPLOAD_TIMEOUT,
+      signal,
       ...(onUploadProgress ? { onUploadProgress } : {}),
     },
   )

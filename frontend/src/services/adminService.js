@@ -1,3 +1,4 @@
+import { parseList, parsePage } from './pageResponse'
 import apiClient from './apiClient'
 
 /**
@@ -11,14 +12,9 @@ import apiClient from './apiClient'
 
 // ---------------- Users ----------------
 
-export async function getUsers(params = {}) {
-  const { data } = await apiClient.get('/admin/users', { params })
-  return data
-}
-
-export async function getUser(userId) {
-  const { data } = await apiClient.get(`/admin/users/${userId}`)
-  return data
+export async function getUsers({ signal, ...params } = {}) {
+  const { data } = await apiClient.get('/admin/users', { params, signal })
+  return parsePage(data)
 }
 
 export async function createUser(body) {
@@ -47,21 +43,14 @@ export async function deleteUser(userId) {
 
 export async function getUserSubjects(userId) {
   const { data } = await apiClient.get(`/admin/users/${userId}/subjects`)
-  return data
-}
-
-export async function setUserSubjects(userId, subjectIds) {
-  const { data } = await apiClient.put(`/admin/users/${userId}/subjects`, {
-    subjectIds,
-  })
-  return data
+  return parseList(data)
 }
 
 // ---------------- Subjects (CRUD) ----------------
 
-export async function listSubjects(params = {}) {
-  const { data } = await apiClient.get('/admin/subjects', { params })
-  return data
+export async function listSubjects({ signal, ...params } = {}) {
+  const { data } = await apiClient.get('/admin/subjects', { params, signal })
+  return parsePage(data)
 }
 
 export async function createSubject(body) {
@@ -78,33 +67,23 @@ export async function deleteSubject(subjectId) {
   await apiClient.delete(`/admin/subjects/${subjectId}`)
 }
 
-export async function getSubjectInstructors(subjectId) {
-  const { data } = await apiClient.get(`/subjects/${subjectId}/instructors`)
-  return data
-}
-
-export async function getSubjectStudents(subjectId) {
-  const { data } = await apiClient.get(`/subjects/${subjectId}/students`)
-  return data
-}
-
 // ---------------- Stats / feedback / analytics ----------------
 
-export async function getSubjectStats(params = {}) {
-  const { data } = await apiClient.get('/admin/subjects/stats', { params })
-  return data
+export async function getSubjectStats({ signal, ...params } = {}) {
+  const { data } = await apiClient.get('/admin/subjects/stats', { params, signal })
+  return parsePage(data)
 }
 
-export async function getFeedback(params = {}) {
-  const { data } = await apiClient.get('/admin/feedback', { params })
-  return data
+export async function getFeedback({ signal, ...params } = {}) {
+  const { data } = await apiClient.get('/admin/feedback', { params, signal })
+  return parsePage(data)
 }
 
 export async function getActivityLog(limit = 20) {
   const { data } = await apiClient.get('/admin/activity', {
     params: { limit },
   })
-  return data
+  return parseList(data)
 }
 
 export async function getDailyUsage({
@@ -126,7 +105,7 @@ export async function getDailyUsage({
 
 export async function getSemesters() {
   const { data } = await apiClient.get('/semesters')
-  return data
+  return parseList(data)
 }
 
 export async function createSemester(body) {

@@ -9,7 +9,8 @@ import ChatHeader from './ChatHeader'
 import ChatSidebar from './ChatSidebar'
 import SourceDrawer from './SourceDrawer'
 import useChat from '../../hooks/useChat'
-import useAutoScroll from '../../hooks/useAutoScroll'
+import useScopedDraft from '../../hooks/useScopedDraft'
+import useMessageScroll from '../../hooks/useMessageScroll'
 
 const rootClass = 'flex h-screen flex-col overflow-hidden bg-dm-background'
 const bodyRowClass = 'flex min-h-0 flex-1 overflow-hidden'
@@ -33,6 +34,8 @@ function ChatScreen({
   onDeleteConversation,
   onRenameConversation,
   conversationsLoading = false,
+  hasMoreConversations = false,
+  loadMoreConversations,
   // files for the active (or in-flight) conversation
   files = [],
   onFirstUpload,
@@ -47,21 +50,21 @@ function ChatScreen({
     status,
     isTyping,
     streamingId,
-    loadingHistory,
-    errorMessage,
+    loadingHistory, hasOlderMessages, loadingOlder, loadOlder,
+    errorMessage, historyError, retryHistory,
     lastFailedText,
     sendMessage,
     stopGeneration,
     retry,
     dismissError,
   } = useChat(activeConversationId)
-  const [input, setInput] = useState('')
+  const [input, setInput] = useScopedDraft(activeConversationId)
   const [source, setSource] = useState(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   const messagesRef = useRef(null)
   const fileInputRef = useRef(null)
 
-  useAutoScroll(messagesRef, [messages, isTyping])
+  useMessageScroll(messagesRef, messages, isTyping, activeConversationId)
 
   const hasActive = Boolean(activeConversationId)
   const hasFilesProcessing = files.some((f) => f.status === 'processing')
@@ -125,6 +128,8 @@ function ChatScreen({
           onDeleteChat={onDeleteConversation}
           onRenameChat={onRenameConversation}
           loading={conversationsLoading}
+          hasMore={hasMoreConversations}
+          onLoadMore={loadMoreConversations}
           emptyLabel="No past conversations yet."
           mobileOpen={historyOpen}
           onMobileClose={() => setHistoryOpen(false)}
@@ -185,6 +190,10 @@ function ChatScreen({
               </div>
             ) : (
               <>
+                {hasOlderMessages && <button type="button" onClick={loadOlder} disabled={loadingOlder}
+                  className="mx-auto mb-5 block rounded-lg border border-dm-border px-4 py-2 text-sm text-dm-muted hover:text-dm-foreground disabled:opacity-50">
+                  {loadingOlder ? 'Loading…' : 'Load older messages'}
+                </button>}
                 {messages.map((m) => (
                   <ChatMessageBubble
                     key={m.id}
@@ -207,7 +216,7 @@ function ChatScreen({
           {status === 'error' && (
             <ErrorBanner
               message={errorMessage}
-              onRetry={lastFailedText ? retry : undefined}
+              onRetry={lastFailedText ? retry : historyError ? retryHistory : undefined}
               onDismiss={dismissError}
             />
           )}

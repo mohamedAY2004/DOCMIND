@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import usePageQuery from '../../hooks/usePageQuery'
+import { useCallback, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import {
@@ -65,13 +66,6 @@ function SortHeader({ label, field, sortKey, sortAsc, onSort }) {
   )
 }
 
-function unwrapList(res) {
-  if (!res) return []
-  if (Array.isArray(res)) return res
-  if (Array.isArray(res.items)) return res.items
-  return []
-}
-
 function formatDate(value) {
   if (!value) return ''
   const d = new Date(value)
@@ -80,8 +74,6 @@ function formatDate(value) {
 }
 
 function ManageUsers() {
-  const [users, setUsers] = useState([])
-  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('All')
   const [sortKey, setSortKey] = useState('name')
@@ -95,21 +87,11 @@ function ManageUsers() {
 
   const [deleteTarget, setDeleteTarget] = useState(null)
 
-  const refresh = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await getUsers({ pageSize: 1000 })
-      setUsers(unwrapList(res))
-    } catch {
-      toast.error('Could not load users.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    refresh()
-  }, [refresh])
+  const { items: users, setItems: setUsers, total, totalPages, loading, refresh } = usePageQuery(getUsers, {
+    page, pageSize: PAGE_SIZE, search: search.trim(),
+    role: roleFilter === 'All' ? undefined : roleFilter,
+    sort: `${sortKey}:${sortAsc ? 'asc' : 'desc'}`,
+  })
 
   useEffect(() => {
     if (!menuOpenFor) return
@@ -130,33 +112,6 @@ function ManageUsers() {
     },
     [sortKey],
   )
-
-  const filtered = useMemo(() => {
-    let result = users
-    if (roleFilter !== 'All') {
-      result = result.filter((u) => u.role === roleFilter)
-    }
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      result = result.filter(
-        (u) =>
-          (u.name || '').toLowerCase().includes(q) ||
-          (u.email || '').toLowerCase().includes(q) ||
-          (u.username || '').toLowerCase().includes(q) ||
-          (u.id || '').toLowerCase().includes(q),
-      )
-    }
-    result = [...result].sort((a, b) => {
-      const aVal = a[sortKey] ?? ''
-      const bVal = b[sortKey] ?? ''
-      const cmp = String(aVal).localeCompare(String(bVal))
-      return sortAsc ? cmp : -cmp
-    })
-    return result
-  }, [users, search, roleFilter, sortKey, sortAsc])
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const toggleStatus = useCallback(async (id) => {
     const current = users.find((u) => u.id === id)
@@ -186,7 +141,7 @@ function ManageUsers() {
           : err?.response?.data?.message || 'Could not update user.'
       toast.error(msg)
     }
-  }, [users])
+  }, [users, setUsers])
 
   const openCreate = () => {
     setFormMode('create')
@@ -315,14 +270,14 @@ function ManageUsers() {
                     Loading users…
                   </td>
                 </tr>
-              ) : paged.length === 0 ? (
+              ) : users.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-4 py-12 text-center text-dm-muted">
                     No users found.
                   </td>
                 </tr>
               ) : (
-                paged.map((u) => (
+                users.map((u) => (
                   <tr key={u.id} className="transition-colors hover:bg-dm-background/50">
                     <td className={`${tdClass} text-dm-muted font-mono text-xs`}>{u.id}</td>
                     <td className={`${tdClass} font-medium`}>{u.name}</td>
@@ -404,7 +359,7 @@ function ManageUsers() {
         <Pagination
           page={page}
           totalPages={totalPages}
-          totalItems={filtered.length}
+          totalItems={total}
           pageSize={PAGE_SIZE}
           onPageChange={setPage}
         />

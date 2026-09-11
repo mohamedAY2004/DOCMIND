@@ -1,3 +1,5 @@
+import usePageQuery from '../../hooks/usePageQuery'
+import { collectPages } from '../../services/pageResponse'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
@@ -29,17 +31,7 @@ const thClass =
   'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-dm-muted'
 const tdClass = 'px-4 py-3.5 text-sm text-dm-foreground align-top'
 
-function unwrapList(res) {
-  if (!res) return []
-  if (Array.isArray(res)) return res
-  if (Array.isArray(res.items)) return res.items
-  return []
-}
-
 function ManageSubjects() {
-  const [subjects, setSubjects] = useState([])
-  const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(true)
 
   const [semesters, setSemesters] = useState([])
   const [instructorsById, setInstructorsById] = useState({})
@@ -59,12 +51,12 @@ function ManageSubjects() {
   const loadAuxData = useCallback(async () => {
     try {
       const [semRes, insRes] = await Promise.all([
-        getSemesters().catch(() => []),
-        getUsers({ role: 'instructor', pageSize: 1000 }).catch(() => null),
+        getSemesters().catch((error) => { toast.error(error.message); return [] }),
+        collectPages(getUsers, { role: 'instructor', pageSize: 100 }).catch((error) => { toast.error(error.message); return [] }),
       ])
-      setSemesters(unwrapList(semRes))
+      setSemesters(semRes)
       const map = {}
-      unwrapList(insRes)
+      insRes
         .filter((u) => u.role === 'instructor')
         .forEach((i) => {
           map[i.id] = i
@@ -75,29 +67,14 @@ function ManageSubjects() {
     }
   }, [])
 
-  const refresh = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params = { page, pageSize: PAGE_SIZE }
-      if (search.trim()) params.search = search.trim()
-      if (semesterFilter !== 'all') params.semesterId = semesterFilter
-      const res = await listSubjects(params)
-      setSubjects(unwrapList(res))
-      setTotal(res?.total ?? unwrapList(res).length)
-    } catch {
-      toast.error('Could not load subjects.')
-    } finally {
-      setLoading(false)
-    }
-  }, [page, search, semesterFilter])
+  const { items: subjects, total, totalPages, loading, refresh } = usePageQuery(listSubjects, {
+    page, pageSize: PAGE_SIZE, search: search.trim(),
+    semesterId: semesterFilter === 'all' ? undefined : semesterFilter,
+  })
 
   useEffect(() => {
     loadAuxData()
   }, [loadAuxData])
-
-  useEffect(() => {
-    refresh()
-  }, [refresh])
 
   useEffect(() => {
     if (!menuOpenFor) return
@@ -105,8 +82,6 @@ function ManageSubjects() {
     window.addEventListener('click', onClick)
     return () => window.removeEventListener('click', onClick)
   }, [menuOpenFor])
-
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   const semesterLabel = useMemo(() => {
     const map = {}

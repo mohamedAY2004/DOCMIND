@@ -42,6 +42,8 @@ function ChatSidebar({
   onDeleteChat,
   onRenameChat,
   loading = false,
+  hasMore = false,
+  onLoadMore,
   emptyLabel = 'No conversations yet.',
   disableNewChat = false,
   mobileOpen = false,
@@ -251,6 +253,10 @@ function ChatSidebar({
             )
           })
         )}
+        {hasMore && !collapsed && <button type="button" onClick={onLoadMore} disabled={loading}
+          className="rounded-lg px-3 py-2 text-sm text-dm-muted hover:bg-dm-background disabled:opacity-50">
+          {loading ? 'Loading…' : 'Load more conversations'}
+        </button>}
       </nav>
 
       {/* New chat button — hidden when the term is read-only (no new turns). */}
