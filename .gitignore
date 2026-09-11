@@ -16,3 +16,12 @@ backend/src/assets/files/
 .DS_Store
 Thumbs.db
 *mcp
+# Project-local SDKs and verification output
+.tools/
+**/.pytest_cache/
+backend-test-results.txt
+/mobile-analysis.txt
+
+# Machine-local agent configuration
+/.codex/
+/.claude/settings.local.json
