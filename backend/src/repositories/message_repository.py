@@ -78,7 +78,7 @@ class MessageRepository(BaseRepository[Message]):
         return result.scalar_one_or_none() is not None
 
     async def list_for_conversation(
-        self, conv_id: str, offset: int, limit: int
+        self, conv_id: str, offset: int, limit: int, order: str = "asc"
     ) -> tuple[Sequence[Message], int]:
         total_stmt = select(func.count(Message.id)).where(
             Message.conversation_id == conv_id
@@ -88,7 +88,7 @@ class MessageRepository(BaseRepository[Message]):
             await self.session.execute(
                 select(Message)
                 .where(Message.conversation_id == conv_id)
-                .order_by(Message.sort_id.asc())
+                .order_by(Message.sort_id.desc() if order == "desc" else Message.sort_id.asc())
                 .offset(offset)
                 .limit(limit)
             )
@@ -110,15 +110,6 @@ class MessageRepository(BaseRepository[Message]):
         )
         return list(reversed(result.scalars().all()))
 
-    async def count_since(
-        self, role: MessageRole, since: datetime
-    ) -> int:
-        result = await self.session.execute(
-            select(func.count(Message.id)).where(
-                Message.role == role, Message.created_at >= since
-            )
-        )
-        return int(result.scalar() or 0)
 
     async def daily_rollup(
         self,

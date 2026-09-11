@@ -21,3 +21,11 @@ class MaterialResponse(BaseModel):
 class UpdateMaterialRequest(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     status: Optional[Literal["indexing", "processed"]] = None
+
+
+class TestBotRequest(BaseModel):
+    message: str = Field(..., min_length=1, max_length=4000)
+
+
+class TestBotResponse(BaseModel):
+    reply: str

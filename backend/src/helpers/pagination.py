@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Generic, Optional, Sequence, TypeVar
+from typing import Generic, Literal, Optional, Sequence, TypeVar
 
 from fastapi import Query
 from pydantic import BaseModel
@@ -16,6 +16,7 @@ class PaginationParams:
     page_size: int
     sort: Optional[str]
     search: Optional[str]
+    order: str = "asc"
 
     @property
     def offset(self) -> int:
@@ -63,3 +64,10 @@ class Page(BaseModel, Generic[T]):
             total=total,
             totalPages=total_pages,
         )
+
+
+def message_pagination_query(
+    page: int = Query(1, ge=1), pageSize: int = Query(20, ge=1, le=100),
+    order: Literal["asc", "desc"] = Query("asc"),
+) -> PaginationParams:
+    return PaginationParams(page, pageSize, None, None, order)

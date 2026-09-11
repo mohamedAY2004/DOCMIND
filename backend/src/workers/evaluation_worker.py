@@ -110,13 +110,11 @@ def _summarize(rows: list[dict]) -> dict:
 
 async def _main(once: bool) -> None:
     from main import app, lifespan
-    from routes.chat_tutor_router import _rag
+    from services.rag_runtime import rag_from_state
     from services.ephemeral_store import store_for
-    from starlette.requests import Request
 
     async with lifespan(app):
-        scope = {"type": "http", "app": app, "headers": [], "method": "GET", "path": "/", "query_string": b"", "server": ("worker", 0), "client": ("worker", 0), "scheme": "http"}
-        rag = _rag(Request(scope))
+        rag = rag_from_state(app.state)
         store = store_for(app)
         async with app.state.session_maker() as session:
             cutoff = datetime.now(timezone.utc) - timedelta(

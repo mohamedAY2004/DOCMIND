@@ -90,21 +90,6 @@ class MaterialService:
             "This resource is not available to your role.",
         )
 
-    async def _ensure_on_roster(self, user: User, subject_id: str) -> None:
-        if await self._subjects.get(subject_id) is None:
-            raise APIError(
-                ErrorCode.NOT_FOUND, status.HTTP_404_NOT_FOUND, "Subject not found."
-            )
-        if user.role == UserRole.ADMIN:
-            return
-        if user.role != UserRole.INSTRUCTOR or not await self._subjects.is_instructor_of(
-            subject_id, user.id
-        ):
-            raise APIError(
-                ErrorCode.FORBIDDEN,
-                status.HTTP_403_FORBIDDEN,
-                "You are not assigned to this subject.",
-            )
 
     async def _ensure_can_upload(self, user: User, subject_id: str) -> None:
         """Only the super instructor (or admin) may upload, patch, or delete materials."""

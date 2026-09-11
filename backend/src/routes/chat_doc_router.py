@@ -19,7 +19,7 @@ from db.models import User, UserRole
 from helpers.config import get_settings
 from helpers.deps import get_session, require_role, require_student_access
 from helpers.errors import APIError, ErrorCode
-from helpers.pagination import Page, PaginationParams, pagination_query
+from helpers.pagination import Page, PaginationParams, pagination_query, message_pagination_query
 from schemas.chat import (
     ChatReplyResponse,
     ConversationResponse,
@@ -36,6 +36,7 @@ from services.document_chat_service import (
 )
 from services.ephemeral_store import store_for
 from services.generation_control import GenerationSlot
+from services.rag_runtime import rag_from_state
 from services.rag_service import RAGService
 from services.sse import encode_sse
 from stores.agent import AgentInterface
@@ -44,20 +45,6 @@ router = APIRouter(prefix="/chat/doc", tags=["chat", "doc"])
 legacy_router = APIRouter(prefix="/chat", tags=["chat", "doc"])
 
 
-def _rag_service(request: Request) -> RAGService:
-    settings = get_settings()
-    return RAGService(
-        vectordb_client=request.app.state.vectordb_client,
-        embedding_client=request.app.state.embedding_client,
-        generation_client=request.app.state.generation_client,
-        template_parser=request.app.state.template_parser,
-        rerank_client=getattr(request.app.state, "rerank_client", None),
-        rerank_overfetch=settings.RERANK_OVERFETCH,
-        rerank_top_n=settings.RERANK_TOP_N,
-        mmr_enabled=settings.MMR_ENABLED,
-        mmr_lambda=settings.MMR_LAMBDA,
-        mmr_overfetch=settings.MMR_OVERFETCH,
-    )
 
 
 def _agent(request: Request) -> AgentInterface | None:
@@ -81,7 +68,7 @@ async def create_doc_conversation(
 ) -> CreateDocConversationResponse:
     service = DocumentChatService(session)
     response, jobs = await service.create_with_files(student, files)
-    rag = _rag_service(request)
+    rag = rag_from_state(request.app.state)
     for job in jobs:
         background_tasks.add_task(
             index_doc_file_job,
@@ -112,7 +99,7 @@ async def list_doc_messages(
     session: AsyncSession = Depends(get_session),
     student: User = Depends(require_role(UserRole.STUDENT)),
     _gate: User = Depends(require_student_access),
-    params: PaginationParams = Depends(pagination_query),
+    params: PaginationParams = Depends(message_pagination_query),
 ) -> Page[MessageResponse]:
     return await DocumentChatService(session).list_messages(student, conv_id, params)
 
@@ -130,7 +117,7 @@ async def delete_doc_conversation(
     _gate: User = Depends(require_student_access),
 ) -> None:
     await DocumentChatService(session).delete_conversation(
-        student, conv_id, _rag_service(request)
+        student, conv_id, rag_from_state(request.app.state)
     )
 
 
@@ -173,7 +160,7 @@ async def add_doc_file(
         file_id=job["file_id"],
         conversation_id=job["conversation_id"],
         path=job["path"],
-        rag_service=_rag_service(request),
+        rag_service=rag_from_state(request.app.state),
     )
     return response
 
@@ -204,7 +191,7 @@ async def delete_doc_file(
     _gate: User = Depends(require_student_access),
 ) -> None:
     await DocumentChatService(session).remove_file(
-        student, conv_id, file_id, _rag_service(request)
+        student, conv_id, file_id, rag_from_state(request.app.state)
     )
 
 
@@ -223,7 +210,7 @@ async def send_doc_message(
     slot = await GenerationSlot.acquire(store, student.id)
     try:
         return await DocumentChatService(session).send_message(
-            student, conv_id, body.message, _rag_service(request), _agent(request)
+            student, conv_id, body.message, rag_from_state(request.app.state), _agent(request)
         )
     finally:
         await slot.release()
@@ -246,7 +233,7 @@ async def stream_doc_message(
         student,
         conv_id,
         body.message,
-        _rag_service(request),
+        rag_from_state(request.app.state),
         _agent(request),
         store,
     )
@@ -281,7 +268,7 @@ async def legacy_doc_chat(
     slot = await GenerationSlot.acquire(store, student.id)
     try:
         reply = await DocumentChatService(session).legacy_doc_reply(
-            student, body.message, _rag_service(request), _agent(request)
+            student, body.message, rag_from_state(request.app.state), _agent(request)
         )
     finally:
         await slot.release()

@@ -151,12 +151,8 @@ def _with_breadcrumb(text: str, heading: Optional[str]) -> str:
 # --------------------------------------------------------------------------- #
 # PDF: native table extraction + font-size heading detection
 # --------------------------------------------------------------------------- #
-def _mode(values: List[float]) -> float:
-    return Counter(values).most_common(1)[0][0] if values else 0.0
 
 
-def _mode(values: List[float]) -> float:
-    return max(set(values), key=values.count) if values else 0.0
 
 
 def _intersects(a, b) -> bool:

@@ -44,6 +44,7 @@ from services.file_service import (
     validate_doc_upload,
 )
 from services.ingestion_service import detect_pdf_encrypted, ingest_file
+from services.generation_lifecycle_service import GenerationLifecycleService, PreparedChatTurn
 from services.rag_service import RAGService, collection_for_conversation
 from services.answer_result import AnswerResult, result_from_generation
 from services.ephemeral_store import EphemeralStore
@@ -199,7 +200,7 @@ class DocumentChatService:
     ) -> Page[MessageResponse]:
         conv = await self._load_owned(owner, conv_id)
         rows, total = await self._messages.list_for_conversation(
-            conv.id, offset=params.offset, limit=params.page_size
+            conv.id, offset=params.offset, limit=params.page_size, order=params.order
         )
         items = [_message_response(m) for m in rows]
         return Page.build(items=items, total=total, params=params)
@@ -228,97 +229,20 @@ class DocumentChatService:
         count = await self._conversations.message_count(conv.id)
         return _conv_response(conv, count)
 
-    async def send_message(
-        self,
-        owner: User,
-        conv_id: str,
-        text: str,
-        rag: RAGService,
-        agent: Optional[AgentInterface] = None,
-    ) -> ChatReplyResponse:
-        conv = await self._load_owned(owner, conv_id)
-        still_processing = await self._files.count_still_processing(conv.id)
-        if still_processing > 0:
-            raise APIError(
-                ErrorCode.FILES_NOT_READY,
-                status.HTTP_409_CONFLICT,
-                "Some files are still being processed. Please wait.",
-            )
-        if not text.strip():
-            raise APIError(
-                ErrorCode.VALIDATION_ERROR,
-                status.HTTP_400_BAD_REQUEST,
-                "Message cannot be empty.",
-            )
+    async def send_message(self, owner: User, conv_id: str, text: str,
+                           rag: RAGService, agent: Optional[AgentInterface] = None) -> ChatReplyResponse:
+        turn = await self._prepare_turn(owner, conv_id, text, agent)
+        return await GenerationLifecycleService(self._session).reply(turn, rag, agent)
 
-        # Capture history BEFORE persisting the new user message so the
-        # planner sees the conversation as it was when the student hit send.
-        history_turns = get_settings().AGENT_HISTORY_TURNS
-        history = (
-            await self._recent_history(conv.id, history_turns)
-            if agent is not None and history_turns > 0
-            else None
-        )
+    async def stream_message(self, owner: User, conv_id: str, text: str,
+                             rag: RAGService, agent: Optional[AgentInterface],
+                             store: EphemeralStore) -> AsyncIterator[tuple[str, dict]]:
+        turn = await self._prepare_turn(owner, conv_id, text, agent)
+        return GenerationLifecycleService(self._session).stream(turn, rag, agent, store)
 
-        user_msg = Message(conversation_id=conv.id, role=MessageRole.USER, text=text)
-        await self._messages.add(user_msg)
-
-        collection = collection_for_conversation(conv.id)
-        if agent is not None:
-            settings = get_settings()
-            result = await agent.answer(
-                collection_name=collection,
-                query=text,
-                rag_service=rag,
-                history=history,
-                limit=settings.AGENT_RETRIEVAL_LIMIT,
-                threshold=settings.AGENT_RETRIEVAL_THRESHOLD,
-            )
-            answer_result = result_from_generation(
-                result.text or "", result.retrieved, source_kind="document_file"
-            ) if result.retrieved else AnswerResult(
-                text=result.text or "",
-                grounding_status="no_context" if result.used_retrieval else "ungrounded",
-            )
-            logger.info(
-                "agent.doc_chat conv=%s used_retrieval=%s planner_query=%r hits=%d",
-                conv.id,
-                result.used_retrieval,
-                result.planner_query,
-                len(result.retrieved),
-            )
-        else:
-            answer_result = await rag.answer(collection, text, limit=5, threshold=0.3)
-
-        reply = Message(
-            conversation_id=conv.id,
-            role=MessageRole.DOC,
-            text=answer_result.text,
-            citations=answer_result.citations,
-            grounding_status=GroundingStatus(answer_result.grounding_status),
-        )
-        await self._messages.add(reply)
-        await TelemetryService(self._session).record(
-            message_id=reply.id, subject_id=None, result=answer_result, state="complete"
-        )
-
-        conv.updated_at = datetime.now(timezone.utc)
-
-        return ChatReplyResponse(
-            userMessage=_message_response(user_msg),
-            reply=_message_response(reply),
-        )
-
-    async def stream_message(
-        self,
-        owner: User,
-        conv_id: str,
-        text: str,
-        rag: RAGService,
-        agent: Optional[AgentInterface],
-        store: EphemeralStore,
-    ) -> AsyncIterator[tuple[str, dict]]:
-        """Validate before headers are sent, then return the event iterator."""
+    async def _prepare_turn(self, owner: User, conv_id: str, text: str,
+                            agent: Optional[AgentInterface]) -> PreparedChatTurn:
+        """Validate ownership/readiness before starting either response transport."""
         conv = await self._load_owned(owner, conv_id)
         if await self._files.count_still_processing(conv.id) > 0:
             raise APIError(
@@ -339,162 +263,9 @@ class DocumentChatService:
             if agent is not None and history_turns > 0
             else None
         )
-        return self._stream_prepared(conv, text, rag, agent, store, history)
+        return PreparedChatTurn(conv, text, collection_for_conversation(conv.id),
+                                MessageRole.DOC, "document_file", history)
 
-    async def _stream_prepared(
-        self,
-        conv: Conversation,
-        text: str,
-        rag: RAGService,
-        agent: Optional[AgentInterface],
-        store: EphemeralStore,
-        history: Optional[list[dict]],
-    ) -> AsyncIterator[tuple[str, dict]]:
-        """Persist a draft reply, then forward provider deltas to the client."""
-
-        user_msg = await self._messages.add(
-            Message(conversation_id=conv.id, role=MessageRole.USER, text=text)
-        )
-        reply = await self._messages.add(
-            Message(
-                conversation_id=conv.id,
-                role=MessageRole.DOC,
-                text="",
-                generation_status=GenerationStatus.GENERATING,
-            )
-        )
-        conv.updated_at = datetime.now(timezone.utc)
-        await self._session.commit()
-        yield "message.created", {
-            "userMessage": _message_response(user_msg).model_dump(mode="json"),
-            "reply": _message_response(reply).model_dump(mode="json"),
-        }
-
-        result: AnswerResult | None = None
-        try:
-            collection = collection_for_conversation(conv.id)
-            if agent is not None:
-                settings = get_settings()
-                agent_kwargs = {
-                    "collection_name": collection,
-                    "query": text,
-                    "rag_service": rag,
-                    "history": history,
-                    "limit": settings.AGENT_RETRIEVAL_LIMIT,
-                    "threshold": settings.AGENT_RETRIEVAL_THRESHOLD,
-                }
-                if hasattr(agent, "answer_stream"):
-                    agent_result = None
-                    source = agent.answer_stream(**agent_kwargs)
-                    async for kind, payload in iter_cancellable(
-                        source, store=store, reply_id=reply.id
-                    ):
-                        if kind == "delta":
-                            yield "answer.delta", {
-                                "replyId": reply.id,
-                                "delta": payload,
-                            }
-                        else:
-                            agent_result = payload
-                    if agent_result is None:
-                        raise RuntimeError("Agent completed without a result")
-                else:
-                    agent_result = await await_cancellable(
-                        agent.answer(**agent_kwargs),
-                        store=store,
-                        reply_id=reply.id,
-                    )
-                result = (
-                    result_from_generation(
-                        agent_result.text or "",
-                        agent_result.retrieved,
-                        source_kind="document_file",
-                    )
-                    if agent_result.retrieved
-                    else AnswerResult(
-                        text=agent_result.text or "",
-                        grounding_status=(
-                            "no_context" if agent_result.used_retrieval else "ungrounded"
-                        ),
-                    )
-                )
-                if not hasattr(agent, "answer_stream") and result.text:
-                    yield "answer.delta", {"replyId": reply.id, "delta": result.text}
-            else:
-                source = rag.answer_stream(collection, text, limit=5, threshold=0.3)
-                async for kind, payload in iter_cancellable(
-                    source, store=store, reply_id=reply.id
-                ):
-                    if kind == "delta":
-                        yield "answer.delta", {"replyId": reply.id, "delta": payload}
-                    else:
-                        result = payload
-
-            if result is None:
-                raise RuntimeError("Generation completed without a result")
-            completed = await self._messages.complete_if_generating(
-                reply.id,
-                text=result.text,
-                citations=result.citations,
-                grounding_status=GroundingStatus(result.grounding_status),
-            )
-            if not completed:
-                await self._session.refresh(reply)
-                await self._session.commit()
-                yield "answer.completed", {
-                    "reply": _message_response(reply).model_dump(mode="json")
-                }
-                return
-            reply.text = result.text
-            reply.citations = result.citations
-            reply.grounding_status = GroundingStatus(result.grounding_status)
-            reply.generation_status = GenerationStatus.COMPLETE
-            await TelemetryService(self._session).record(
-                message_id=reply.id, subject_id=None, result=result, state="complete"
-            )
-            await self._session.commit()
-            yield "answer.citations", {
-                "replyId": reply.id,
-                "citations": result.citations,
-                "groundingStatus": result.grounding_status,
-            }
-            yield "answer.completed", {
-                "reply": _message_response(reply).model_dump(mode="json")
-            }
-        except GenerationCancelled:
-            await self._messages.cancel_if_generating(reply.id)
-            await self._session.refresh(reply)
-            await self._session.commit()
-            yield "answer.completed", {
-                "reply": _message_response(reply).model_dump(mode="json")
-            }
-        except asyncio.CancelledError:
-            await self._messages.cancel_if_generating(reply.id)
-            await self._session.commit()
-            raise
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("Document answer stream failed reply=%s", reply.id)
-            failed = await self._messages.fail_if_generating(reply.id)
-            if not failed:
-                await self._session.refresh(reply)
-                await self._session.commit()
-                yield "answer.completed", {
-                    "reply": _message_response(reply).model_dump(mode="json")
-                }
-                return
-            reply.generation_status = GenerationStatus.FAILED
-            await TelemetryService(self._session).record(
-                message_id=reply.id, subject_id=None, state="failed", error_code="GENERATION_FAILED"
-            )
-            await self._session.commit()
-            yield "answer.failed", {
-                "replyId": reply.id,
-                "code": "GENERATION_FAILED",
-                "message": str(exc),
-            }
-
-    # Convenience helper for the back-compat ``POST /chat/doc`` route —
-    # creates a throwaway conversation, uploads nothing, just calls the LLM.
     async def legacy_doc_reply(
         self,
         owner: User,

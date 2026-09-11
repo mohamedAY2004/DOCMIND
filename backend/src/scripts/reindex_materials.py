@@ -31,7 +31,8 @@ from db.models import Material, MaterialStatus
 from db.session import create_engine_and_sessionmaker
 from helpers.config import get_settings
 from services.ingestion_service import ingest_file
-from services.rag_service import RAGService, collection_for_subject
+from services.rag_service import collection_for_subject
+from services.rag_runtime import RAGRuntime
 from stores.llm import LLMProviderFactory
 from stores.vectordb import VectorDBProviderFactory
 
@@ -60,12 +61,12 @@ async def reindex(subject_id: str | None = None, *, dry_run: bool = False) -> No
     await vectordb_client.connect()
 
     # generation/templates are unused on the indexing path.
-    rag = RAGService(
+    rag = RAGRuntime(
         vectordb_client=vectordb_client,
         embedding_client=embedding_client,
         generation_client=None,
         template_parser=None,
-    )
+    ).build(settings)
 
     engine, session_maker = create_engine_and_sessionmaker(settings.DATABASE_URL)
     try:

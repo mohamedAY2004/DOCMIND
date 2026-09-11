@@ -9,7 +9,7 @@ from helpers.errors import APIError, ErrorCode
 from repositories.conversation_repository import ConversationRepository
 from repositories.message_repository import MessageRepository
 from schemas.chat import MessageResponse
-from services.telemetry_service import metrics
+from services.telemetry_service import TelemetryService
 
 
 class MessageLifecycleService:
@@ -29,7 +29,8 @@ class MessageLifecycleService:
                 "You can only cancel replies in your own conversations.",
             )
         if await self._messages.cancel_if_generating(reply.id):
-            metrics.increment("generation_cancelled_total")
+            await TelemetryService(self._messages.session).record(
+                message_id=reply.id, subject_id=conv.subject_id, state="cancelled")
             await self._messages.session.refresh(reply)
         return MessageResponse(
             id=reply.id,

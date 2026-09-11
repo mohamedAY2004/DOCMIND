@@ -11,7 +11,7 @@ from db.models import User, UserRole
 from helpers.config import get_settings
 from helpers.deps import get_session, require_role, require_student_access
 from helpers.errors import APIError, ErrorCode
-from helpers.pagination import Page, PaginationParams, pagination_query
+from helpers.pagination import Page, PaginationParams, pagination_query, message_pagination_query
 from schemas.chat import (
     ChatReplyResponse,
     ConversationResponse,
@@ -21,6 +21,7 @@ from schemas.chat import (
     SendMessageRequest,
     UpdateConversationRequest,
 )
+from services.rag_runtime import rag_from_state
 from services.rag_service import RAGService
 from services.ephemeral_store import store_for
 from services.generation_control import GenerationSlot
@@ -32,20 +33,6 @@ router = APIRouter(prefix="/chat/tutor", tags=["chat", "tutor"])
 legacy_router = APIRouter(prefix="/chat", tags=["chat", "tutor"])
 
 
-def _rag(request: Request) -> RAGService:
-    settings = get_settings()
-    return RAGService(
-        vectordb_client=request.app.state.vectordb_client,
-        embedding_client=request.app.state.embedding_client,
-        generation_client=request.app.state.generation_client,
-        template_parser=request.app.state.template_parser,
-        rerank_client=getattr(request.app.state, "rerank_client", None),
-        rerank_overfetch=settings.RERANK_OVERFETCH,
-        rerank_top_n=settings.RERANK_TOP_N,
-        mmr_enabled=settings.MMR_ENABLED,
-        mmr_lambda=settings.MMR_LAMBDA,
-        mmr_overfetch=settings.MMR_OVERFETCH,
-    )
 
 
 def _agent(request: Request) -> AgentInterface | None:
@@ -87,7 +74,7 @@ async def list_tutor_messages(
     session: AsyncSession = Depends(get_session),
     student: User = Depends(require_role(UserRole.STUDENT)),
     _gate: User = Depends(require_student_access),
-    params: PaginationParams = Depends(pagination_query),
+    params: PaginationParams = Depends(message_pagination_query),
 ) -> Page[MessageResponse]:
     return await TutorChatService(session).list_messages(student, conv_id, params)
 
@@ -137,7 +124,7 @@ async def send_tutor_message(
     slot = await GenerationSlot.acquire(store, student.id)
     try:
         return await TutorChatService(session).send_message(
-            student, conv_id, body.message, _rag(request), _agent(request)
+            student, conv_id, body.message, rag_from_state(request.app.state), _agent(request)
         )
     finally:
         await slot.release()
@@ -160,7 +147,7 @@ async def stream_tutor_message(
         student,
         conv_id,
         body.message,
-        _rag(request),
+        rag_from_state(request.app.state),
         _agent(request),
         store,
     )
@@ -196,7 +183,7 @@ async def legacy_tutor_chat(
     slot = await GenerationSlot.acquire(store, student.id)
     try:
         reply = await TutorChatService(session).legacy_subject_reply(
-            student, subject_id, body.message, _rag(request), _agent(request)
+            student, subject_id, body.message, rag_from_state(request.app.state), _agent(request)
         )
     finally:
         await slot.release()
