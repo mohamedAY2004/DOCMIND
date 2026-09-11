@@ -22,7 +22,8 @@ async def test_history_over_fifty_defaults_to_ascending_and_supports_recent_page
     oldest = (await client.get(url, params={"pageSize": 50, "page": 3, "order": "desc"}, headers=auth_header(student))).json()
     assert [item["text"] for item in oldest["items"]] == [str(i) for i in range(19, -1, -1)]
     invalid = await client.get(url, params={"order": "invalid"}, headers=auth_header(student))
-    assert invalid.status_code == 422
+    assert invalid.status_code == 400
+    assert invalid.json()["code"] == "VALIDATION_ERROR"
 
 
 async def test_admin_users_pagination_and_sorting_exceed_previous_cap(client, seed, db):
@@ -31,7 +32,7 @@ async def test_admin_users_pagination_and_sorting_exceed_previous_cap(client, se
                     role=UserRole.STUDENT, status=UserStatus.ACTIVE, password_hash="unused") for i in range(1001)])
     await db.commit()
     response = await client.get("/api/admin/users", headers=auth_header(admin),
-                                params={"q": "bulk", "page": 11, "pageSize": 100, "sort": "username:asc"})
+                                params={"search": "bulk", "page": 11, "pageSize": 100, "sort": "username:asc"})
     assert response.status_code == 200
     page = response.json()
     assert page["total"] == 1001 and page["totalPages"] == 11
