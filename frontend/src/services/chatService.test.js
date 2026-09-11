@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import apiClient from './apiClient'
-import { parseSseFrame, streamDocMessage, streamMessage } from './chatService'
+import { parseSseFrame, streamDocMessage, streamMessage, streamTutorMessage } from './chatService'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -8,17 +8,25 @@ afterEach(() => {
 })
 
 describe('chat SSE parser', () => {
-  it('aborts buffered fallback without delivering stale events', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({ status: 404, ok: false, json: async () => ({}) })
+  it.each([
+    ['document', streamDocMessage],
+    ['tutor', streamTutorMessage],
+  ])('aborts %s buffered fallback without delivering stale events', async (_kind, sendMessage) => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      status: 404,
+      ok: false,
+      json: async () => ({ message: 'Streaming chat is disabled.' }),
+    })
     let finish
     vi.spyOn(apiClient, 'post').mockImplementation(() => new Promise((resolve) => { finish = resolve }))
     const controller = new AbortController()
     const onEvent = vi.fn()
-    const pending = streamDocMessage('conversation', 'hello', { signal: controller.signal, onEvent })
+    const pending = sendMessage('conversation', 'hello', { signal: controller.signal, onEvent })
+      .catch((error) => error)
     await vi.waitFor(() => expect(finish).toBeTypeOf('function'))
     controller.abort()
     finish({ data: { userMessage: { id: 'user' }, reply: { id: 'reply' } } })
-    await pending.catch(() => {})
+    expect(await pending).toMatchObject({ name: 'AbortError' })
     expect(onEvent).not.toHaveBeenCalled()
     expect(apiClient.post.mock.calls[0][2].signal.aborted).toBe(true)
   })
