@@ -70,20 +70,6 @@ class FeedbackRepository(BaseRepository[Feedback]):
         rows = (await self.session.execute(stmt)).all()
         return {row.message_id: row.feedback for row in rows}
 
-    async def count_by_subject(
-        self, subject_id: str, value: FeedbackValue
-    ) -> int:
-        stmt = (
-            select(func.count(Feedback.id))
-            .join(Message, Message.id == Feedback.message_id)
-            .join(Conversation, Conversation.id == Message.conversation_id)
-            .where(
-                Conversation.subject_id == subject_id,
-                Feedback.feedback == value,
-            )
-        )
-        result = await self.session.execute(stmt)
-        return int(result.scalar() or 0)
 
     async def list_rows(
         self,

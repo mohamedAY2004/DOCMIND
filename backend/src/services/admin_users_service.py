@@ -89,6 +89,7 @@ class AdminUsersService:
             role=role,
             offset=params.offset,
             limit=params.page_size,
+            sort=params.sort,
         )
         return Page.build(
             items=[_to_response(r) for r in rows], total=total, params=params

@@ -44,6 +44,7 @@ class UserRepository(BaseRepository[User]):
         role: Optional[UserRole],
         offset: int,
         limit: int,
+        sort: Optional[str] = None,
     ) -> tuple[Sequence[User], int]:
         stmt = select(User)
         if role is not None:
@@ -53,14 +54,21 @@ class UserRepository(BaseRepository[User]):
             stmt = stmt.where(
                 or_(
                     func.lower(User.name).like(like),
+                    func.lower(User.username).like(like),
                     func.lower(User.email).like(like),
                     func.lower(User.id).like(like),
                 )
             )
+        columns = {"name": User.name, "username": User.username, "email": User.email,
+                   "role": User.role, "status": User.status, "registeredAt": User.registered_at,
+                   "lastActive": User.last_active}
+        field, _, direction = (sort or "registeredAt:desc").partition(":")
+        column = columns.get(field, User.registered_at)
+        ordering = column.asc() if direction == "asc" else column.desc()
         total = await self.count(stmt)
         rows = (
             await self.session.execute(
-                stmt.order_by(User.registered_at.desc()).offset(offset).limit(limit)
+                stmt.order_by(ordering, User.id).offset(offset).limit(limit)
             )
         ).scalars().all()
         return rows, total

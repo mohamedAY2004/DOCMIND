@@ -19,6 +19,7 @@ from db.models import (
     Subject,
 )
 from helpers.pagination import Page, PaginationParams
+from repositories.subject_stats_repository import SubjectStatsRepository
 from repositories.message_repository import MessageRepository
 from repositories.subject_repository import SubjectRepository
 from schemas.admin import DailyUsageResponse, SubjectStatsResponse
@@ -33,91 +34,22 @@ class AdminStatsService:
     async def list_subject_stats(
         self, params: PaginationParams
     ) -> Page[SubjectStatsResponse]:
-        all_subjects = await self._subjects.list_all()
-        total = len(all_subjects)
-        window = all_subjects[params.offset : params.offset + params.page_size]
-        items: List[SubjectStatsResponse] = []
-        for s in window:
-            items.append(await self._single_subject_stats(s))
+        subjects, total = await self._subjects.list_paginated(
+            search=params.search, offset=params.offset, limit=params.page_size)
+        totals = await SubjectStatsRepository(self._session).for_subjects([s.id for s in subjects])
+        items = []
+        for subject in subjects:
+            counts = totals[subject.id]
+            material_status = ("empty" if not counts["materials"] else "processed"
+                               if counts["materials"] == counts["processed"] else "indexing"
+                               if not counts["processed"] else "mixed")
+            items.append(SubjectStatsResponse(
+                id=subject.id, title=subject.title, semester=subject.semester_id,
+                pdfCount=counts["materials"], materialStatus=material_status,
+                interactions=counts["interactions"], aiResponses=counts["responses"],
+                thumbsUp=counts["up"], thumbsDown=counts["down"],
+                instructorIds=counts["instructors"], superInstructorId=counts["super_id"]))
         return Page.build(items=items, total=total, params=params)
-
-    async def _single_subject_stats(self, subject: Subject) -> SubjectStatsResponse:
-        counts = (
-            await self._session.execute(
-                select(
-                    func.count(Material.id).label("total"),
-                    func.count(Material.id).filter(
-                        Material.status == MaterialStatus.PROCESSED
-                    ).label("processed"),
-                ).where(Material.subject_id == subject.id)
-            )
-        ).one()
-        total_mat = int(counts.total or 0)
-        processed = int(counts.processed or 0)
-        if total_mat == 0:
-            mat_status = "empty"
-        elif processed == total_mat:
-            mat_status = "processed"
-        elif processed == 0:
-            mat_status = "indexing"
-        else:
-            mat_status = "mixed"
-
-        interactions = int(
-            (
-                await self._session.execute(
-                    select(func.count(Conversation.id)).where(
-                        Conversation.subject_id == subject.id,
-                        Conversation.kind == ConversationKind.TUTOR,
-                    )
-                )
-            ).scalar()
-            or 0
-        )
-        ai_responses = int(
-            (
-                await self._session.execute(
-                    select(func.count(Message.id))
-                    .join(Conversation, Conversation.id == Message.conversation_id)
-                    .where(
-                        Conversation.subject_id == subject.id,
-                        Message.role == MessageRole.ASSISTANT,
-                    )
-                )
-            ).scalar()
-            or 0
-        )
-        feedback_counts = (
-            await self._session.execute(
-                select(
-                    func.count(Feedback.id)
-                    .filter(Feedback.feedback == FeedbackValue.UP)
-                    .label("up"),
-                    func.count(Feedback.id)
-                    .filter(Feedback.feedback == FeedbackValue.DOWN)
-                    .label("down"),
-                )
-                .select_from(Feedback)
-                .join(Message, Message.id == Feedback.message_id)
-                .join(Conversation, Conversation.id == Message.conversation_id)
-                .where(Conversation.subject_id == subject.id)
-            )
-        ).one()
-        instructor_ids = await self._subjects.instructor_ids(subject.id)
-        super_instructor = await self._subjects.get_super_instructor(subject.id)
-        return SubjectStatsResponse(
-            id=subject.id,
-            title=subject.title,
-            semester=subject.semester_id,
-            pdfCount=total_mat,
-            materialStatus=mat_status,
-            interactions=interactions,
-            aiResponses=ai_responses,
-            thumbsUp=int(feedback_counts.up or 0),
-            thumbsDown=int(feedback_counts.down or 0),
-            instructorIds=instructor_ids,
-            superInstructorId=super_instructor.id if super_instructor else None,
-        )
 
     async def daily_usage(
         self,

@@ -195,14 +195,6 @@ class SubjectRepository(BaseRepository[Subject]):
         result = await self.session.execute(stmt)
         return [row for row in result.scalars().all()]
 
-    async def student_count(self, subject_id: str) -> int:
-        from sqlalchemy import func
-
-        stmt = select(func.count()).select_from(SubjectStudent).where(
-            SubjectStudent.subject_id == subject_id
-        )
-        result = await self.session.execute(stmt)
-        return int(result.scalar() or 0)
 
     async def students_detailed(self, subject_id: str) -> Sequence[User]:
         stmt = (
