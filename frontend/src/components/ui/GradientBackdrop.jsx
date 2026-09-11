@@ -13,14 +13,13 @@ const PRESETS = {
     'bg-[radial-gradient(ellipse_100%_100%_at_50%_50%,transparent_55%,var(--dm-backdrop-vignette)_100%)]',
 }
 
-function GradientBackdrop({ variant = 'default', gradient, className = '' }) {
+function GradientBackdrop({ variant = 'default', className = '' }) {
   const presetClass = PRESETS[variant] || PRESETS.default
 
   return (
     <div
-      className={`pointer-events-none absolute inset-0 ${gradient ? '' : presetClass} ${className}`}
+      className={`pointer-events-none absolute inset-0 ${presetClass} ${className}`}
       aria-hidden
-      style={gradient ? { background: gradient } : undefined}
     />
   )
 }

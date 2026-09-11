@@ -1,3 +1,4 @@
+import themePlugin from './tailwind.theme.js'
 import typographyPlugin from '@tailwindcss/typography'
 import plugin from 'tailwindcss/plugin'
 
@@ -109,5 +110,5 @@ export default {
       },
     },
   },
-  plugins: [typographyPlugin, reducedMotionPlugin],
+  plugins: [typographyPlugin, themePlugin, reducedMotionPlugin],
 }

@@ -1,0 +1,10 @@
+{
+  "$schema": "./node_modules/knip/schema.json",
+  "entry": [
+    "src/**/*.test.{js,jsx}"
+  ],
+  "project": [
+    "src/**/*.{js,jsx,css}",
+    "*.{js,cjs}"
+  ]
+}

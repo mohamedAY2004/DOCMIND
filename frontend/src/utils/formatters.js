@@ -1,9 +1,3 @@
-export function formatFileSize(bytes) {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
 /** Server-generated user id: ``U`` + 12 uppercase hex chars (see backend ``_new_user_id``). */
 const OPAQUE_USER_ID_RE = /^U[0-9A-F]{12}$/
 
@@ -26,7 +20,7 @@ function formatUsernameForDisplay(username) {
  * Human-readable label for roster UIs when ``name`` is missing or mistakenly
  * equals the opaque id (legacy / bad data).
  */
-export function instructorDisplayName({ id, name, email, username } = {}) {
+function instructorDisplayName({ id, name, email, username } = {}) {
   const n = typeof name === 'string' ? name.trim() : ''
   if (n && !OPAQUE_USER_ID_RE.test(n)) return n
   const fromEmail = formatLocalEmailPart(email)

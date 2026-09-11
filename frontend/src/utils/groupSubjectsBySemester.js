@@ -60,5 +60,3 @@ export function groupSubjectsBySemester(subjects = [], semesters = []) {
   if (other && other.length) groups.push({ semester: null, subjects: other })
   return groups
 }
-
-export default groupSubjectsBySemester

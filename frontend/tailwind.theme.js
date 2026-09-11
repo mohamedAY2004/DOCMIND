@@ -1,0 +1,122 @@
+import plugin from 'tailwindcss/plugin'
+
+// Theme tokens and global/component rules are registered through Tailwind.
+export default plugin(({ addBase, addComponents, theme }) => {
+  addBase({
+  ":root,\n  .dark": {
+    "--dm-background": "15 28 29",
+    "--dm-card": "20 43 44",
+    "--dm-primary": "13 110 115",
+    "--dm-primary-hover": "11 92 96",
+    "--dm-muted": "138 163 165",
+    "--dm-border": "31 58 59",
+    "--dm-foreground": "255 255 255",
+    "--dm-status-processed": "34 197 94",
+    "--dm-status-indexing": "245 158 11",
+    "--dm-on-primary": "255 255 255",
+    "--dm-glow-soft": "rgba(74, 222, 128, 0.1)",
+    "--dm-glow-strong": "rgba(74, 222, 128, 0.55)",
+    "--dm-backdrop-vignette": "rgba(15, 28, 29, 0.5)",
+    "color-scheme": "dark"
+  },
+  ".light": {
+    "--dm-background": "244 247 247",
+    "--dm-card": "255 255 255",
+    "--dm-primary": "13 110 115",
+    "--dm-primary-hover": "10 90 94",
+    "--dm-muted": "95 122 124",
+    "--dm-border": "212 222 222",
+    "--dm-foreground": "26 46 47",
+    "--dm-status-processed": "22 163 74",
+    "--dm-status-indexing": "217 119 6",
+    "--dm-on-primary": "255 255 255",
+    "--dm-glow-soft": "rgba(13, 110, 115, 0.08)",
+    "--dm-glow-strong": "rgba(13, 110, 115, 0.25)",
+    "--dm-backdrop-vignette": "rgba(244, 247, 247, 0.5)",
+    "color-scheme": "light"
+  },
+  "html,\n  body": {
+    "font-family": theme('fontFamily.sans'),
+    "background-color": "rgb(var(--dm-background))",
+    "color": "rgb(var(--dm-foreground))",
+    "-webkit-font-smoothing": "antialiased",
+    "-moz-osx-font-smoothing": "grayscale",
+    "transition": "background-color 0.2s ease, color 0.2s ease"
+  },
+  "::selection": {
+    "background-color": "rgb(var(--dm-primary) / 0.35)",
+    "color": "rgb(var(--dm-foreground))"
+  },
+  ":focus-visible": {
+    "outline": "2px solid rgb(var(--dm-primary) / 0.6)",
+    "outline-offset": "2px",
+    "border-radius": "8px"
+  },
+  "*": {
+    "scrollbar-width": "thin",
+    "scrollbar-color": "rgb(var(--dm-primary) / 0.45) transparent"
+  },
+  "::-webkit-scrollbar": {
+    "width": "6px",
+    "height": "6px"
+  },
+  "::-webkit-scrollbar-track": {
+    "background": "transparent"
+  },
+  "::-webkit-scrollbar-thumb": {
+    "background-color": "rgb(var(--dm-primary) / 0.45)",
+    "border-radius": "9999px"
+  },
+  "::-webkit-scrollbar-thumb:hover": {
+    "background-color": "rgb(var(--dm-primary) / 0.7)"
+  },
+  "[data-sonner-toaster] [data-sonner-toast]": {
+    "font-family": theme('fontFamily.sans')
+  },
+  ".light .hljs": {
+    "background": "#f6f8fa",
+    "color": "#24292e"
+  },
+  ".light .shadow-black\\/20": {
+    "--tw-shadow-color": "rgba(0, 0, 0, 0.06)"
+  },
+  ".light .shadow-black\\/25": {
+    "--tw-shadow-color": "rgba(0, 0, 0, 0.08)"
+  },
+  ".light .shadow-black\\/30": {
+    "--tw-shadow-color": "rgba(0, 0, 0, 0.1)"
+  }
+})
+  addComponents({
+  ".chat-prose pre": {
+    "border-radius": "0.75rem",
+    "border": "1px solid rgb(var(--dm-border))"
+  },
+  ".chat-prose code:not(pre code)": {
+    "background-color": "rgb(var(--dm-background))",
+    "padding": "0.15em 0.4em",
+    "border-radius": "0.375rem",
+    "font-size": "0.875em"
+  },
+  ".chat-prose table": {
+    "font-size": "0.875em"
+  },
+  ".chat-prose p:first-child": {
+    "margin-top": "0"
+  },
+  ".chat-prose p:last-child": {
+    "margin-bottom": "0"
+  },
+  ".chat-prose .katex-display": {
+    "overflow-x": "auto",
+    "overflow-y": "hidden",
+    "padding-bottom": "0.25rem"
+  },
+  ".dm-primary-surface,\n  .dm-primary-surface :where(svg, path, line, polyline, circle, rect)": {
+    "color": "#ffffff"
+  },
+  ".dm-primary-surface svg": {
+    "stroke": "currentColor"
+  }
+})
+})

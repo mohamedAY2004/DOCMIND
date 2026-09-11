@@ -73,14 +73,15 @@ function ProcessingState({
     const interval = indefinite
       ? Math.max(3000, durationMs / STATUSES.length)
       : durationMs / STATUSES.length
+    let textTimer
     const id = setInterval(() => {
       setTextVisible(false)
-      setTimeout(() => {
+      textTimer = setTimeout(() => {
         setStatusIdx((i) => (i + 1) % STATUSES.length)
         setTextVisible(true)
       }, 180)
     }, interval)
-    return () => clearInterval(id)
+    return () => { clearInterval(id); clearTimeout(textTimer) }
   }, [durationMs, indefinite])
 
   const dashOffset = CIRCUMFERENCE - (progress / 100) * CIRCUMFERENCE
@@ -113,10 +114,9 @@ function ProcessingState({
             fill="none"
             strokeWidth="5"
             strokeLinecap="round"
-            className="stroke-dm-primary [stroke-dasharray:326.7256359733385] transition-[stroke-dashoffset] duration-[40ms] ease-out"
-            style={{
-              strokeDashoffset: dashOffset,
-            }}
+            className="stroke-dm-primary transition-[stroke-dashoffset] duration-[40ms] ease-out"
+            strokeDasharray={CIRCUMFERENCE}
+            strokeDashoffset={dashOffset}
           />
         </svg>
 

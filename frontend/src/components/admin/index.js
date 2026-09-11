@@ -1,7 +1,0 @@
-export { default as ConfirmDialog } from './ConfirmDialog'
-export { default as FormField, inputClass, textareaClass, selectClass } from './FormField'
-export { default as Modal } from './Modal'
-export { default as MultiSelect } from './MultiSelect'
-export { default as SemesterFormModal } from './SemesterFormModal'
-export { default as SubjectFormModal } from './SubjectFormModal'
-export { default as UserFormModal } from './UserFormModal'
